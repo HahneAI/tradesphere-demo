@@ -42,20 +42,48 @@ const BetaLogin: React.FC<BetaLoginProps> = ({ onValidCode, onExistingUser }) =>
     setError('');
 
     try {
+      // Log environment variables to verify they're being picked up correctly
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      console.log('🔍 BETA_LOGIN - Environment check:', {
+        supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'MISSING',
+        supabaseKey: supabaseKey ? `${supabaseKey.substring(0, 20)}...` : 'MISSING',
+        betaCode: betaCode
+      });
+      
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('❌ BETA_LOGIN - Missing environment variables');
+        setError('Application configuration error. Please contact support.');
+        return;
+      }
+
       // Check if beta code exists and is unused
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/beta_codes?code=eq.${betaCode}`, {
+      const fetchUrl = `${supabaseUrl}/rest/v1/beta_codes?code=eq.${betaCode}`;
+      console.log('🌐 BETA_LOGIN - Making request to:', fetchUrl);
+      
+      const response = await fetch(fetchUrl, {
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
           'Content-Type': 'application/json'
         }
       });
 
+      console.log('📡 BETA_LOGIN - Response status:', response.status);
+      
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ BETA_LOGIN - Response not OK:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText
+        });
         throw new Error('Failed to validate beta code');
       }
 
       const codes = await response.json();
+      console.log('✅ BETA_LOGIN - Received codes:', codes.length);
       
       if (codes.length === 0) {
         setError('Invalid beta code. Please check your code and try again.');
@@ -75,13 +103,19 @@ const BetaLogin: React.FC<BetaLoginProps> = ({ onValidCode, onExistingUser }) =>
       }
 
       // Code is valid!
+      console.log('🎉 BETA_LOGIN - Beta code validated successfully');
       setSuccess('Valid beta code! Proceeding to registration...');
       setTimeout(() => {
         onValidCode(betaCode, code.id);
       }, 1000);
 
     } catch (error) {
-      console.error('Beta code validation error:', error);
+      console.error('❌ BETA_LOGIN - Validation error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        cause: error.cause
+      });
       setError('Failed to validate beta code. Please try again.');
     } finally {
       setLoading(false);
@@ -98,8 +132,31 @@ const BetaLogin: React.FC<BetaLoginProps> = ({ onValidCode, onExistingUser }) =>
   setError('');
 
   try {
+    // Log environment variables to verify they're being picked up correctly
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    console.log('🔍 BETA_LOGIN - Login environment check:', {
+      supabaseUrl: supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'MISSING',
+      supabaseKey: supabaseKey ? `${supabaseKey.substring(0, 20)}...` : 'MISSING',
+      firstName: firstName,
+      betaCodeId: betaCodeId
+    });
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ BETA_LOGIN - Missing environment variables for login');
+      setError('Application configuration error. Please contact support.');
+      return;
+    }
+
     await onExistingUser(firstName, betaCodeId);  // <-- Add await here!
   } catch (error) {
+    console.error('❌ BETA_LOGIN - Login error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    });
     setError('login failed... did you get your beta code?');  // <-- Your custom message
   } finally {
     setLoading(false);
