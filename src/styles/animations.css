@@ -168,25 +168,50 @@
 }
 
 /* === SCREEN TRANSITIONS === */
+/* Default (desktop) and mobile animations are now the same, but
+   this can be customized later. */
 @keyframes screen-in {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.98);
+    transform: translate3d(0, 20px, 0) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
 @keyframes screen-out {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   to {
     opacity: 0;
-    transform: translateY(-20px) scale(0.98);
+    transform: translate3d(0, -20px, 0) scale(0.98);
+  }
+}
+
+/* Mobile-first animations */
+@keyframes screen-in-mobile {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 15px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes screen-out-mobile {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -15px, 0);
   }
 }
 
@@ -196,4 +221,46 @@
 
 .animate-screen-out {
   animation: screen-out 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* Apply mobile animations on smaller screens */
+@media (max-width: 768px) {
+  .animate-screen-in {
+    animation-name: screen-in-mobile;
+    animation-duration: 0.3s;
+  }
+  .animate-screen-out {
+    animation-name: screen-out-mobile;
+    animation-duration: 0.3s;
+  }
+}
+
+
+/* === ACCESSIBILITY: REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+    animation-delay: 0s !important;
+  }
+
+  /* Specifically keep screen transitions, but make them instant fades */
+  .animate-screen-in, .animate-screen-out {
+    animation: screen-in 0.01ms forwards;
+  }
+  .animate-screen-out {
+    animation: screen-out 0.01ms forwards;
+  }
+  @keyframes screen-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes screen-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
 }

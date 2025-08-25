@@ -29,13 +29,11 @@ function App() {
   const isMinDurationPassed = useAppLoading();
   const isLoading = authLoading || isMinDurationPassed;
 
+  const [nextAppState, setNextAppState] = useState<AppState | null>(null);
+
   const setAppStateWithAnimation = (newStage: AppState) => {
+    setNextAppState(newStage);
     setAnimationState('out');
-    setTimeout(() => {
-      setAppState(newStage);
-      setCurrentAppState(newStage);
-      setAnimationState('in');
-    }, 400); // Corresponds to the fade-out animation duration
   };
 
   useEffect(() => {
@@ -102,9 +100,23 @@ function App() {
   };
 
   const animatedRender = (Component: React.ReactNode) => {
+    const handleAnimationEnd = () => {
+      if (animationState === 'out' && nextAppState) {
+        setAppState(nextAppState);
+        setCurrentAppState(nextAppState);
+        setNextAppState(null);
+        setAnimationState('in');
+      }
+    };
+
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';
+
     return (
-      <div key={currentAppState} className={animationClass}>
+      <div
+        key={currentAppState}
+        className={animationClass}
+        onAnimationEnd={handleAnimationEnd}
+      >
         {Component}
       </div>
     );
