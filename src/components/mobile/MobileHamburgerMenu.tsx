@@ -8,6 +8,7 @@ interface MobileHamburgerMenuProps {
   onClose: () => void;
   onLogoutClick: () => void;
   onFeedbackClick: () => void;
+  onNotesClick: () => void;
   visualConfig: SmartVisualTheme;
   theme: 'light' | 'dark';
   user: User | null;
@@ -18,6 +19,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
   onClose,
   onLogoutClick,
   onFeedbackClick,
+  onNotesClick,
   visualConfig,
   theme,
   user,
