@@ -543,7 +543,7 @@ const ChatInterface = () => {
                   '--tw-ring-color': visualConfig.colors.secondary,
                   borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1rem' : '0.5rem'
                 }}
-                title="View notes from your team"
+                title="View notes from our team"
               >
                 <DynamicIcon name="StickyNote" className="h-4 w-4" />
                 <span className="hidden lg:inline text-sm font-medium">Notes</span>
