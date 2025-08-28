@@ -297,7 +297,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
             ) : (
               <>
                 <p className="text-sm mb-6" style={{ color: visualConfig.colors.text.secondary }}>
-                  Important information and updates from your team.
+                  Important information and updates from our team.
                 </p>
                 <div
                   className="p-6 rounded-xl min-h-[300px] whitespace-pre-wrap leading-relaxed"
