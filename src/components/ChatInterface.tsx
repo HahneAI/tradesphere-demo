@@ -532,21 +532,21 @@ const ChatInterface = () => {
               </div>
             </div>
   
-            {/* Notes Button - Bottom Left */}
-            <div className="absolute bottom-3 left-3">
+            {/* Notes Button - Desktop only (hidden on mobile) */}
+            <div className="absolute bottom-3 left-3 hidden md:block">
               <button
                 onClick={() => setShowNotesPopup(true)}
-                className="flex items-center gap-2 px-3 py-2 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
-                style={{
+                  className="flex items-center gap-2 px-3 py-2 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  style={{
                   backgroundColor: visualConfig.colors.secondary,
                   color: visualConfig.colors.text.onPrimary,
-                  '--tw-ring-color': visualConfig.colors.secondary,
+                    '--tw-ring-color': visualConfig.colors.secondary,
                   borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1rem' : '0.5rem'
-                }}
+                  }}
                 title="View notes from our team"
               >
                 <DynamicIcon name="StickyNote" className="h-4 w-4" />
-                <span className="hidden lg:inline text-sm font-medium">Notes</span>
+              <span className="hidden lg:inline text-sm font-medium">Notes</span>
               </button>
             </div>
           </div>
