@@ -26,6 +26,16 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
+  // Determine environment and record ID
+  const getEnvironmentId = () => {
+    const hostname = window.location.hostname;
+    const isVersionControl = hostname.includes('version-control') || hostname.includes('dev') || hostname.includes('staging');
+    return isVersionControl ? 2 : 1; // ID 2 for version-control, ID 1 for production
+  };
+  
+  const environmentId = getEnvironmentId();
+  const environmentName = environmentId === 2 ? 'Version Control' : 'Production';
+
   // Load notes from database when popup opens
   useEffect(() => {
     if (isOpen) {
@@ -43,10 +53,10 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
 
   const loadNotesFromDatabase = async () => {
     setIsLoading(true);
-    console.log(`🔄 Loading notes from database for ${isAdmin ? 'Admin' : 'User'}: ${userName}`);
+    console.log(`🔄 Loading notes from database for ${environmentName} (ID: ${environmentId}) - ${isAdmin ? 'Admin' : 'User'}: ${userName}`);
     
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/company_notes?id=eq.1`, {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/company_notes?id=eq.${environmentId}`, {
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -59,7 +69,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
         const notes = data.length > 0 ? data[0].notes_content || '' : '';
         const lastUpdatedBy = data.length > 0 ? data[0].updated_by : 'System';
         
-        console.log(`✅ Notes loaded successfully. Last updated by: ${lastUpdatedBy}`);
+        console.log(`✅ ${environmentName} notes loaded successfully. Last updated by: ${lastUpdatedBy}`);
         
         setNotesText(notes);
         setLocalNotesText(notes);
@@ -83,7 +93,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
     
     try {
       // First try to update existing record
-      let response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/company_notes?id=eq.1`, {
+      let response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/company_notes?id=eq.${environmentId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
@@ -109,7 +119,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
             'Prefer': 'return=minimal'
           },
           body: JSON.stringify({
-            id: 1,
+            id: environmentId,
             notes_content: localNotesText,
             updated_by: userName,
             updated_at: new Date().toISOString()
@@ -122,7 +132,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
         setHasChanges(false);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus('idle'), 3000);
-        console.log(`✅ Admin "${userName}" saved notes to database`);
+        console.log(`✅ Admin "${userName}" saved ${environmentName} notes to database (ID: ${environmentId})`);
       } else {
         console.error('Failed to save notes:', response.statusText);
         setSaveStatus('error');
@@ -201,6 +211,14 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
               <>
                 <p className="text-sm mb-6" style={{ color: visualConfig.colors.text.secondary }}>
                   Edit the notes that all users will see across the entire app. Changes are saved to the database.
+                  <br />
+                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full text-xs font-medium" 
+                        style={{ 
+                          backgroundColor: environmentId === 2 ? '#fbbf24' : '#10b981',
+                          color: '#000'
+                        }}>
+                    📝 {environmentName} Environment
+                  </span>
                 </p>
                 <textarea
                   value={localNotesText}
