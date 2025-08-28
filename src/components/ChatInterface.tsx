@@ -39,7 +39,6 @@ const ChatInterface = () => {
   const visualConfig = getSmartVisualThemeConfig(theme);
 
   const [showNotesPopup, setShowNotesPopup] = useState(false);
-  const [companyNotes, setCompanyNotes] = useState('Welcome to TradeSphere! Check back here for important updates from our team.');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
