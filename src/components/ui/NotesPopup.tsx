@@ -55,7 +55,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in" onClick={handleClose}>
       <div
-        className="p-6 rounded-2xl shadow-2xl max-w-lg w-full mx-4 animate-scale-in max-h-[80vh] overflow-y-auto"
+        className="p-8 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 animate-scale-in max-h-[90vh] overflow-y-auto"
         style={{
           backgroundColor: visualConfig.colors.surface,
           color: visualConfig.colors.text.primary,
@@ -83,7 +83,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
               value={localNotesText}
               onChange={handleTextChange}
               placeholder="Enter important notes for all users here..."
-              className="w-full px-3 py-2 rounded-lg resize-none transition-all duration-200 focus:ring-2 min-h-[200px]"
+              className="w-full px-3 py-2 rounded-lg resize-none transition-all duration-200 focus:ring-2 min-h-[300px]"
               style={{
                 backgroundColor: visualConfig.colors.background,
                 color: visualConfig.colors.text.primary,
@@ -130,7 +130,7 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
               Important information and updates from your team.
             </p>
             <div
-              className="p-4 rounded-lg min-h-[200px] whitespace-pre-wrap"
+              className="p-4 rounded-lg min-h-[300px] whitespace-pre-wrap"
               style={{
                 backgroundColor: visualConfig.colors.background,
                 color: visualConfig.colors.text.primary,
