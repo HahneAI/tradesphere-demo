@@ -558,8 +558,6 @@ const ChatInterface = () => {
         onClose={() => setShowNotesPopup(false)}
         isAdmin={isAdmin}
         userName={user?.first_name || 'Anonymous'}
-        notesText={companyNotes}
-        onNotesUpdate={setCompanyNotes}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
