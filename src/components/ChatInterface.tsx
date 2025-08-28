@@ -20,6 +20,7 @@ import { FeedbackPopup } from './ui/FeedbackPopup';
 import { sendFeedback } from '../utils/feedback-webhook';
 import { Message } from '../types/job';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
+import { NotesPopup } from './ui/NotesPopup';
 
 const coreConfig = getCoreConfig();
 const terminologyConfig = getTerminologyConfig();
@@ -36,6 +37,9 @@ const ChatInterface = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut, isAdmin } = useAuth();
   const visualConfig = getSmartVisualThemeConfig(theme);
+
+  const [showNotesPopup, setShowNotesPopup] = useState(false);
+  const [companyNotes, setCompanyNotes] = useState('Welcome to TradeSphere! Check back here for important updates from our team.');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -483,52 +487,80 @@ const ChatInterface = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* ORIGINAL: Input Area - exact same structure */}
+          {/* Input Area with Notes Button */}
           <div
-            className="border-t p-3 transition-colors duration-300"
+            className="border-t transition-colors duration-300 relative"
             style={{
               backgroundColor: visualConfig.colors.surface,
               borderTopColor: theme === 'light' ? '#e5e7eb' : '#374151'
             }}
           >
-            <div className="flex items-center space-x-4 max-w-4xl mx-auto">
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={terminologyConfig.placeholderExamples}
-                className="flex-1 px-3 py-2 rounded-xl resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
-                style={{
-                  backgroundColor: visualConfig.colors.background,
-                  color: visualConfig.colors.text.primary,
-                  borderColor: visualConfig.colors.secondary,
-                  '--tw-ring-color': visualConfig.colors.primary,
-                  borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
-                }}
-                rows={1}
-                disabled={isLoading}
-              />
+            <div className="p-3">
+              <div className="flex items-center space-x-4 max-w-4xl mx-auto">
+                <textarea
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={terminologyConfig.placeholderExamples}
+                  className="flex-1 px-3 py-2 resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
+                  style={{
+                    backgroundColor: visualConfig.colors.background,
+                    color: visualConfig.colors.text.primary,
+                    borderColor: visualConfig.colors.secondary,
+                    '--tw-ring-color': visualConfig.colors.primary,
+                    borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
+                  }}
+                  rows={1}
+                  disabled={isLoading}
+                />
+                <button
+                  ref={sendButtonRef}
+                  onClick={handleSendMessage}
+                  disabled={isLoading || !inputText.trim()}
+                  className="px-5 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
+                  style={{
+                   backgroundColor: visualConfig.colors.primary,
+                    color: visualConfig.colors.text.onPrimary,
+                    borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
+                  }}
+                >
+                  <DynamicIcon name="Send" className="h-5 w-5" />
+                  <span className="hidden sm:inline font-semibold">
+                    {terminologyConfig.buttonTexts.send}
+                  </span>
+                </button>
+              </div>
+            </div>
+  
+            {/* Notes Button - Bottom Right */}
+            <div className="absolute bottom-3 right-3">
               <button
-                ref={sendButtonRef}
-                onClick={handleSendMessage}
-                disabled={isLoading || !inputText.trim()}
-                className="px-5 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
+                onClick={() => setShowNotesPopup(true)}
+                className="flex items-center gap-2 px-3 py-2 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
                 style={{
-                  backgroundColor: visualConfig.colors.primary,
+                  backgroundColor: visualConfig.colors.secondary,
                   color: visualConfig.colors.text.onPrimary,
-                  borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
+                  '--tw-ring-color': visualConfig.colors.secondary,
+                  borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1rem' : '0.5rem'
                 }}
+                title="View notes from your team"
               >
-                <DynamicIcon name="Send" className="h-5 w-5" />
-                <span className="hidden sm:inline font-semibold">
-                  {terminologyConfig.buttonTexts.send}
-                </span>
+                <DynamicIcon name="StickyNote" className="h-4 w-4" />
+                <span className="hidden lg:inline text-sm font-medium">Notes</span>
               </button>
             </div>
           </div>
         </div>
       </main>
-
+      {/* ADD NOTESPOPUP HERE */}
+      <NotesPopup
+        isOpen={showNotesPopup}
+        onClose={() => setShowNotesPopup(false)}
+        isAdmin={isAdmin}
+        userName={user?.first_name || 'Anonymous'}
+        notesText={companyNotes}
+        onNotesUpdate={setCompanyNotes}
+      />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
         <button
