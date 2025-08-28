@@ -79,7 +79,27 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
         {/* Navigation Items */}
         <nav className="flex-1 p-4 space-y-2">
           <button
-            onClick={onFeedbackClick}
+            onClick={() => {
+              onNotesClick();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.StickyNote className="h-5 w-5" />
+            <span className="font-medium">Your Notes from Us</span>
+          </button>
+  
+          <button
+            onClick={() => {
+              onFeedbackClick();
+              onClose();
+            }}
             className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
             style={{
               color: visualConfig.colors.text.primary,
