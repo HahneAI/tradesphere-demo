@@ -334,6 +334,7 @@ const ChatInterface = () => {
         onClose={() => setIsMenuOpen(false)}
         onLogoutClick={handleLogout}
         onFeedbackClick={() => setShowFeedbackPopup(true)}
+        onNotesClick={() => setShowNotesPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
