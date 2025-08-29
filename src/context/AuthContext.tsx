@@ -255,6 +255,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+    const updateUserIcon = async (iconName: string): Promise<boolean> => {
+    if (!user) return false;
+  
+    try {
+      const response = await fetch(`${supabaseUrl}/rest/v1/beta_users?    id=eq.${user.id}`, {
+       method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+       body: JSON.stringify({
+          user_icon: iconName,
+          updated_at: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        // Update local user state
+        const updatedUser = { ...user, user_icon: iconName };
+        setUser(updatedUser);
+        localStorage.setItem('tradesphere_beta_user', JSON.stringify(updatedUser));
+      
+        console.log(`✅ User icon updated to: ${iconName}`);
+        return true;
+      } else {
+        console.error('Failed to update user icon:', response.statusText);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating user icon:', error);
+      return false;
+    }
+  };
+
   const signOut = () => {
     setUser(null);
     setIsAdmin(false); // 🎯 NEW: Reset admin status
