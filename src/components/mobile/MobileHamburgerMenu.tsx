@@ -9,6 +9,7 @@ interface MobileHamburgerMenuProps {
   onLogoutClick: () => void;
   onFeedbackClick: () => void;
   onNotesClick: () => void;
+  onAvatarClick: () => void;
   visualConfig: SmartVisualTheme;
   theme: 'light' | 'dark';
   user: User | null;
@@ -21,6 +22,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
   onFeedbackClick,
   onNotesClick,
   visualConfig,
+  onAvatarClick,
   theme,
   user,
 }) => {
@@ -78,6 +80,23 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
 
         {/* Navigation Items */}
         <nav className="flex-1 p-4 space-y-2">
+          <button
+            onClick={() => {
+              onAvatarClick();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <DynamicIcon name={user?.user_icon || 'User'} className="h-5 w-5" />
+            <span className="font-medium">Change Profile Icon</span>
+          </button>
+
           <button
             onClick={() => {
               onNotesClick();
