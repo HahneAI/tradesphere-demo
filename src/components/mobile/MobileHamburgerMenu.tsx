@@ -3,6 +3,11 @@ import * as Icons from 'lucide-react';
 import { SmartVisualTheme } from '../../config/industry';
 import { User } from '../../context/AuthContext';
 
+const DynamicIcon = ({ name, ...props }: { name: string } & any) => {
+  const IconComponent = Icons[name as keyof typeof Icons] || Icons.User;
+  return <IconComponent {...props} />;
+};
+
 interface MobileHamburgerMenuProps {
   isOpen: boolean;
   onClose: () => void;
