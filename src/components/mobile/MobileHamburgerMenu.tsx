@@ -64,7 +64,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                 color: visualConfig.colors.text.onPrimary,
               }}
             >
-              <Icons.User className="h-5 w-5" />
+              <DynamicIcon name={user?.user_icon || 'User'} className="h-5 w-5" />
             </div>
             <div>
               <p
