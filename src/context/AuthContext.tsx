@@ -311,6 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     registerBetaUser,
     signInBetaUser,
     completeRegistration,
+    updateUserIcon,
     signOut
   };
 
