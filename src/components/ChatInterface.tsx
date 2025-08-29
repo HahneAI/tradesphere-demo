@@ -338,6 +338,7 @@ const ChatInterface = () => {
         onLogoutClick={handleLogout}
         onFeedbackClick={() => setShowFeedbackPopup(true)}
         onNotesClick={() => setShowNotesPopup(true)}
+        onAvatarClick={() => setShowAvatarPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
@@ -386,7 +387,7 @@ const ChatInterface = () => {
                     color: visualConfig.colors.text.onPrimary,
                   }}
                 >
-                  <DynamicIcon name="User" className="h-4 w-4" />
+                  <DynamicIcon name={user?.user_icon || 'User'} className="h-4 w-4" />
                 </div>
                 <div>
                   <p className="font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>
@@ -649,6 +650,11 @@ const ChatInterface = () => {
           {performanceMetrics.totalResponseTime && <div>Total: {performanceMetrics.totalResponseTime}s</div>}
         </div>
       )}
+      {/* Avatar Selection Popup */}
+      <AvatarSelectionPopup
+        isOpen={showAvatarPopup}
+        onClose={() => setShowAvatarPopup(false)}
+      />
     </div>
   );
 };
