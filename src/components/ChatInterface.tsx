@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Icons from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { flushSync } from 'react-dom';
+import { AvatarSelectionPopup } from './ui/AvatarSelectionPopup';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -37,6 +38,8 @@ const ChatInterface = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut, isAdmin } = useAuth();
   const visualConfig = getSmartVisualThemeConfig(theme);
+  
+  const [showAvatarPopup, setShowAvatarPopup] = useState(false);
 
   const [showNotesPopup, setShowNotesPopup] = useState(false);
 
