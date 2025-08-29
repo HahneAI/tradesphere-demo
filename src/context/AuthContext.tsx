@@ -9,6 +9,7 @@ interface BetaUser {
   tech_uuid: string;
   beta_code_used: string;
   beta_code_id: number;
+  user_icon: string;
   is_active: boolean;
   is_admin: boolean; // 🎯 NEW: Admin field
   created_at: string;
@@ -26,6 +27,7 @@ interface AuthContextType {
   }, betaCode: string, betaCodeId: number) => Promise<{ success: boolean; error?: string; userData?: any }>;
   signInBetaUser: (firstName: string, betaCodeId: string) => Promise<{ success: boolean; error?: string }>;
   completeRegistration: (userData: any) => void;
+  updateUserIcon: (iconName: string) => Promise<boolean>;
   signOut: () => void;
 }
 
