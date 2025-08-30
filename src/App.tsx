@@ -8,6 +8,10 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ThemeApplicator } from './components/ThemeApplicator';
 import { useAppLoading } from './utils/loading-manager';
 
+console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
+console.log('Company Name:', import.meta.env.VITE_COMPANY_NAME);
+console.log('Success Color:', import.meta.env.VITE_SUCCESS_COLOR);
+console.log('ALL ENV:', import.meta.env);
 console.log('🟢 APP.TSX - Component mounting...');
 
 type AppState = 'loading' | 'login' | 'onboarding' | 'confirmation' | 'authenticated';
