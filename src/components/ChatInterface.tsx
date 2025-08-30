@@ -19,7 +19,7 @@ import { ThemeAwareMessageBubble } from './ui/ThemeAwareMessageBubble';
 import { ThemeAwareAvatar } from './ui/ThemeAwareAvatar';
 import { FeedbackPopup } from './ui/FeedbackPopup';
 import { sendFeedback } from '../utils/feedback-webhook';
-import { Message } from '../types/job';
+import { Message } from '../types/message';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 
