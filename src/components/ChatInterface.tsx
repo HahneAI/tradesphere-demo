@@ -280,6 +280,13 @@ const ChatInterface = () => {
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
 
+    // ADD THESE DEBUG LOGS:
+    console.log('Industry Type:', import.meta.env.VITE_INDUSTRY_TYPE);
+    console.log('Send Effect:', import.meta.env.VITE_SEND_EFFECT);
+  
+    const config = getSendEffectConfig();
+    console.log('Final Effect:', config.effect);
+
     const userMessageText = inputText;
     const userMessage: Message = {
       id: uuidv4(),
