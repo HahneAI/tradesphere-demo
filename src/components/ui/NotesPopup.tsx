@@ -275,8 +275,8 @@ export const NotesPopup: React.FC<NotesPopupProps> = ({
                       disabled={!hasChanges || isSaving}
                       className="px-6 py-3 rounded-xl text-white disabled:opacity-50 flex items-center gap-2 font-medium"
                       style={{
-                        backgroundColor: visualConfig.colors.primary,
-                        color: visualConfig.colors.text.onPrimary
+                        backgroundColor: visualConfig.colors.success, // Changed from .primary
+                         color: visualConfig.colors.text.onPrimary
                       }}
                     >
                       {isSaving ? (
