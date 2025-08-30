@@ -111,7 +111,7 @@ export const FeedbackPopup: React.FC<FeedbackPopupProps> = ({ isOpen, onClose, o
                 disabled={!feedbackText.trim() || isSubmitting}
                 className="px-4 py-2 rounded-lg text-white disabled:opacity-50 flex items-center gap-2"
                 style={{
-                  backgroundColor: visualConfig.colors.primary,
+                  backgroundColor: visualConfig.colors.success, // Changed from .primary
                   color: visualConfig.colors.text.onPrimary
                 }}
               >
