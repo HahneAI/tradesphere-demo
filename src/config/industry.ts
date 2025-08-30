@@ -171,28 +171,46 @@ export const getSendEffectConfig = (): SendEffectConfig => {
   const primaryColor = import.meta.env.VITE_PRIMARY_COLOR || '#2563eb';
   const sendEffect = import.meta.env.VITE_SEND_EFFECT;
 
-  switch (industryType || sendEffect) {
-    case 'landscaping':
-    case 'leaf_flutter':
-      return {
-        effect: 'leaf_flutter',
-        colors: [primaryColor, '#32cd32', '#8fbc8f'],
-        duration: 1200
-      };
-    case 'hvac':
-    case 'spark_burst':
-      return {
-        effect: 'spark_burst',
-        colors: ['#ff4500', '#4169e1', '#ffd700'],
-        duration: 600
-      };
-    default:
-      return {
-        effect: 'gentle_pulse',
-        colors: ['#2563eb', '#3b82f6', '#60a5fa'],
-        duration: 500
-      };
+  // FIXED LOGIC: Check explicit effect setting first
+  if (sendEffect === 'leaf_flutter') {
+    return {
+      effect: 'leaf_flutter',
+      colors: [primaryColor, '#32cd32', '#8fbc8f'],
+      duration: 1200
+    };
   }
+
+  if (sendEffect === 'spark_burst') {
+    return {
+      effect: 'spark_burst',
+      colors: ['#ff4500', '#4169e1', '#ffd700'],
+      duration: 600
+    };
+  }
+
+  // THEN check industry defaults
+  if (industryType === 'landscaping') {
+    return {
+      effect: 'leaf_flutter',
+      colors: [primaryColor, '#32cd32', '#8fbc8f'],
+      duration: 1200
+    };
+  }
+
+  if (industryType === 'hvac') {
+    return {
+      effect: 'spark_burst',
+      colors: ['#ff4500', '#4169e1', '#ffd700'],
+      duration: 600
+    };
+  }
+
+  // DEFAULT: Tech theme gets spark_burst
+  return {
+    effect: 'spark_burst',
+    colors: [primaryColor, '#3b82f6', '#60a5fa'],
+    duration: 600
+  };
 };
 
 export const getTerminologyConfig = (): TerminologyConfig => {
