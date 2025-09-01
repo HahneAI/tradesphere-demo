@@ -14,6 +14,7 @@ import {
     getSmartVisualThemeConfig,
     getSendEffectConfig,
 } from '../config/industry';
+import { EnvironmentManager } from '../config/defaults';
 import { triggerSendEffect } from './ui/IndustryEffects';
 import TypingIndicator from './ui/TypingIndicator';
 import { ThemeAwareMessageBubble } from './ui/ThemeAwareMessageBubble';
@@ -77,7 +78,8 @@ const ChatInterface = () => {
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const refreshButtonRef = useRef<HTMLButtonElement>(null);
 
-  const welcomeMessage = import.meta.env.VITE_WELCOME_MESSAGE || `Welcome to ${coreConfig.companyName}! How can I help you today?`;
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
+  const welcomeMessage = EnvironmentManager.getWelcomeMessage();
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -536,8 +538,9 @@ const ChatInterface = () => {
     if (!inputText.trim()) return;
 
     // ADD THESE DEBUG LOGS:
+    // 🎯 DEBUG: Using centralized environment manager for debug logging
     console.log('Industry Type:', import.meta.env.VITE_INDUSTRY_TYPE);
-    console.log('Send Effect:', import.meta.env.VITE_SEND_EFFECT);
+    console.log('Send Effect:', EnvironmentManager.getSendEffect());
   
     const config = getSendEffectConfig();
     console.log('Final Effect:', config.effect);

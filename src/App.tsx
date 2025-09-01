@@ -7,10 +7,12 @@ import LoadingScreen from './components/ui/LoadingScreen';
 import { ThemeProvider } from './context/ThemeContext';
 import { ThemeApplicator } from './components/ThemeApplicator';
 import { useAppLoading } from './utils/loading-manager';
+import { EnvironmentManager } from './config/defaults';
 
+// 🎯 DEBUG: Using centralized environment manager for debug logging
 console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
-console.log('Company Name:', import.meta.env.VITE_COMPANY_NAME);
-console.log('Success Color:', import.meta.env.VITE_SUCCESS_COLOR);
+console.log('Company Name:', EnvironmentManager.getCompanyName());
+console.log('Success Color:', EnvironmentManager.getSuccessColor());
 console.log('ALL ENV:', import.meta.env);
 console.log('🟢 APP.TSX - Component mounting...');
 
@@ -206,8 +208,9 @@ function App() {
 
   // Get background pattern class based on industry
   const getBackgroundPatternClass = () => {
+    // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
     const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
-    const backgroundPattern = import.meta.env.VITE_BACKGROUND_PATTERN;
+    const backgroundPattern = EnvironmentManager.getBackgroundPattern();
     
     // Check explicit background pattern setting first
     if (backgroundPattern === 'subtle_organic') return 'background-organic';

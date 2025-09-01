@@ -3,6 +3,7 @@ import {
   getContrastText,
   adjustBrightness,
 } from '../utils/colors';
+import { EnvironmentManager } from './defaults';
 
 // SECTION 1: TYPE DEFINITIONS
 interface ThemeColorPair {
@@ -65,7 +66,8 @@ export const createSmartColorSystem = (
   const secondaryDark = adjustColorForDarkMode(secondaryLight);
   const accentDark = adjustColorForDarkMode(accentLight);
 
-  const successLight = import.meta.env.VITE_SUCCESS_COLOR || '#10b981';
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
+  const successLight = EnvironmentManager.getSuccessColor();
 
   return {
     primary: {

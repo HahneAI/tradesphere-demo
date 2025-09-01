@@ -1,4 +1,5 @@
 import * as Icons from 'lucide-react';
+import { EnvironmentManager } from './defaults';
 
 // SECTION 1: TYPE DEFINITIONS
 
@@ -133,11 +134,12 @@ const getSeasonalMessage = (season: Season, industry: string, region: string, cl
 // SECTION 3: CONFIGURATION GETTERS
 
 export const getLoadingConfig = (): LoadingAnimationConfig => {
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
-  const primaryColor = import.meta.env.VITE_PRIMARY_COLOR;
-  const secondaryColor = import.meta.env.VITE_SECONDARY_COLOR;
-  const loadingAnimation = import.meta.env.VITE_LOADING_ANIMATION;
-  const companyName = import.meta.env.VITE_COMPANY_NAME || 'TradeSphere';
+  const primaryColor = EnvironmentManager.getPrimaryColor();
+  const secondaryColor = EnvironmentManager.getSecondaryColor();
+  const loadingAnimation = EnvironmentManager.getLoadingAnimation();
+  const companyName = EnvironmentManager.getCompanyName();
 
   // Industry-specific configurations
   if (industryType === 'landscaping' || loadingAnimation === 'growth') {
@@ -167,9 +169,10 @@ export const getLoadingConfig = (): LoadingAnimationConfig => {
 };
 
 export const getSendEffectConfig = (): SendEffectConfig => {
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
-  const primaryColor = import.meta.env.VITE_PRIMARY_COLOR || '#2563eb';
-  const sendEffect = import.meta.env.VITE_SEND_EFFECT;
+  const primaryColor = EnvironmentManager.getPrimaryColor();
+  const sendEffect = EnvironmentManager.getSendEffect();
 
   // FIXED LOGIC: Check explicit effect setting first
   if (sendEffect === 'leaf_flutter') {
@@ -214,19 +217,20 @@ export const getSendEffectConfig = (): SendEffectConfig => {
 };
 
 export const getTerminologyConfig = (): TerminologyConfig => {
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
-  const companyName = import.meta.env.VITE_COMPANY_NAME || 'TradeSphere';
+  const companyName = EnvironmentManager.getCompanyName();
 
-  // Define base configuration from environment variables with sensible defaults
+  // Define base configuration using centralized environment manager
   const baseConfig = {
-    businessType: import.meta.env.VITE_BUSINESS_TYPE || 'business consultant',
-    serviceTerms: (import.meta.env.VITE_PRIMARY_SERVICES || 'consulting,strategy,analysis').split(','),
-    projectLanguage: import.meta.env.VITE_PROJECT_LANGUAGE || 'project',
-    estimateLanguage: import.meta.env.VITE_ESTIMATE_LANGUAGE || 'estimate',
+    businessType: EnvironmentManager.getBusinessType(),
+    serviceTerms: EnvironmentManager.getPrimaryServices(),
+    projectLanguage: EnvironmentManager.getProjectLanguage(),
+    estimateLanguage: EnvironmentManager.getEstimateLanguage(),
     completionTerms: 'project completion',
-    placeholderExamples: import.meta.env.VITE_PLACEHOLDER_EXAMPLES || 'e.g., "I need help with my business strategy."',
-    urgencyLevel: (import.meta.env.VITE_URGENCY_LEVEL as TerminologyConfig['urgencyLevel']) || 'routine',
-    specialization: import.meta.env.VITE_SPECIALIZATION || 'consultant' // Not used in returned object yet, but parsed
+    placeholderExamples: EnvironmentManager.getPlaceholderExamples(),
+    urgencyLevel: EnvironmentManager.getUrgencyLevel(),
+    specialization: EnvironmentManager.getSpecialization() // Not used in returned object yet, but parsed
   };
 
   // Start with a default configuration
@@ -249,11 +253,12 @@ export const getTerminologyConfig = (): TerminologyConfig => {
     case 'landscaping':
       config = {
         ...config,
-        businessType: import.meta.env.VITE_BUSINESS_TYPE || 'landscape contractor',
-        projectLanguage: import.meta.env.VITE_PROJECT_LANGUAGE || 'outdoor project',
-        estimateLanguage: import.meta.env.VITE_ESTIMATE_LANGUAGE || 'landscape investment',
-        placeholderExamples: import.meta.env.VITE_PLACEHOLDER_EXAMPLES || "e.g., 'I want a new patio and a fire pit.'",
-        urgencyLevel: (import.meta.env.VITE_URGENCY_LEVEL as TerminologyConfig['urgencyLevel']) || 'seasonal',
+        // 🎯 Industry overrides handled by centralized defaults system
+        businessType: EnvironmentManager.getBusinessType(),
+        projectLanguage: EnvironmentManager.getProjectLanguage(),
+        estimateLanguage: EnvironmentManager.getEstimateLanguage(),
+        placeholderExamples: EnvironmentManager.getPlaceholderExamples(),
+        urgencyLevel: EnvironmentManager.getUrgencyLevel(),
         buttonTexts: {
           send: 'Get My Landscape Estimate',
           clear: 'Start New Project Design',
@@ -270,11 +275,12 @@ export const getTerminologyConfig = (): TerminologyConfig => {
     case 'hvac':
       config = {
         ...config,
-        businessType: import.meta.env.VITE_BUSINESS_TYPE || 'HVAC specialist',
-        projectLanguage: import.meta.env.VITE_PROJECT_LANGUAGE || 'comfort system',
-        estimateLanguage: import.meta.env.VITE_ESTIMATE_LANGUAGE || 'system quote',
-        placeholderExamples: import.meta.env.VITE_PLACEHOLDER_EXAMPLES || "e.g., 'My AC is not working'",
-        urgencyLevel: (import.meta.env.VITE_URGENCY_LEVEL as TerminologyConfig['urgencyLevel']) || 'emergency',
+        // 🎯 Industry overrides handled by centralized defaults system
+        businessType: EnvironmentManager.getBusinessType(),
+        projectLanguage: EnvironmentManager.getProjectLanguage(),
+        estimateLanguage: EnvironmentManager.getEstimateLanguage(),
+        placeholderExamples: EnvironmentManager.getPlaceholderExamples(),
+        urgencyLevel: EnvironmentManager.getUrgencyLevel(),
         buttonTexts: {
           send: 'Get My HVAC Quote',
           clear: 'Start New System Quote',
@@ -293,12 +299,13 @@ export const getTerminologyConfig = (): TerminologyConfig => {
 };
 
 export const getSmartVisualThemeConfig = (theme: Theme): SmartVisualThemeConfig => {
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
-  const primaryColor = import.meta.env.VITE_PRIMARY_COLOR;
-  const secondaryColor = import.meta.env.VITE_SECONDARY_COLOR;
-  const accentColor = import.meta.env.VITE_ACCENT_COLOR;
-  const messageStyle = import.meta.env.VITE_MESSAGE_STYLE;
-  const backgroundPattern = import.meta.env.VITE_BACKGROUND_PATTERN;
+  const primaryColor = EnvironmentManager.getPrimaryColor();
+  const secondaryColor = EnvironmentManager.getSecondaryColor();
+  const accentColor = EnvironmentManager.getAccentColor();
+  const messageStyle = EnvironmentManager.getMessageStyle();
+  const backgroundPattern = EnvironmentManager.getBackgroundPattern();
 
   // Define default colors based on industry
   const industryDefaults = {
@@ -385,10 +392,11 @@ export const getVisualThemeConfig = () => {
 };
 
 export const getSeasonalConfig = (): SeasonalConfig => {
+  // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
-  const seasonalThemes = import.meta.env.VITE_USE_SEASONAL_THEMES === 'true';
-  const region = import.meta.env.VITE_REGION || 'general';
-  const climateZone = import.meta.env.VITE_CLIMATE_ZONE;
+  const seasonalThemes = EnvironmentManager.getUseSeasonalThemes();
+  const region = EnvironmentManager.getRegion();
+  const climateZone = EnvironmentManager.getClimateZone();
 
   if (!seasonalThemes) {
     return {
@@ -421,12 +429,14 @@ export const getSeasonalConfig = (): SeasonalConfig => {
 
 // Core config that doesn't change by industry
 export const getCoreConfig = () => {
+    // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
+    // Note: Technical integration variables (Supabase/Make) will throw errors if not configured
     return {
-        supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-        supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-        makeWebhookUrl: import.meta.env.VITE_MAKE_WEBHOOK_URL,
-        companyName: import.meta.env.VITE_COMPANY_NAME || 'TradeSphere',
-        headerIcon: (import.meta.env.VITE_HEADER_ICON as keyof typeof Icons) || 'MessageCircle',
-        logoUrl: import.meta.env.VITE_LOGO_URL,
+        supabaseUrl: EnvironmentManager.getSupabaseUrl(),
+        supabaseAnonKey: EnvironmentManager.getSupabaseAnonKey(),
+        makeWebhookUrl: EnvironmentManager.getMakeWebhookUrl(),
+        companyName: EnvironmentManager.getCompanyName(),
+        headerIcon: EnvironmentManager.getHeaderIcon(),
+        logoUrl: EnvironmentManager.getLogoUrl(),
     };
 };
