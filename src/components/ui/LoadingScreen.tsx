@@ -9,7 +9,6 @@ interface LoadingScreenProps {
 const LoadingScreen: React.FC<LoadingScreenProps> = ({ isExiting }) => {
   const config = getLoadingConfig();
   const coreConfig = getCoreConfig();
-  const IconComponent = Icons[config.icon] || Icons.MessageCircle;
 
   const containerClasses = `
     fixed inset-0 bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center z-50
@@ -17,21 +16,38 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ isExiting }) => {
     ${isExiting ? 'opacity-0' : 'opacity-100'}
   `;
 
-  // Get industry-specific animation class
-  const getAnimationClass = () => {
-    switch (config.type) {
-      case 'growth':
-        return 'animate-grow'; // Tree/plant growth animation
-      case 'building':
-        return 'animate-build'; // Construction/building animation
-      case 'flow':
-        return 'animate-pulse-gentle'; // Smooth flow animation
-      case 'spark':
-        return 'animate-pulse-gentle'; // Electric/spark animation
-      default:
-        return 'animate-pulse-gentle'; // Generic fallback
+  // 🎯 ALWAYS use animated industry icons - IGNORE logos completely
+  const getIndustryIconAndAnimation = () => {
+    const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
+    const loadingAnimation = import.meta.env.VITE_LOADING_ANIMATION;
+    
+    // Priority: Explicit loading animation setting
+    if (loadingAnimation === 'growth') {
+      return { icon: Icons.TreePine, animation: 'animate-grow' };
     }
+    if (loadingAnimation === 'building') {
+      return { icon: Icons.Wrench, animation: 'animate-build' };
+    }
+    if (loadingAnimation === 'gears') {
+      return { icon: Icons.Cog, animation: 'animate-build' };
+    }
+    if (loadingAnimation === 'dots') {
+      return { icon: Icons.MoreHorizontal, animation: 'animate-pulse-gentle' };
+    }
+    
+    // Fallback: Industry-specific defaults
+    if (industryType === 'landscaping') {
+      return { icon: Icons.TreePine, animation: 'animate-grow' };
+    }
+    if (industryType === 'hvac') {
+      return { icon: Icons.Wrench, animation: 'animate-build' };
+    }
+    
+    // Default: Tech theme
+    return { icon: Icons.MessageCircle, animation: 'animate-pulse-gentle' };
   };
+
+  const { icon: IconComponent, animation: animationClass } = getIndustryIconAndAnimation();
 
   return (
     <div className={containerClasses}>
@@ -41,11 +57,8 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ isExiting }) => {
             className="w-24 h-24 text-white rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden animate-loading-entry"
             style={{ backgroundColor: config.colors.primary }}
           >
-            {coreConfig.logoUrl && coreConfig.logoUrl !== '/assets/branding/default-logo.svg' ? (
-              <img src={coreConfig.logoUrl} alt={`${coreConfig.companyName} Logo`} className="w-16 h-16 object-contain" />
-            ) : (
-              <IconComponent size={48} className={getAnimationClass()} />
-            )}
+            {/* 🎯 ALWAYS SHOW ANIMATED INDUSTRY ICON - Logo reserved for header only */}
+            <IconComponent size={48} className={animationClass} />
           </div>
           <div
             className="absolute inset-0 rounded-2xl animate-ping opacity-20 -z-10"
