@@ -204,10 +204,29 @@ function App() {
     }
   };
 
+  // Get background pattern class based on industry
+  const getBackgroundPatternClass = () => {
+    const industryType = import.meta.env.VITE_INDUSTRY_TYPE;
+    const backgroundPattern = import.meta.env.VITE_BACKGROUND_PATTERN;
+    
+    // Check explicit background pattern setting first
+    if (backgroundPattern === 'subtle_organic') return 'background-organic';
+    if (backgroundPattern === 'technical_grid') return 'background-tech';
+    if (backgroundPattern === 'blueprint') return 'background-tech';
+    if (backgroundPattern === 'none') return '';
+    
+    // Fall back to industry defaults
+    if (industryType === 'landscaping') return 'background-organic';
+    if (industryType === 'hvac') return 'background-tech';
+    
+    // Default for TradeSphere
+    return 'background-tech';
+  };
+
   return (
     <ThemeProvider>
       <ThemeApplicator />
-      <div className="min-h-screen transition-colors duration-500 bg-background text-text-primary">
+      <div className={`min-h-screen transition-colors duration-500 bg-background text-text-primary ${getBackgroundPatternClass()}`}>
         {renderContent()}
       </div>
     </ThemeProvider>

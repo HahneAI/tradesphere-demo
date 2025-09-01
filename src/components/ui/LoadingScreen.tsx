@@ -17,6 +17,22 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ isExiting }) => {
     ${isExiting ? 'opacity-0' : 'opacity-100'}
   `;
 
+  // Get industry-specific animation class
+  const getAnimationClass = () => {
+    switch (config.type) {
+      case 'growth':
+        return 'animate-grow'; // Tree/plant growth animation
+      case 'building':
+        return 'animate-build'; // Construction/building animation
+      case 'flow':
+        return 'animate-pulse-gentle'; // Smooth flow animation
+      case 'spark':
+        return 'animate-pulse-gentle'; // Electric/spark animation
+      default:
+        return 'animate-pulse-gentle'; // Generic fallback
+    }
+  };
+
   return (
     <div className={containerClasses}>
       <div className={`flex flex-col items-center gap-4 transition-transform duration-500 transform ${isExiting ? 'scale-95' : 'scale-100'}`}>
@@ -28,7 +44,7 @@ const LoadingScreen: React.FC<LoadingScreenProps> = ({ isExiting }) => {
             {coreConfig.logoUrl && coreConfig.logoUrl !== '/assets/branding/default-logo.svg' ? (
               <img src={coreConfig.logoUrl} alt={`${coreConfig.companyName} Logo`} className="w-16 h-16 object-contain" />
             ) : (
-              <IconComponent size={48} className="animate-pulse-gentle" />
+              <IconComponent size={48} className={getAnimationClass()} />
             )}
           </div>
           <div

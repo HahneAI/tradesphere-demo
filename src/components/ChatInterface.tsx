@@ -12,6 +12,7 @@ import {
     getCoreConfig,
     getTerminologyConfig,
     getSmartVisualThemeConfig,
+    getSendEffectConfig,
 } from '../config/industry';
 import { triggerSendEffect } from './ui/IndustryEffects';
 import TypingIndicator from './ui/TypingIndicator';
