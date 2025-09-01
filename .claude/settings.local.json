@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(claude mcp add github:*)",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "mcp__filesystem__read_multiple_files",
+      "mcp__filesystem__write_file",
+      "mcp__filesystem__edit_file",
+      "Bash(npx tsx:*)",
+      "mcp__filesystem__read_text_file"
     ],
     "deny": [],
     "ask": []
