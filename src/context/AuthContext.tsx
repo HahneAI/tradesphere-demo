@@ -68,29 +68,128 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const validateBetaCode = async (code: string): Promise<{ valid: boolean; error?: string }> => {
+    const debugPrefix = `🔑 VALIDATE_CODE [${code.slice(-4)}]`;
+    console.group(`${debugPrefix} Starting beta code validation`);
+    
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/beta_codes?code=eq.${code}`, {
+      // STEP 1: Input validation
+      if (!code || code.length < 4) {
+        console.error('❌ STEP 1 FAILED: Invalid code format');
+        console.groupEnd();
+        return { valid: false, error: 'Code must be at least 4 characters' };
+      }
+      console.log('✅ STEP 1: Code format valid -', `${code.length} characters`);
+
+      // STEP 2: Environment validation
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('❌ STEP 2 FAILED: Missing Supabase credentials');
+        console.log('🔍 URL present:', !!supabaseUrl);
+        console.log('🔍 Key present:', !!supabaseKey);
+        console.groupEnd();
+        return { valid: false, error: 'Database connection not configured' };
+      }
+      console.log('✅ STEP 2: Supabase credentials validated');
+
+      // STEP 3: Construct and validate request URL
+      const requestUrl = `${supabaseUrl}/rest/v1/beta_codes?code=eq.${code}`;
+      console.log('🌐 STEP 3: Request URL -', requestUrl.replace(supabaseUrl, '[SUPABASE_URL]'));
+
+      // STEP 4: Send request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      console.log('📡 STEP 4: Sending validation request...');
+      const startTime = performance.now();
+
+      const response = await fetch(requestUrl, {
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
           'apikey': supabaseKey,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      const requestTime = performance.now() - startTime;
+      
+      // STEP 5: Response validation
+      console.log('📡 STEP 5: Response received -', {
+        status: response.status,
+        statusText: response.statusText,
+        latency: `${requestTime.toFixed(2)}ms`
       });
 
       if (!response.ok) {
-        return { valid: false, error: 'Failed to validate code' };
+        console.error('❌ STEP 5 FAILED: HTTP error response');
+        console.error('📄 Error details:', {
+          status: response.status,
+          statusText: response.statusText
+        });
+        console.groupEnd();
+        return { valid: false, error: 'Failed to validate code - server error' };
       }
 
+      // STEP 6: Parse and validate response data
       const codes = await response.json();
+      console.log('✅ STEP 6: Response parsed -', `${codes.length} codes found`);
+
+      if (!Array.isArray(codes)) {
+        console.error('❌ STEP 6 FAILED: Invalid response format');
+        console.groupEnd();
+        return { valid: false, error: 'Invalid server response' };
+      }
+
+      // STEP 7: Code validation logic
       const betaCode = codes.find((c: any) => c.code === code && c.is_active);
+      const isValid = !!betaCode;
       
+      console.log('🔍 STEP 7: Code validation result -', {
+        found: codes.length > 0,
+        active: betaCode?.is_active || false,
+        used: betaCode?.used || false,
+        valid: isValid
+      });
+
+      if (isValid) {
+        console.log('✅ SUCCESS: Beta code validated successfully');
+        console.log('📊 Code details:', {
+          id: betaCode.id,
+          description: betaCode.description?.substring(0, 30) || 'N/A',
+          created: betaCode.created_at?.split('T')[0] || 'N/A'
+        });
+      } else {
+        console.log('❌ FAILED: Beta code validation failed');
+        if (codes.length === 0) {
+          console.log('🔍 Reason: Code not found in database');
+        } else if (!codes[0]?.is_active) {
+          console.log('🔍 Reason: Code exists but is inactive');
+        } else if (codes[0]?.used) {
+          console.log('🔍 Reason: Code has already been used');
+        }
+      }
+      
+      console.groupEnd();
       return { 
-        valid: !!betaCode, 
-        error: betaCode ? undefined : 'Invalid or inactive beta code' 
+        valid: isValid, 
+        error: isValid ? undefined : 'Invalid or inactive beta code' 
       };
+
     } catch (error) {
-      console.error('Beta code validation error:', error);
-      return { valid: false, error: 'Validation failed' };
+      console.error('❌ EXCEPTION: Beta code validation failed');
+      
+      if (error.name === 'AbortError') {
+        console.error('⏰ Error type: Request timeout (10s exceeded)');
+      } else {
+        console.error('🔥 Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack?.split('\n')[0]
+        });
+      }
+      
+      console.groupEnd();
+      return { valid: false, error: 'Validation request failed' };
     }
   };
 
@@ -209,49 +308,193 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInBetaUser = async (firstName: string, betaCodeId: string): Promise<{ success: boolean; error?: string }> => {
+    const debugPrefix = `👤 SIGNIN [${firstName}:${betaCodeId}]`;
+    console.group(`${debugPrefix} Starting user authentication`);
+    
     try {
-      // Find user by first name (case-insensitive) and beta code id
-      const response = await fetch(`${supabaseUrl}/rest/v1/beta_users?first_name=ilike.${firstName}&beta_code_id=eq.${betaCodeId}`, {
+      // STEP 1: Input validation
+      if (!firstName || firstName.trim().length < 2) {
+        console.error('❌ STEP 1 FAILED: Invalid firstName');
+        console.log('🔍 firstName:', firstName || 'undefined');
+        console.groupEnd();
+        return { success: false, error: 'Name must be at least 2 characters' };
+      }
+      
+      if (!betaCodeId || isNaN(parseInt(betaCodeId))) {
+        console.error('❌ STEP 1 FAILED: Invalid betaCodeId');
+        console.log('🔍 betaCodeId:', betaCodeId || 'undefined');
+        console.groupEnd();
+        return { success: false, error: 'Invalid beta code ID format' };
+      }
+      
+      console.log('✅ STEP 1: Input validation passed -', {
+        firstName: firstName.trim(),
+        betaCodeId: betaCodeId,
+        nameLength: firstName.trim().length
+      });
+
+      // STEP 2: Environment validation
+      if (!supabaseUrl || !supabaseKey) {
+        console.error('❌ STEP 2 FAILED: Missing Supabase credentials');
+        console.log('🔍 URL present:', !!supabaseUrl);
+        console.log('🔍 Key present:', !!supabaseKey);
+        console.log('🔍 URL value:', supabaseUrl ? `${supabaseUrl.substring(0, 20)}...` : 'undefined');
+        console.groupEnd();
+        return { success: false, error: 'Database connection not configured' };
+      }
+      console.log('✅ STEP 2: Supabase credentials validated');
+
+      // STEP 3: Construct query URL with proper encoding
+      const encodedName = encodeURIComponent(firstName.trim());
+      const requestUrl = `${supabaseUrl}/rest/v1/beta_users?first_name=ilike.${encodedName}&beta_code_id=eq.${betaCodeId}`;
+      console.log('🌐 STEP 3: Query URL constructed');
+      console.log('🔍 Query:', `first_name=ilike.${encodedName}&beta_code_id=eq.${betaCodeId}`);
+
+      // STEP 4: Database query with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      console.log('📡 STEP 4: Querying database...');
+      const startTime = performance.now();
+
+      const response = await fetch(requestUrl, {
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
           'apikey': supabaseKey,
           'Content-Type': 'application/json'
-        }
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      const queryTime = performance.now() - startTime;
+
+      // STEP 5: Response validation
+      console.log('📡 STEP 5: Database response received -', {
+        status: response.status,
+        statusText: response.statusText,
+        latency: `${queryTime.toFixed(2)}ms`
       });
 
       if (!response.ok) {
-        return { success: false, error: 'Login failed' };
+        console.error('❌ STEP 5 FAILED: Database query error');
+        console.error('📄 Error details:', {
+          status: response.status,
+          statusText: response.statusText
+        });
+        
+        let userFriendlyError = 'Login failed - server error';
+        if (response.status === 401) {
+          userFriendlyError = 'Database authentication failed';
+        } else if (response.status === 404) {
+          userFriendlyError = 'Database table not found';
+        }
+        
+        console.groupEnd();
+        return { success: false, error: userFriendlyError };
       }
 
+      // STEP 6: Parse user data
       const users = await response.json();
+      console.log('✅ STEP 6: Response parsed -', `${users.length} users found`);
       
+      if (!Array.isArray(users)) {
+        console.error('❌ STEP 6 FAILED: Invalid response format');
+        console.groupEnd();
+        return { success: false, error: 'Invalid server response' };
+      }
+
+      // STEP 7: User existence check
       if (users.length === 0) {
+        console.log('❌ STEP 7 FAILED: No matching users found');
+        console.log('🔍 Search criteria:', {
+          firstName: firstName.trim(),
+          betaCodeId: betaCodeId,
+          caseSensitive: false
+        });
+        console.groupEnd();
         return { success: false, error: 'Invalid username or password' };
       }
 
-      const userAccount = users[0];
-
-      // Check if account is active
-      if (!userAccount.is_active) {
-        return { success: false, error: 'Account is deactivated' };
+      if (users.length > 1) {
+        console.warn('⚠️ STEP 7: Multiple users found - using first match');
+        console.log('🔍 Multiple users:', users.map(u => ({ 
+          name: u.first_name, 
+          id: u.id,
+          betaCode: u.beta_code_id 
+        })));
       }
 
-      const betaUser = userAccount as BetaUser;
+      const userAccount = users[0];
+      console.log('✅ STEP 7: User account located');
 
-      // 🎯 NEW: Set admin status
+      // STEP 8: Account status validation
+      if (!userAccount.is_active) {
+        console.error('❌ STEP 8 FAILED: Account is deactivated');
+        console.log('🔍 Account details:', {
+          id: userAccount.id,
+          name: userAccount.first_name,
+          active: userAccount.is_active,
+          created: userAccount.created_at?.split('T')[0]
+        });
+        console.groupEnd();
+        return { success: false, error: 'Account is deactivated' };
+      }
+      console.log('✅ STEP 8: Account status validated - active');
+
+      // STEP 9: Prepare user object
+      const betaUser = userAccount as BetaUser;
+      
+      console.log('✅ STEP 9: User object prepared -', {
+        id: betaUser.id,
+        name: betaUser.first_name,
+        jobTitle: betaUser.job_title,
+        techId: betaUser.tech_uuid?.slice(-8) || 'N/A',
+        isAdmin: betaUser.is_admin || false,
+        betaCodeId: betaUser.beta_code_id
+      });
+
+      // STEP 10: Update application state
       setUser(betaUser);
       setIsAdmin(betaUser.is_admin || false);
       localStorage.setItem('tradesphere_beta_user', JSON.stringify(betaUser));
-
-      // 🎯 NEW: Log admin login
+      
+      console.log('✅ STEP 10: Application state updated');
+      console.log('💾 Local storage: User data saved');
+      
+      // Special admin login logging
       if (betaUser.is_admin) {
         console.log('👑 ADMIN LOGIN DETECTED:', betaUser.first_name);
+        console.log('🛠️ Admin features will be available');
       }
 
+      console.log('🎉 SUCCESS: User authentication completed');
+      console.log('📊 Final login metrics:', {
+        firstName: betaUser.first_name,
+        techId: betaUser.tech_uuid.slice(-8),
+        queryTime: `${queryTime.toFixed(2)}ms`,
+        isAdmin: betaUser.is_admin || false,
+        timestamp: new Date().toISOString().slice(11, 23)
+      });
+      
+      console.groupEnd();
       return { success: true };
+
     } catch (error) {
-      console.error('Sign in error:', error);
-      return { success: false, error: 'Login failed' };
+      console.error('❌ EXCEPTION: Authentication failed');
+      
+      if (error.name === 'AbortError') {
+        console.error('⏰ Error type: Database query timeout (10s exceeded)');
+      } else {
+        console.error('🔥 Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack?.split('\n')[0]
+        });
+      }
+      
+      console.groupEnd();
+      return { success: false, error: 'Login request failed' };
     }
   };
 
@@ -259,7 +502,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
   
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/beta_users?    id=eq.${user.id}`, {
+      const response = await fetch(`${supabaseUrl}/rest/v1/beta_users?id=eq.${user.id}`, {
        method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
