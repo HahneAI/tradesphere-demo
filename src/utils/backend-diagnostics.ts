@@ -82,18 +82,31 @@ export const runBackendDiagnostics = async (): Promise<DiagnosticResults> => {
     results.makeWebhook.configured = true;
     
     try {
-      // Test with minimal payload
+      // 🔧 FIXED: Test with COMPLETE payload matching real user messages
+      const diagnosticPayload = {
+        message: 'DIAGNOSTIC_TEST: Backend connectivity verification',
+        timestamp: new Date().toISOString(),
+        sessionId: 'diagnostic_session_' + Date.now(),
+        source: 'TradeSphere_Diagnostics',
+        // ✅ CRITICAL: Include all user context fields that Make.com expects
+        techId: 'DIAGNOSTIC-TECH-UUID-12345678',
+        firstName: 'DiagnosticUser',
+        jobTitle: 'System_Administrator', 
+        betaCodeId: 999
+      };
+
+      console.log('🔗 DIAGNOSTIC: Testing webhook with complete payload -', {
+        fieldCount: Object.keys(diagnosticPayload).length,
+        expectedFields: ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'],
+        actualFields: Object.keys(diagnosticPayload)
+      });
+
       const testResponse = await fetch(makeWebhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message: 'diagnostic_test',
-          timestamp: new Date().toISOString(),
-          sessionId: 'diagnostic_session',
-          source: 'TradeSphere_Diagnostics'
-        })
+        body: JSON.stringify(diagnosticPayload)
       });
       
       // Make.com webhooks typically return 200 even for test data

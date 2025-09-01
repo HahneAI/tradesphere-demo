@@ -159,12 +159,42 @@ const ChatInterface = () => {
       betaCodeId: user.beta_code_id
     };
     
+    // 🔧 CRITICAL: Validate ALL user context fields are present
+    const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'];
+    const missingFields = requiredFields.filter(field => !payload[field] || payload[field] === '');
+    
+    if (missingFields.length > 0) {
+      console.error('❌ STEP 4 FAILED: Missing required payload fields -', missingFields);
+      console.error('🔍 User object inspection:', {
+        userExists: !!user,
+        techId: user?.tech_uuid || 'MISSING',
+        firstName: user?.first_name || 'MISSING',
+        jobTitle: user?.job_title || 'MISSING', 
+        betaCodeId: user?.beta_code_id || 'MISSING'
+      });
+      console.groupEnd();
+      throw new Error(`Missing user context fields: ${missingFields.join(', ')}`);
+    }
+
     // Validate payload size (Make.com has limits)
     const payloadSize = JSON.stringify(payload).length;
     if (payloadSize > 10000) { // 10KB limit as safety measure
       console.warn('⚠️ STEP 4: Large payload detected -', payloadSize, 'bytes');
     }
-    console.log('✅ STEP 4: Payload prepared -', payloadSize, 'bytes');
+    
+    // ✅ ENHANCED: Log complete payload structure for debugging
+    console.log('✅ STEP 4: Complete payload prepared -', {
+      size: `${payloadSize} bytes`,
+      fieldCount: Object.keys(payload).length,
+      fields: Object.keys(payload),
+      userContext: {
+        techId: payload.techId?.slice(-8) || 'N/A',
+        firstName: payload.firstName,
+        jobTitle: payload.jobTitle,
+        betaCodeId: payload.betaCodeId
+      },
+      messagePreview: payload.message.substring(0, 50) + (payload.message.length > 50 ? '...' : '')
+    });
 
     // STEP 5: Performance tracking setup
     const startTime = performance.now();
@@ -181,12 +211,40 @@ const ChatInterface = () => {
     try {
       console.log('🚀 STEP 7: Sending webhook request...');
       
+      // 🔧 CRITICAL: Verify JSON serialization before transmission
+      let payloadJson;
+      try {
+        payloadJson = JSON.stringify(payload);
+        const parsedBack = JSON.parse(payloadJson);
+        
+        // Verify all fields survived serialization
+        const serializedFields = Object.keys(parsedBack);
+        const originalFields = Object.keys(payload);
+        
+        if (serializedFields.length !== originalFields.length) {
+          throw new Error(`Field count mismatch: ${originalFields.length} → ${serializedFields.length}`);
+        }
+        
+        console.log('✅ STEP 7.1: JSON serialization verified -', {
+          originalFields: originalFields.length,
+          serializedFields: serializedFields.length,
+          jsonSize: `${payloadJson.length} characters`
+        });
+        
+      } catch (jsonError) {
+        console.error('❌ STEP 7.1 FAILED: JSON serialization error');
+        console.error('🔍 Payload object:', payload);
+        console.error('🔥 JSON error:', jsonError.message);
+        console.groupEnd();
+        throw new Error(`Payload serialization failed: ${jsonError.message}`);
+      }
+
       const response = await fetch(MAKE_WEBHOOK_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: payloadJson, // Use pre-verified JSON string
         signal: controller.signal
       });
 
@@ -239,6 +297,20 @@ const ChatInterface = () => {
         webhookLatency: `${webhookLatency.toFixed(2)}ms`,
         payloadSize: `${payloadSize} bytes`,
         timestamp: new Date().toISOString().slice(11, 23) // Just time portion
+      });
+      
+      // 🔧 CRITICAL: Log final payload confirmation for Make.com debugging
+      console.log('📤 PAYLOAD SENT TO MAKE.COM:', {
+        message: 'Payload verification - all 8 fields included',
+        actualFieldsSent: Object.keys(payload),
+        expectedFields: ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'],
+        userContextIncluded: {
+          techId: !!payload.techId,
+          firstName: !!payload.firstName,
+          jobTitle: !!payload.jobTitle, 
+          betaCodeId: !!payload.betaCodeId
+        },
+        payloadJsonLength: payloadJson.length
       });
       
       console.groupEnd();
