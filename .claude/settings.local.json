@@ -17,7 +17,8 @@
       "Bash(npm run test:pipeline:mock:*)",
       "Bash(TEST_INPUT=\"15x10 patio with wood chips and steel edging\" npx tsx src/services/ai-engine/GPTServiceSplitter.ts)",
       "Bash(npm run test:gpt:comparison:*)",
-      "Bash(npm run test:conversation:*)"
+      "Bash(npm run test:conversation:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

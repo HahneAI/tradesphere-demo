@@ -5,7 +5,7 @@
  * Handles single and multi-service quotes with project totals
  */
 
-import { GoogleSheetsClient, getSheetsClient, SheetCalculationResult, ProjectTotal } from '../../utils/google-sheets-client';
+import { GoogleSheetsClient, createSheetsClient, SheetCalculationResult, ProjectTotal } from '../../utils/google-sheets-client';
 import { ExtractedService } from './ParameterCollectorService';
 
 export interface PricingResult {
@@ -30,7 +30,7 @@ export class PricingCalculatorService {
   private sheetsClient: GoogleSheetsClient;
   
   constructor() {
-    this.sheetsClient = getSheetsClient();
+    this.sheetsClient = createSheetsClient();
   }
 
   /**

@@ -8,3 +8,5 @@
 
 [functions]
   directory = "netlify/functions"
+  external_node_modules = ["google-auth-library", "googleapis"]
+  node_bundler = "esbuild"

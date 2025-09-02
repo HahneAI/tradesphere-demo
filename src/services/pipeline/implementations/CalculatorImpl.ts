@@ -15,12 +15,12 @@ import {
 } from '../interfaces';
 // Import Google Sheets client conditionally to avoid dependency issues
 let GoogleSheetsClient: any = null;
-let getSheetsClient: any = null;
+let createSheetsClient: any = null;
 
 try {
   const sheetsModule = require('../../../utils/google-sheets-client');
   GoogleSheetsClient = sheetsModule.GoogleSheetsClient;
-  getSheetsClient = sheetsModule.getSheetsClient;
+  createSheetsClient = sheetsModule.createSheetsClient;
 } catch (error) {
   console.warn('Google Sheets client not available - using mock mode only');
 }
@@ -30,10 +30,10 @@ export class CalculatorImpl implements IPriceCalculator {
   private useGoogleSheets: boolean;
 
   constructor(useGoogleSheets: boolean = true) {
-    this.useGoogleSheets = useGoogleSheets && getSheetsClient !== null;
+    this.useGoogleSheets = useGoogleSheets && createSheetsClient !== null;
     if (this.useGoogleSheets) {
       try {
-        this.sheetsClient = getSheetsClient();
+        this.sheetsClient = createSheetsClient();
       } catch (error) {
         console.warn('Failed to initialize Google Sheets client, falling back to mock mode');
         this.useGoogleSheets = false;
