@@ -19,7 +19,14 @@
     "test:benchmark": "cross-env MOCK_MODE=true BENCHMARK_MODE=true tsx src/tests/mock-runner.ts",
     "test:parity:mock": "cross-env MOCK_MODE=true PARITY_CHECK=true tsx src/tests/mock-runner.ts",
     "test:mock:pure": "tsx src/tests/mock-only-runner.ts",
-    "test:benchmark:pure": "tsx src/tests/mock-only-runner.ts --benchmark"
+    "test:benchmark:pure": "tsx src/tests/mock-only-runner.ts --benchmark",
+    "test:pipeline": "tsx src/tests/pipeline-test.ts",
+    "test:pipeline:mock": "cross-env PIPELINE_MODE=mock tsx src/tests/pipeline-test.ts",
+    "test:pipeline:debug": "cross-env PIPELINE_MODE=mock PIPELINE_DEBUG=true tsx src/tests/pipeline-test.ts",
+    "test:logic:verify": "tsx src/tests/business-logic-verify.ts",
+    "test:edge-cases": "tsx src/tests/edge-case-tests.ts",
+    "test:integration": "tsx src/tests/integration-test.ts",
+    "test:real-logic": "tsx src/tests/real-logic-test.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
