@@ -174,8 +174,8 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       return createSuccessResponse(response, corsHeaders);
     }
 
-    // STEP 2: PRICING CALCULATION (Replaces Make.com 10-module chain)
-    console.log('💰 STEP 2: Pricing Calculation');
+    // STEP 2: PRICING CALCULATION (Replaces Make.com 10-module chain with multi-user support)
+    console.log(`💰 STEP 2: Pricing Calculation for Beta Code ID ${payload.betaCodeId}`);
     const calculationStart = Date.now();
     
     const pricingCalculator = createPricingCalculator();
@@ -185,10 +185,10 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     const hasIrrigation = collectionResult.services.some(s => s.serviceName.includes('Irrigation'));
     
     if (hasIrrigation) {
-      console.log('💧 Using irrigation-specific pricing calculation');
-      pricingResult = await pricingCalculator.calculateIrrigationPricing(collectionResult.services);
+      console.log(`💧 Using irrigation-specific pricing calculation for Beta Code ${payload.betaCodeId}`);
+      pricingResult = await pricingCalculator.calculateIrrigationPricing(collectionResult.services, payload.betaCodeId);
     } else {
-      pricingResult = await pricingCalculator.calculatePricing(collectionResult.services);
+      pricingResult = await pricingCalculator.calculatePricing(collectionResult.services, payload.betaCodeId);
     }
 
     metrics.pricingCalculationTime = Date.now() - calculationStart;

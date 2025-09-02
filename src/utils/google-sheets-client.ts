@@ -137,46 +137,62 @@ export class GoogleSheetsClient {
   }
 
   /**
-   * Write quantity to specific service row in Google Sheets
+   * Get sheet name based on beta code ID for multi-user support
    */
-  async writeServiceQuantity(row: number, quantity: number): Promise<void> {
+  private getSheetName(betaCodeId?: number): string {
+    if (betaCodeId && betaCodeId >= 1 && betaCodeId <= 12) {
+      return `ID ${betaCodeId} Base`;
+    }
+    return 'Sheet1'; // Default sheet for legacy compatibility
+  }
+
+  /**
+   * Write quantity to specific service row in Google Sheets with beta code ID support
+   */
+  async writeServiceQuantity(row: number, quantity: number, betaCodeId?: number): Promise<void> {
     const initialized = await this.initialize();
+    const sheetName = this.getSheetName(betaCodeId);
+    
     if (!initialized) {
-      console.log(`🧪 MOCK: Would write quantity ${quantity} to row ${row}`);
+      console.log(`🧪 MOCK: Would write quantity ${quantity} to row ${row} in sheet "${sheetName}"`);
       return;
     }
 
     try {
+      const range = `'${sheetName}'!B${row}`; // Target user-specific sheet
+      
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `B${row}`, // Column B contains quantities
+        range: range,
         valueInputOption: 'RAW',
         requestBody: {
           values: [[quantity]]
         }
       });
 
-      console.log(`✅ Written quantity ${quantity} to row ${row}`);
+      console.log(`✅ Written quantity ${quantity} to row ${row} in sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to write quantity to row ${row}:`, errorMessage);
+      console.error(`❌ Failed to write quantity to row ${row} in sheet "${sheetName}":`, errorMessage);
       throw new Error(`Google Sheets write failed: ${errorMessage}`);
     }
   }
 
   /**
-   * Write multiple service quantities at once
+   * Write multiple service quantities at once with beta code ID support
    */
-  async writeMultipleQuantities(updates: { row: number; quantity: number }[]): Promise<void> {
+  async writeMultipleQuantities(updates: { row: number; quantity: number }[], betaCodeId?: number): Promise<void> {
     const initialized = await this.initialize();
+    const sheetName = this.getSheetName(betaCodeId);
+    
     if (!initialized) {
-      console.log(`🧪 MOCK: Would write ${updates.length} quantities:`, updates);
+      console.log(`🧪 MOCK: Would write ${updates.length} quantities to sheet "${sheetName}":`, updates);
       return;
     }
 
     try {
       const requests = updates.map(({ row, quantity }) => ({
-        range: `B${row}`,
+        range: `'${sheetName}'!B${row}`,
         values: [[quantity]]
       }));
 
@@ -188,27 +204,29 @@ export class GoogleSheetsClient {
         }
       });
 
-      console.log(`✅ Written ${updates.length} quantities to Google Sheets`);
+      console.log(`✅ Written ${updates.length} quantities to sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Failed to write multiple quantities:', errorMessage);
+      console.error(`❌ Failed to write multiple quantities to sheet "${sheetName}":`, errorMessage);
       throw new Error(`Google Sheets batch write failed: ${errorMessage}`);
     }
   }
 
   /**
-   * Read calculated results from Google Sheets
+   * Read calculated results from Google Sheets with beta code ID support
    */
-  async readCalculationResults(rows: number[]): Promise<SheetCalculationResult[]> {
+  async readCalculationResults(rows: number[], betaCodeId?: number): Promise<SheetCalculationResult[]> {
     const initialized = await this.initialize();
+    const sheetName = this.getSheetName(betaCodeId);
+    
     if (!initialized) {
       // Return mock data
-      console.log(`🧪 MOCK: Would read calculation results from rows:`, rows);
-      return this.getMockCalculationResults(rows);
+      console.log(`🧪 MOCK: Would read calculation results from rows in sheet "${sheetName}":`, rows);
+      return this.getMockCalculationResults(rows, betaCodeId);
     }
 
     try {
-      const ranges = rows.map(row => `C${row}:E${row}`); // Labor hours (C), Cost (D), Service name (E)
+      const ranges = rows.map(row => `'${sheetName}'!C${row}:E${row}`); // Labor hours (C), Cost (D), Service name (E)
       
       const response = await this.sheets.spreadsheets.values.batchGet({
         spreadsheetId: this.spreadsheetId,
@@ -229,12 +247,12 @@ export class GoogleSheetsClient {
         });
       });
 
-      console.log(`✅ Read calculation results for ${results.length} services`);
+      console.log(`✅ Read calculation results for ${results.length} services from sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
       return results;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Failed to read calculation results:', errorMessage);
+      console.error(`❌ Failed to read calculation results from sheet "${sheetName}":`, errorMessage);
       throw new Error(`Google Sheets read failed: ${errorMessage}`);
     }
   }
@@ -253,16 +271,17 @@ export class GoogleSheetsClient {
   }
 
   /**
-   * Get mock calculation results for testing/fallback
+   * Get mock calculation results for testing/fallback with beta code ID
    */
-  private getMockCalculationResults(rows: number[]): SheetCalculationResult[] {
-    console.log('🧪 Using mock calculation results');
+  private getMockCalculationResults(rows: number[], betaCodeId?: number): SheetCalculationResult[] {
+    const sheetName = this.getSheetName(betaCodeId);
+    console.log(`🧪 Using mock calculation results for sheet "${sheetName}"`);
     
     return rows.map(row => ({
       row,
       laborHours: Math.round((10 + Math.random() * 20) * 100) / 100, // 10-30 hours
       cost: Math.round((150 + Math.random() * 800) * 100) / 100, // $150-950
-      service: `Mock Service ${row}`
+      service: `Mock Service ${row} (${sheetName})`
     }));
   }
 
@@ -294,26 +313,28 @@ export class GoogleSheetsClient {
   }
 
   /**
-   * Clear all quantities in the sheet (reset for new calculation)
+   * Clear all quantities in the sheet (reset for new calculation) with beta code ID support
    */
-  async clearQuantities(): Promise<void> {
+  async clearQuantities(betaCodeId?: number): Promise<void> {
     const initialized = await this.initialize();
+    const sheetName = this.getSheetName(betaCodeId);
+    
     if (!initialized) {
-      console.log('🧪 MOCK: Would clear all quantities');
+      console.log(`🧪 MOCK: Would clear all quantities in sheet "${sheetName}"`);
       return;
     }
 
     try {
-      // Clear quantity column B (rows 2-100 to cover all services)
+      // Clear quantity column B (rows 2-100 to cover all services) in the specific sheet
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
-        range: 'B2:B100'
+        range: `'${sheetName}'!B2:B100`
       });
 
-      console.log('✅ Cleared all quantities in Google Sheets');
+      console.log(`✅ Cleared all quantities in sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('❌ Failed to clear quantities:', errorMessage);
+      console.error(`❌ Failed to clear quantities in sheet "${sheetName}":`, errorMessage);
       throw new Error(`Google Sheets clear failed: ${errorMessage}`);
     }
   }

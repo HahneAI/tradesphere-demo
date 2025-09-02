@@ -29,18 +29,18 @@ export interface ServiceQuote {
 export class PricingCalculatorService {
   private sheetsClient: GoogleSheetsClient;
   
-  constructor() {
-    this.sheetsClient = createSheetsClient();
+  constructor(spreadsheetId?: string) {
+    this.sheetsClient = createSheetsClient(spreadsheetId);
   }
 
   /**
-   * Main entry point - calculate pricing for extracted services
-   * Replicates Make.com pricing_calculation module
+   * Main entry point - calculate pricing for extracted services with beta code ID support
+   * Replicates Make.com pricing_calculation module with multi-user sheet targeting
    */
-  async calculatePricing(services: ExtractedService[]): Promise<PricingResult> {
+  async calculatePricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
     const startTime = Date.now();
     
-    console.log(`💰 PRICING CALCULATION START: ${services.length} services`);
+    console.log(`💰 PRICING CALCULATION START: ${services.length} services (Beta Code: ${betaCodeId || 'default'})`);
     services.forEach(service => {
       console.log(`  - ${service.serviceName}: ${service.quantity} ${service.unit} (row ${service.row})`);
     });
@@ -53,15 +53,15 @@ export class PricingCalculatorService {
       let result: PricingResult;
       
       if (services.length === 1) {
-        result = await this.calculateSingleService(services[0]);
+        result = await this.calculateSingleService(services[0], betaCodeId);
       } else {
-        result = await this.calculateMultipleServices(services);
+        result = await this.calculateMultipleServices(services, betaCodeId);
       }
 
       const calculationTime = Date.now() - startTime;
       result.calculationTime = calculationTime;
 
-      console.log(`✅ PRICING COMPLETE: ${calculationTime}ms`);
+      console.log(`✅ PRICING COMPLETE: ${calculationTime}ms (Beta Code: ${betaCodeId || 'default'})`);
       console.log(`   Total Cost: $${result.totals.totalCost}`);
       console.log(`   Total Hours: ${result.totals.totalLaborHours}h`);
 
@@ -81,16 +81,20 @@ export class PricingCalculatorService {
   }
 
   /**
-   * Calculate pricing for a single service
+   * Calculate pricing for a single service with beta code ID support
    */
-  private async calculateSingleService(service: ExtractedService): Promise<PricingResult> {
-    console.log(`🔢 Single service calculation: ${service.serviceName}`);
+  private async calculateSingleService(service: ExtractedService, betaCodeId?: number): Promise<PricingResult> {
+    console.log(`🔢 Single service calculation: ${service.serviceName} (Beta Code: ${betaCodeId || 'default'})`);
     
-    const sheetResult = await this.sheetsClient.calculateSingleService(
-      service.row,
-      service.quantity,
-      service.serviceName
-    );
+    // Step 1: Clear any existing quantities in the sheet
+    await this.sheetsClient.clearQuantities(betaCodeId);
+    
+    // Step 2: Write the service quantity
+    await this.sheetsClient.writeServiceQuantity(service.row, service.quantity, betaCodeId);
+    
+    // Step 3: Read the calculated results
+    const sheetResults = await this.sheetsClient.readCalculationResults([service.row], betaCodeId);
+    const sheetResult = sheetResults[0];
 
     const serviceQuote: ServiceQuote = {
       serviceName: service.serviceName,
@@ -114,35 +118,47 @@ export class PricingCalculatorService {
   }
 
   /**
-   * Calculate pricing for multiple services
+   * Calculate pricing for multiple services with beta code ID support
    */
-  private async calculateMultipleServices(services: ExtractedService[]): Promise<PricingResult> {
-    console.log(`🔢 Multi-service calculation: ${services.length} services`);
+  private async calculateMultipleServices(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
+    console.log(`🔢 Multi-service calculation: ${services.length} services (Beta Code: ${betaCodeId || 'default'})`);
     
-    // Prepare services for Google Sheets calculation
-    const sheetsServices = services.map(service => ({
+    // Step 1: Clear any existing quantities in the sheet
+    await this.sheetsClient.clearQuantities(betaCodeId);
+    
+    // Step 2: Write all service quantities
+    const updates = services.map(service => ({
       row: service.row,
-      quantity: service.quantity,
-      name: service.serviceName
+      quantity: service.quantity
     }));
-
-    // Execute calculation
-    const sheetsResult = await this.sheetsClient.calculateMultipleServices(sheetsServices);
+    
+    await this.sheetsClient.writeMultipleQuantities(updates, betaCodeId);
+    
+    // Step 3: Read all calculated results
+    const rows = services.map(service => service.row);
+    const sheetResults = await this.sheetsClient.readCalculationResults(rows, betaCodeId);
 
     // Map results back to our format
-    const serviceQuotes: ServiceQuote[] = sheetsResult.services.map(sheetService => ({
-      serviceName: sheetService.service,
-      quantity: this.findOriginalQuantity(sheetService.service, services),
-      unit: this.findOriginalUnit(sheetService.service, services),
-      laborHours: sheetService.laborHours,
-      cost: sheetService.cost,
-      row: sheetService.row,
-      category: this.getServiceCategory(sheetService.service)
-    }));
+    const serviceQuotes: ServiceQuote[] = services.map((service, index) => {
+      const sheetResult = sheetResults.find(r => r.row === service.row) || sheetResults[index];
+      
+      return {
+        serviceName: service.serviceName,
+        quantity: service.quantity,
+        unit: service.unit,
+        laborHours: sheetResult?.laborHours || 0,
+        cost: sheetResult?.cost || 0,
+        row: service.row,
+        category: this.getServiceCategory(service.serviceName)
+      };
+    });
+
+    // Calculate totals from the service quotes
+    const totals = this.sheetsClient.calculateProjectTotals(sheetResults);
 
     return {
       services: serviceQuotes,
-      totals: sheetsResult.totals,
+      totals,
       calculationTime: 0, // Set by caller
       success: true
     };
@@ -151,8 +167,8 @@ export class PricingCalculatorService {
   /**
    * Handle special irrigation pricing logic
    */
-  async calculateIrrigationPricing(services: ExtractedService[]): Promise<PricingResult> {
-    console.log('💧 IRRIGATION PRICING CALCULATION');
+  async calculateIrrigationPricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
+    console.log(`💧 IRRIGATION PRICING CALCULATION (Beta Code: ${betaCodeId || 'default'})`);
 
     const irrigationServices = services.filter(s => s.serviceName.includes('Irrigation'));
     const regularServices = services.filter(s => !s.serviceName.includes('Irrigation'));
@@ -163,7 +179,7 @@ export class PricingCalculatorService {
     // Combine with regular services
     const allServices = [...enhancedServices, ...regularServices];
 
-    return this.calculateMultipleServices(allServices);
+    return this.calculateMultipleServices(allServices, betaCodeId);
   }
 
   /**
@@ -350,6 +366,6 @@ export class PricingCalculatorService {
 }
 
 // Export factory function
-export const createPricingCalculator = (): PricingCalculatorService => {
-  return new PricingCalculatorService();
+export const createPricingCalculator = (spreadsheetId?: string): PricingCalculatorService => {
+  return new PricingCalculatorService(spreadsheetId);
 };

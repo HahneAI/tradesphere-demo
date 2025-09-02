@@ -35,7 +35,8 @@
     "test:gpt:comparison": "cross-env TEST_MODE=comparison tsx src/tests/gpt-enhanced-test.ts",
     "test:gpt-splitter": "tsx src/services/ai-engine/GPTServiceSplitter.ts",
     "test:conversation": "tsx src/tests/conversation-context-test.ts",
-    "test:conversation:debug": "tsx --inspect-brk=9229 src/tests/conversation-context-test.ts"
+    "test:conversation:debug": "tsx --inspect-brk=9229 src/tests/conversation-context-test.ts",
+    "test:multi-user": "tsx src/tests/multi-user-beta-test.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
