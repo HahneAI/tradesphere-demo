@@ -297,10 +297,10 @@ export class GoogleSheetsClient {
 
 // Factory function for creating client instances
 export const createSheetsClient = (spreadsheetId?: string): GoogleSheetsClient => {
-  const sheetId = spreadsheetId || process.env.GOOGLE_SHEETS_ID;
+  const sheetId = spreadsheetId || import.meta.env?.VITE_GOOGLE_SHEETS_SHEET_ID || process.env.VITE_GOOGLE_SHEETS_SHEET_ID;
   
   if (!sheetId) {
-    throw new Error('Google Sheets ID is required. Set GOOGLE_SHEETS_ID environment variable.');
+    throw new Error('Google Sheets ID is required. Set VITE_GOOGLE_SHEETS_SHEET_ID environment variable.');
   }
 
   return new GoogleSheetsClient(sheetId);

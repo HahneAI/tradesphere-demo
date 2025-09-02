@@ -79,10 +79,12 @@ Output: {
    * Main analysis method - combines category detection and service splitting
    */
   async analyzeAndSplit(input: string): Promise<CategorySplitResult> {
-    const apiKey = process.env.OPENAI_API_KEY_MINI;
+    // Try both VITE_ prefixed (for frontend) and regular (for Node.js) versions
+    const apiKey = import.meta.env?.VITE_OPENAI_API_KEY_MINI || process.env.VITE_OPENAI_API_KEY_MINI;
     
     if (!apiKey) {
-      console.log('🔄 No OPENAI_API_KEY_MINI found, using mock mode');
+      console.log('🔄 No VITE_OPENAI_API_KEY_MINI found, using mock mode');
+      console.log('💡 To use GPT-4o-mini API: Set VITE_OPENAI_API_KEY_MINI in your .env file');
       return this.mockAnalyzeAndSplit(input);
     }
 
@@ -97,7 +99,19 @@ Output: {
       return result;
       
     } catch (error) {
-      console.warn('⚠️ GPT API failed, falling back to mock mode:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn('⚠️ GPT API failed, falling back to mock mode');
+      console.warn(`   Error: ${errorMessage}`);
+      
+      // Provide specific guidance based on error type
+      if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+        console.warn('   💡 Check your VITE_OPENAI_API_KEY_MINI - it may be invalid or expired');
+      } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+        console.warn('   💡 Rate limit exceeded - consider using mock mode during development');
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        console.warn('   💡 Network error - check your internet connection');
+      }
+      
       return this.mockAnalyzeAndSplit(input);
     }
   }
