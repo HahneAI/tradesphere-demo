@@ -14,6 +14,8 @@ import {
   getServiceByName,
   isSpecialService
 } from '../../config/service-database';
+import { DimensionCalculator } from '../../utils/dimension-calculator';
+import { GPTServiceSplitter, CategorySplitResult } from './GPTServiceSplitter';
 
 export interface RecognizedService {
   serviceName: string;
@@ -45,14 +47,70 @@ export class ServiceMappingEngine {
   ];
 
   /**
-   * Main entry point: Map user input to recognized services
+   * Enhanced entry point: Map user input using GPT-powered category detection and service splitting
    */
-  static mapUserInput(userInput: string): ServiceMappingResult {
+  static async mapUserInputWithGPT(userInput: string): Promise<ServiceMappingResult> {
+    console.log(`🤖 GPT-ENHANCED SERVICE MAPPING: "${userInput}"`);
+    
+    // Step 1: Use GPT to detect categories - this gives us context about what to expect
+    const gptSplitter = new GPTServiceSplitter();
+    const splitResult = await gptSplitter.analyzeAndSplit(userInput);
+    
+    console.log(`🎯 GPT ANALYSIS: ${splitResult.service_count} services in categories [${splitResult.detected_categories.join(', ')}]`);
+    
+    // Step 2: Use category information to prioritize certain services, but process FULL input
+    // This preserves quantities and context while leveraging GPT insights
+    const prioritizedResult = this.mapUserInputWithCategoryPriorities(userInput, splitResult.detected_categories);
+    
+    console.log(`🎯 GPT-ENHANCED RESULT: ${prioritizedResult.services.length} total services with ${(prioritizedResult.confidence * 100).toFixed(0)}% confidence`);
+    
+    return prioritizedResult;
+  }
+
+  /**
+   * Map user input with category priorities from GPT analysis
+   */
+  private static mapUserInputWithCategoryPriorities(userInput: string, categories: string[]): ServiceMappingResult {
+    console.log(`📊 PROCESSING WITH CATEGORY PRIORITIES: [${categories.join(', ')}]`);
+    
+    // Process normally but track which services match expected categories
+    const result = this.mapUserInput(userInput);
+    
+    // Boost confidence for services that match expected categories
+    result.services.forEach(service => {
+      const serviceConfig = getServiceByName(service.serviceName);
+      if (serviceConfig && categories.includes(serviceConfig.category)) {
+        console.log(`✅ CATEGORY MATCH: ${service.serviceName} matches expected category ${serviceConfig.category}`);
+        service.confidence = Math.min(1.0, service.confidence * 1.1); // 10% confidence boost
+      } else if (serviceConfig) {
+        console.log(`⚠️ CATEGORY MISMATCH: ${service.serviceName} (${serviceConfig.category}) not in expected categories`);
+      }
+    });
+    
+    // Recalculate overall confidence
+    result.confidence = this.calculateOverallConfidence(result.services);
+    
+    return result;
+  }
+
+  /**
+   * Main entry point: Map user input to recognized services
+   * @param categoryHint Optional category hint from GPT analysis to filter synonyms
+   */
+  static mapUserInput(userInput: string, categoryHint?: string): ServiceMappingResult {
     console.log(`🔍 SERVICE MAPPING: "${userInput}"`);
     
     const normalizedInput = this.normalizeInput(userInput);
-    const extractedServices = this.extractServices(normalizedInput);
+    console.log(`📝 NORMALIZED INPUT: "${normalizedInput}"`);
+    
+    const extractedServices = this.extractServices(normalizedInput, categoryHint);
+    console.log(`🔍 EXTRACTED SERVICES: ${extractedServices.length} found`);
+    extractedServices.forEach((service, i) => {
+      console.log(`  ${i+1}. ${service.serviceName}: ${service.quantity} ${service.unit} (confidence: ${service.confidence})`);
+    });
+    
     const validatedServices = this.validateServices(extractedServices);
+    console.log(`✅ VALIDATED SERVICES: ${validatedServices.length} passed validation`);
     
     const result: ServiceMappingResult = {
       services: validatedServices,
@@ -62,7 +120,14 @@ export class ServiceMappingEngine {
       clarificationQuestions: this.generateClarificationQuestions(validatedServices)
     };
 
-    console.log(`✅ MAPPED ${result.services.length} services with ${result.confidence}% confidence`);
+    console.log(`📊 FINAL RESULT: ${result.services.length} services with ${(result.confidence * 100).toFixed(0)}% confidence`);
+    if (result.services.length === 0) {
+      console.log(`❌ NO SERVICES FOUND - Debug info:`);
+      console.log(`   - Normalized input: "${normalizedInput}"`);
+      console.log(`   - Extracted services: ${extractedServices.length}`);
+      console.log(`   - Validation passed: ${validatedServices.length}`);
+    }
+    
     result.services.forEach(service => {
       console.log(`  - ${service.serviceName}: ${service.quantity} ${service.unit} (row ${service.row})`);
     });
@@ -74,32 +139,72 @@ export class ServiceMappingEngine {
    * Normalize user input for better matching
    */
   private static normalizeInput(input: string): string {
-    return input
+    const original = input;
+    const normalized = input
       .toLowerCase()
       .trim()
-      // Handle common spelling variations
+      // Handle common spelling variations and synonyms (ENHANCED BAREBONES SUPPORT)
       .replace(/\bmulching\b/g, 'mulch')
+      .replace(/\bwood chips?\b/g, 'mulch')
+      .replace(/\bbark chips?\b/g, 'mulch')
       .replace(/\bsprinklers?\b/g, 'irrigation')
       .replace(/\bpavers?\b/g, 'paver patio')
-      // Normalize units
+      .replace(/\bpaver\s+patios?\b/g, 'paver patio')
+      .replace(/\bstone\s+patios?\b/g, 'paver patio')
+      .replace(/\bsteel\s+edging\b/g, 'metal edging')
+      .replace(/\baluminum\s+edging\b/g, 'metal edging')
+      .replace(/\btopsoils?\b/g, 'topsoil')
+      .replace(/\bdirt\b/g, 'topsoil')
+      .replace(/\bsoils?\b/g, 'topsoil')
+      // Handle barebones dimension patterns like "12x8", "15 by 10"
+      .replace(/(\d+)\s*x\s*(\d+)/g, '$1 by $2')
+      .replace(/(\d+)\s*×\s*(\d+)/g, '$1 by $2')
+      // CRITICAL FIX: Normalize all square feet variations
+      .replace(/\bsquare\s+f(?:oo|ee)t\b/g, 'sqft')
+      .replace(/\bsquare\s+foot\b/g, 'sqft') 
       .replace(/\bsq\.?\s*ft\.?\b/g, 'sqft')
+      .replace(/\bsqft\b/g, 'sqft')  // Ensure consistent
+      // Linear feet variations
+      .replace(/\blinear\s+f(?:oo|ee)t\b/g, 'linear feet')
       .replace(/\blinear\s+ft\.?\b/g, 'linear feet')
       .replace(/\blin\.?\s*ft\.?\b/g, 'linear feet')
+      // Handle cubic yard variations (ENHANCED BAREBONES SUPPORT)
+      .replace(/\bcubic\s+yards?\b/g, 'cubic yards')
+      .replace(/\bcu\.?\s*yds?\b/g, 'cubic yards')
+      .replace(/\bcuyds?\b/g, 'cubic yards')
+      // Handle common action words (normalize away for barebones support)
+      .replace(/\binstall(?:ing|ed)?\b/g, '')
+      .replace(/\bput\s+in\b/g, '')
+      .replace(/\badd(?:ing)?\b/g, '')
+      .replace(/\bneed(?:ed|s)?\b/g, '')
+      .replace(/\bwant(?:ed|s)?\b/g, '')
+      .replace(/\bget\b/g, '')
       // Handle "and" connections
-      .replace(/\s+and\s+/g, ' AND ');
+      .replace(/\s+and\s+/g, ' AND ')
+      .replace(/\s+plus\s+/g, ' AND ')
+      .replace(/\s+with\s+/g, ' AND ')
+      // Clean up extra whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    if (original !== normalized) {
+      console.log(`🔄 NORMALIZATION: "${original}" → "${normalized}"`);
+    }
+    
+    return normalized;
   }
 
   /**
    * Extract potential services with quantities from text
    */
-  private static extractServices(input: string): RecognizedService[] {
+  private static extractServices(input: string, categoryHint?: string): RecognizedService[] {
     const services: RecognizedService[] = [];
     
     // Split on "AND" to handle multiple services
     const segments = input.split(' AND ');
     
     for (const segment of segments) {
-      const segmentServices = this.extractFromSegment(segment.trim());
+      const segmentServices = this.extractFromSegment(segment.trim(), categoryHint);
       services.push(...segmentServices);
     }
 
@@ -109,11 +214,11 @@ export class ServiceMappingEngine {
   /**
    * Extract services from a single text segment
    */
-  private static extractFromSegment(segment: string): RecognizedService[] {
+  private static extractFromSegment(segment: string, categoryHint?: string): RecognizedService[] {
     const services: RecognizedService[] = [];
     
-    // Try to find service matches using synonyms
-    const serviceMatches = this.findServiceMatches(segment);
+    // Try to find service matches using synonyms (with optional category filtering)
+    const serviceMatches = this.findServiceMatches(segment, categoryHint);
     
     for (const match of serviceMatches) {
       // Extract quantity for this service
@@ -141,30 +246,59 @@ export class ServiceMappingEngine {
   /**
    * Find potential service matches in text using synonym database
    */
-  private static findServiceMatches(text: string): { serviceName: string; confidence: number }[] {
+  private static findServiceMatches(text: string, categoryHint?: string): { serviceName: string; confidence: number }[] {
     const matches: { serviceName: string; confidence: number }[] = [];
+    const searchContext = categoryHint ? ` (filtered by category: ${categoryHint})` : '';
+    console.log(`🔍 SYNONYM SEARCH in text: "${text}"${searchContext}`);
     
     // Check each service's synonyms
     for (const [serviceName, synonyms] of Object.entries(SERVICE_SYNONYMS)) {
+      // Apply category filtering if hint is provided (soft filtering - boost confidence for matching categories)
+      if (categoryHint) {
+        const serviceConfig = getServiceByName(serviceName);
+        if (serviceConfig && serviceConfig.category !== categoryHint) {
+          // Don't completely skip, but lower confidence for non-matching categories
+          continue; // For now, still skip to test hard filtering
+        }
+      }
+      
       for (const synonym of synonyms) {
-        if (text.includes(synonym.toLowerCase())) {
-          const confidence = this.calculateSynonymConfidence(text, synonym);
+        const synonymLower = synonym.toLowerCase();
+        const textLower = text.toLowerCase(); // Ensure both are lowercase
+        
+        if (textLower.includes(synonymLower)) {
+          const confidence = this.calculateSynonymConfidence(textLower, synonymLower);
+          
+          console.log(`✅ SYNONYM MATCH: "${synonym}" found in "${text}" for service "${serviceName}" (confidence: ${confidence})`);
           
           matches.push({
             serviceName,
             confidence
           });
           break; // Only match once per service
+        } else {
+          // Debug: Show failed matches for mulch
+          if (synonym.includes('mulch') || synonym.includes('triple')) {
+            console.log(`❌ SYNONYM MISS: "${synonym}" NOT found in "${text}"`);
+          }
         }
       }
     }
 
+    console.log(`📊 SYNONYM MATCHES: ${matches.length} found`);
+    matches.forEach(match => {
+      console.log(`  - ${match.serviceName}: ${match.confidence}`);
+    });
+
     // Sort by confidence and remove duplicates
-    return matches
+    const result = matches
       .sort((a, b) => b.confidence - a.confidence)
       .filter((match, index, array) => 
         array.findIndex(m => m.serviceName === match.serviceName) === index
       );
+      
+    console.log(`🎯 FINAL MATCHES: ${result.length} after deduplication`);
+    return result;
   }
 
   /**
@@ -194,35 +328,97 @@ export class ServiceMappingEngine {
    */
   private static extractQuantity(text: string, serviceName: string): number {
     const serviceConfig = getServiceByName(serviceName);
-    if (!serviceConfig) return 0;
+    if (!serviceConfig) {
+      console.log(`❌ QUANTITY EXTRACT: No config for service "${serviceName}"`);
+      return 0;
+    }
 
-    // Look for numbers near service-related terms
-    const patterns = this.QUANTITY_PATTERNS;
+    console.log(`🔢 EXTRACTING QUANTITY from "${text}" for service "${serviceName}" (expects unit: ${serviceConfig.unit})`);
+
+    // SMART DIMENSION CALCULATION - Check for dimensions first
+    try {
+      const dimensionResult = DimensionCalculator.parse(text, serviceName);
+      
+      if (dimensionResult) {
+        console.log(`📐 DIMENSION CALCULATION: Found ${dimensionResult.calculationType} calculation`);
+        
+        // Check if the calculated unit matches the expected service unit
+        const compatible = this.unitsAreCompatible(dimensionResult.unit, serviceConfig.unit);
+        
+        if (compatible) {
+          console.log(`✅ DIMENSION QUANTITY: ${dimensionResult.quantity} ${dimensionResult.unit} (${dimensionResult.confidence * 100}% confidence)`);
+          if (dimensionResult.dimensions) {
+            console.log(`   📏 Calculated from: ${dimensionResult.dimensions.length} x ${dimensionResult.dimensions.width} = ${dimensionResult.dimensions.area}`);
+          }
+          return dimensionResult.quantity;
+        } else {
+          console.log(`⚠️ DIMENSION UNIT MISMATCH: Got ${dimensionResult.unit}, expected ${serviceConfig.unit}`);
+          // Continue to standard extraction
+        }
+      }
+    } catch (error) {
+      console.log(`⚠️ DIMENSION CALCULATION ERROR: ${error.message}`);
+      // Continue to standard extraction
+    }
+
+    // Standard quantity extraction patterns (fallback)
+    const enhancedPatterns = [
+      // Pattern 1: Number with units (e.g., "44 sqft", "3 linear feet")
+      /(\d+(?:\.\d+)?)\s*(sqft|square\s?f(?:oo|ee)t|linear\s?f(?:oo|ee)t|lin\s?ft|ft|feet|yard|yards|cubic\s?yard|cu\s?yd|each|spouts?|zones?)/gi,
+      
+      // Pattern 2: Number followed by unit with "OF" (e.g., "44 sqft OF mulch")
+      /(\d+(?:\.\d+)?)\s*(sqft|square\s?f(?:oo|ee)t|linear\s?f(?:oo|ee)t|lin\s?ft|ft|feet)\s+(?:of\s+)?/gi,
+      
+      // Pattern 3: Just numbers (assume default unit for service)
+      /(\d+(?:\.\d+)?)\s*(?=\s|$|[a-z])/gi
+    ];
+
     let bestQuantity = 0;
+    let matchDetails = '';
     
-    for (const pattern of patterns) {
+    console.log(`🔄 FALLBACK: Using standard quantity extraction patterns`);
+    
+    for (let i = 0; i < enhancedPatterns.length; i++) {
+      const pattern = enhancedPatterns[i];
       const matches = Array.from(text.matchAll(pattern));
       
       for (const match of matches) {
         const quantity = parseFloat(match[1]);
         const unit = match[2]?.toLowerCase() || '';
         
+        console.log(`🔍 Pattern ${i+1} match: "${match[0]}" → quantity: ${quantity}, unit: "${unit}"`);
+        
         // Convert units if necessary
         const normalizedUnit = this.normalizeUnit(unit);
+        console.log(`🔄 Unit normalized: "${unit}" → "${normalizedUnit}"`);
         
         // Check if unit matches service expectation
-        if (this.unitsAreCompatible(normalizedUnit, serviceConfig.unit)) {
-          bestQuantity = Math.max(bestQuantity, quantity);
+        const compatible = this.unitsAreCompatible(normalizedUnit, serviceConfig.unit);
+        console.log(`🔗 Unit compatibility: "${normalizedUnit}" with "${serviceConfig.unit}" = ${compatible}`);
+        
+        if (compatible && quantity > bestQuantity) {
+          bestQuantity = quantity;
+          matchDetails = `pattern ${i+1}: "${match[0]}" → ${quantity} ${normalizedUnit}`;
         }
       }
     }
 
-    // If no quantity found, try to extract just numbers
-    if (bestQuantity === 0) {
-      const numberMatches = text.match(/\d+(?:\.\d+)?/g);
+    // If no quantity found, try to extract just numbers for sqft services
+    if (bestQuantity === 0 && serviceConfig.unit === 'sqft') {
+      const numberMatches = text.match(/(\d+(?:\.\d+)?)/g);
       if (numberMatches) {
         bestQuantity = parseFloat(numberMatches[0]);
+        matchDetails = `fallback number: ${bestQuantity} (assuming sqft)`;
+        console.log(`🔢 Fallback extraction: ${bestQuantity} (assuming sqft for service)`);
       }
+    }
+
+    if (bestQuantity > 0) {
+      console.log(`✅ QUANTITY EXTRACTED: ${bestQuantity} via ${matchDetails}`);
+    } else {
+      console.log(`❌ NO QUANTITY FOUND in "${text}" for service "${serviceName}"`);
+      console.log(`   Expected unit: ${serviceConfig.unit}`);
+      console.log(`   Text patterns tested: ${enhancedPatterns.length}`);
     }
 
     return bestQuantity;
@@ -242,16 +438,27 @@ export class ServiceMappingEngine {
   private static unitsAreCompatible(inputUnit: string, serviceUnit: string): boolean {
     if (inputUnit === serviceUnit) return true;
     
-    // Special compatibility rules
+    // Special compatibility rules - ENHANCED
     const compatibilityMap: Record<string, string[]> = {
-      'sqft': ['square_feet', 'sq_ft', 'sqft'],
-      'linear_feet': ['feet', 'ft', 'linear_feet', 'lin_ft'],
-      'cubic_yards': ['yards', 'yard', 'cubic_yards', 'cu_yd'],
-      'each': ['each', 'spouts', 'zones', 'pieces']
+      'sqft': ['square_feet', 'sq_ft', 'sqft', 'squarefeet', 'squarefoot', 'sq', ''],  // Added empty string for number-only
+      'linear_feet': ['feet', 'ft', 'linear_feet', 'lin_ft', 'linearfeet', 'linear'],
+      'cubic_yards': ['yards', 'yard', 'cubic_yards', 'cu_yd', 'cuyd', 'cubicyard', 'cubicyards'],
+      'each': ['each', 'spouts', 'zones', 'pieces', 'ea', 'piece', '']  // Added empty string for number-only quantities
     };
 
     const compatibleUnits = compatibilityMap[serviceUnit] || [];
-    return compatibleUnits.includes(inputUnit);
+    const isCompatible = compatibleUnits.includes(inputUnit);
+    
+    // Debug logging for unit compatibility
+    if (!isCompatible && (inputUnit || serviceUnit === 'sqft')) {
+      console.log(`🔍 UNIT COMPATIBILITY CHECK:`);
+      console.log(`   Input unit: "${inputUnit}"`);
+      console.log(`   Service unit: "${serviceUnit}"`);
+      console.log(`   Compatible units for ${serviceUnit}: [${compatibleUnits.join(', ')}]`);
+      console.log(`   Result: ${isCompatible}`);
+    }
+    
+    return isCompatible;
   }
 
   /**

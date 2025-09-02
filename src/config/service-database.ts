@@ -1,46 +1,52 @@
 /**
- * TradeSphere Service Database Configuration
+ * TradeSphere Service Database Configuration - Complete Make.com Catalog
  * 
  * CRITICAL: These are EXACT service names and row numbers from the production
  * Google Sheets "NEW Quick Estimating Calculator - Official - Individual Projects"
  * 
+ * Updated with complete 31-service catalog (skipping irrigation rows 15-16)
  * DO NOT MODIFY service names or row numbers without updating Google Sheets formulas
  */
 
 export interface ServiceConfig {
   row: number;
-  unit: 'sqft' | 'linear_feet' | 'each' | 'palette' | 'cubic_yards' | 'section' | 'setup' | 'zone';
-  category: 'hardscape' | 'drainage' | 'structures' | 'irrigation' | 'planting' | 'edging' | 'materials';
-  special?: boolean; // For irrigation/lighting services requiring special handling
+  unit: 'sqft' | 'linear_feet' | 'each' | 'cubic_yards';
+  category: 'hardscaping' | 'drainage' | 'structures' | 'planting' | 'removal' | 'edging' | 'materials';
+  special?: boolean; // For services requiring special handling
 }
 
-// EXACT 32-service database from working Make.com system
+// COMPLETE 31-service database from Make.com production system
 export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
-  // HARDSCAPE SERVICES (5 services)
+  // HARDSCAPING SERVICES (6 services)
   "Paver Patio (SQFT)": { 
     row: 2, 
     unit: "sqft", 
-    category: "hardscape" 
+    category: "hardscaping" 
   },
   "3' Retaining wall (LNFT X SQFT)": { 
     row: 3, 
     unit: "linear_feet", 
-    category: "hardscape" 
+    category: "hardscaping" 
   },
   "5' Retaining Wall (LNFTXSQFT)": { 
     row: 4, 
     unit: "linear_feet", 
-    category: "hardscape" 
+    category: "hardscaping" 
   },
   "2' Garden Walls (LNFTXSQFT)": { 
     row: 5, 
     unit: "linear_feet", 
-    category: "hardscape" 
+    category: "hardscaping" 
   },
   "Flag stone steppers": { 
     row: 6, 
     unit: "each", 
-    category: "hardscape" 
+    category: "hardscaping" 
+  },
+  "Outdoor Kitchen (LNFT)": { 
+    row: 12, 
+    unit: "linear_feet", 
+    category: "hardscaping" 
   },
 
   // DRAINAGE SERVICES (5 services)
@@ -61,7 +67,7 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
   },
   "EZ Flow French Drain (10' section)": { 
     row: 10, 
-    unit: "section", 
+    unit: "each", 
     category: "drainage" 
   },
   "Flow Well Drainage- 4X4 (EACH)": { 
@@ -70,12 +76,7 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
     category: "drainage" 
   },
 
-  // STRUCTURES (3 services)
-  "Outdoor Kitchen (LNFT)": { 
-    row: 12, 
-    unit: "linear_feet", 
-    category: "structures" 
-  },
+  // STRUCTURES (2 services)
   "Intellishade Pergola (SQFT)": { 
     row: 13, 
     unit: "sqft", 
@@ -87,24 +88,10 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
     category: "structures" 
   },
 
-  // IRRIGATION SERVICES - SPECIAL HANDLING REQUIRED (2 services)
-  "Irrigation Set Up Cost": { 
-    row: 15, 
-    unit: "setup", 
-    category: "irrigation", 
-    special: true 
-  },
-  "Irrigation (per zone)": { 
-    row: 16, 
-    unit: "zone", 
-    category: "irrigation", 
-    special: true 
-  },
-
-  // SOD/PLANTING (3 services)
+  // PLANTING SERVICES (9 services)
   "Sod Install (1 pallatte-450sqft)": { 
     row: 17, 
-    unit: "palette", 
+    unit: "sqft", 
     category: "planting" 
   },
   "Seed/Straw (SQFT)": { 
@@ -112,13 +99,55 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
     unit: "sqft", 
     category: "planting" 
   },
-  "sod removal": { 
-    row: 19, 
+  "Annuals 4\" ( 1 per sq ft)": { 
+    row: 26, 
     unit: "sqft", 
     category: "planting" 
   },
+  "Annuals 10\" ( 1 per sq ft)": { 
+    row: 27, 
+    unit: "sqft", 
+    category: "planting" 
+  },
+  "Perennial (1 gal)": { 
+    row: 28, 
+    unit: "each", 
+    category: "planting" 
+  },
+  "Medium Shrub": { 
+    row: 29, 
+    unit: "each", 
+    category: "planting" 
+  },
+  "Large Shrub": { 
+    row: 30, 
+    unit: "each", 
+    category: "planting" 
+  },
+  "Small Tree (<2in Caliper)": { 
+    row: 31, 
+    unit: "each", 
+    category: "planting" 
+  },
+  "Medium Tree (2.25-4in Caliper)": { 
+    row: 32, 
+    unit: "each", 
+    category: "planting" 
+  },
+  "Large Tree (4.25-8in Caliper)": { 
+    row: 33, 
+    unit: "each", 
+    category: "planting" 
+  },
 
-  // EDGING (3 services)
+  // REMOVAL SERVICES (1 service)
+  "sod removal": { 
+    row: 19, 
+    unit: "sqft", 
+    category: "removal" 
+  },
+
+  // EDGING SERVICES (3 services)
   "Stone Edgers Tumbled": { 
     row: 20, 
     unit: "linear_feet", 
@@ -150,204 +179,133 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
     row: 25, 
     unit: "cubic_yards", 
     category: "materials" 
-  },
-
-  // PLANTS (8 services)
-  "Annuals 4\" (1 per sq ft)": { 
-    row: 26, 
-    unit: "sqft", 
-    category: "planting" 
-  },
-  "Annuals 10\" (1 per sq ft)": { 
-    row: 27, 
-    unit: "sqft", 
-    category: "planting" 
-  },
-  "Perennial (1 gal)": { 
-    row: 28, 
-    unit: "each", 
-    category: "planting" 
-  },
-  "Medium Shrub (2-3 gal)": { 
-    row: 29, 
-    unit: "each", 
-    category: "planting" 
-  },
-  "Large Shrub (5-10 gal)": { 
-    row: 30, 
-    unit: "each", 
-    category: "planting" 
-  },
-  "Small Tree (<2in Caliper)": { 
-    row: 31, 
-    unit: "each", 
-    category: "planting" 
-  },
-  "Medium Tree (2.25-4in Caliper)": { 
-    row: 32, 
-    unit: "each", 
-    category: "planting" 
-  },
-  "Large Tree (4.25-8in Caliper)": { 
-    row: 33, 
-    unit: "each", 
-    category: "planting" 
   }
 };
 
-// SERVICE SYNONYM PATTERNS - From working Make.com parameter collector
+// COMPREHENSIVE SERVICE_SYNONYMS with all Make.com variations
 export const SERVICE_SYNONYMS: Record<string, string[]> = {
-  // Mulch variations → "Triple Ground Mulch (SQFT)"
-  "Triple Ground Mulch (SQFT)": [
-    "mulch", "triple ground", "wood chips", "mulching", "bark mulch", "wood mulch"
-  ],
-  
-  // Patio variations → "Paver Patio (SQFT)"
-  "Paver Patio (SQFT)": [
-    "patio", "paver", "pavers", "paver patio", "brick patio", "stone patio", "pavers"
-  ],
-  
-  // Irrigation variations → "Irrigation (per zone)" and "Irrigation Set Up Cost"
-  "Irrigation (per zone)": [
-    "sprinklers", "spouts", "irrigation", "watering system", "irrigation zones", "sprinkler zones"
-  ],
-  "Irrigation Set Up Cost": [
-    "irrigation setup", "sprinkler setup", "irrigation installation", "irrigation system setup"
-  ],
-  
-  // Edging variations
-  "Metal Edging": [
-    "edging", "metal edge", "steel edging", "aluminum edging", "landscape edging"
-  ],
-  "Stone Edgers Tumbled": [
-    "stone edging", "rock edging", "stone border", "tumbled stone edging"
-  ],
-  "Spade Edging": [
-    "spade edge", "cut edging", "hand edging", "natural edging"
-  ],
-  
-  // Tree size mapping
-  "Small Tree (<2in Caliper)": [
-    "small tree", "small trees", "young tree", "saplings", "tree small"
-  ],
-  "Medium Tree (2.25-4in Caliper)": [
-    "medium tree", "medium trees", "mid-size tree", "tree medium"
-  ],
-  "Large Tree (4.25-8in Caliper)": [
-    "large tree", "large trees", "big tree", "mature tree", "tree large"
-  ],
-  
-  // Drainage synonyms
-  "Buried Downspout (EACH)": [
-    "downspout", "buried downspout", "drainage downspout", "gutter drainage"
-  ],
-  "Dry Creek with plants (sqft)": [
-    "dry creek", "creek bed", "dry stream", "decorative drainage"
-  ],
-  
-  // Retaining wall variations
-  "3' Retaining wall (LNFT X SQFT)": [
-    "3 foot retaining wall", "3 ft retaining wall", "short retaining wall", "garden wall"
-  ],
-  "5' Retaining Wall (LNFTXSQFT)": [
-    "5 foot retaining wall", "5 ft retaining wall", "tall retaining wall", "retaining wall"
-  ],
-  
-  // Materials
-  "Topsoil (CUYD)": [
-    "topsoil", "soil", "dirt", "garden soil", "planting soil", "cubic yards soil"
-  ],
-  "Iowa Rainbow Rock Bed (sqft)": [
-    "rainbow rock", "decorative rock", "landscape rock", "colored gravel", "rock bed"
-  ]
+  // HARDSCAPING
+  "Paver Patio (SQFT)": ["patio", "pavers", "paver patio", "brick patio", "stone patio"],
+  "3' Retaining wall (LNFT X SQFT)": ["retaining wall", "walls", "retention wall", "3 foot wall", "three foot wall", "small retaining wall", "small walls"],
+  "5' Retaining Wall (LNFTXSQFT)": ["5 foot wall", "five foot wall", "tall walls", "high wall", "large retaining wall"],
+  "2' Garden Walls (LNFTXSQFT)": ["garden wall", "garden walls", "short walls", "2 foot wall", "planter wall"],
+  "Flag stone steppers": ["bricks", "steps", "stone blocks", "stone steps", "walkway blocks", "blocks", "cinder blocks"],
+  "Outdoor Kitchen (LNFT)": ["outdoor kitchen", "kitchen", "bbq area", "cooking area"],
+
+  // DRAINAGE
+  "Dry Creek with plants (sqft)": ["dry creek", "drainage creek", "rock creek", "creek", "dry pond", "pond"],
+  "Buried Downspout (EACH)": ["downspout", "spout", "spouts", "gutter spout", "buried downspout", "drainage pipe"],
+  "Drainage Burying (LNFT)": ["drainage", "drain", "drain line", "drainage burying"],
+  "EZ Flow French Drain (10' section)": ["ez flow", "french drain", "perforated pipe"],
+  "Flow Well Drainage- 4X4 (EACH)": ["flow well", "drain well", "drainage well"],
+
+  // STRUCTURES
+  "Intellishade Pergola (SQFT)": ["intellishade", "intellishade pergola", "smart pergola", "automated pergola"],
+  "Cedar Pergola (SQFT)": ["pergola", "cedar pergola", "wooden pergola", "wood pergola"],
+
+  // PLANTING
+  "Sod Install (1 pallatte-450sqft)": ["sod", "grass", "lawn", "turf", "pallet", "instant lawn"],
+  "Seed/Straw (SQFT)": ["seed", "straw", "grass seed", "seeding", "lawn seed", "overseed"],
+  "Annuals 4\" ( 1 per sq ft)": ["small flowers", "annuals", "small plants", "bedding plants", "seasonal flowers", "small annuals", "4 inch flowers"],
+  "Annuals 10\" ( 1 per sq ft)": ["large flowers", "big annuals", "large plants", "large bedding plants", "big seasonal flowers", "large flowering plants", "10 inch flowers"],
+  "Perennial (1 gal)": ["perennials", "flowers", "garden plants", "flowering plants", "perennial flowers", "comeback plants"],
+  "Medium Shrub": ["shrub", "bush", "medium shrub"],
+  "Large Shrub": ["large shrub", "big bush", "hedge"],
+  "Small Tree (<2in Caliper)": ["small tree", "young tree", "sapling", "starter tree"],
+  "Medium Tree (2.25-4in Caliper)": ["tree", "medium tree", "shade tree"],
+  "Large Tree (4.25-8in Caliper)": ["large tree", "big tree", "mature tree"],
+
+  // REMOVAL
+  "sod removal": ["sod removal", "excavate", "dirt cleanup", "grass removal"],
+
+  // EDGING
+  "Stone Edgers Tumbled": ["stone edging", "rock edging", "natural edging", "stone border"],
+  "Metal Edging": ["metal edging", "steel edging", "aluminum edging", "landscape edging"],
+  "Spade Edging": ["spade edging", "cut edging", "natural edging", "hand edging"],
+
+  // MATERIALS
+  "Triple Ground Mulch (SQFT)": ["mulch", "black mulch", "triple ground", "wood chips", "bark mulch", "mulching"],
+  "Iowa Rainbow Rock Bed (sqft)": ["rainbow rock", "decorative rock", "colored rock", "river rock"],
+  "Topsoil (CUYD)": ["topsoil", "dirt", "soil", "fill dirt", "garden soil"]
 };
 
-// SPECIAL HANDLING RULES
-export const SPECIAL_HANDLING = {
-  irrigation: {
-    requiredFields: ['setup', 'zones', 'zone_type'], // turf/drip
-    setupRequired: true,
-    boringAssessment: true
-  },
-  lighting: {
-    requiredFields: ['transformer', 'dimmer', 'fixtures'],
-    electricalCheck: true
-  }
-};
+// UNIT_CONVERSIONS for flexible input handling
+export const UNIT_CONVERSIONS: Record<string, string> = {
+  // Square feet variations
+  'sqft': 'sqft',
+  'squarefeet': 'sqft',
+  'squarefoot': 'sqft',
+  'sq_ft': 'sqft',
+  'sq.ft': 'sqft',
+  'sqf': 'sqft',
 
-// UNIT CONVERSION HELPERS
-export const UNIT_CONVERSIONS = {
-  // Common unit variations
-  'sq ft': 'sqft',
-  'square feet': 'sqft',
-  'square foot': 'sqft',
-  'linear feet': 'linear_feet',
-  'linear foot': 'linear_feet',
-  'lin ft': 'linear_feet',
-  'ft': 'linear_feet',
+  // Linear feet variations
+  'linearfeet': 'linear_feet',
+  'linear_feet': 'linear_feet',
+  'lin_ft': 'linear_feet',
+  'lnft': 'linear_feet',
   'feet': 'linear_feet',
-  'yard': 'cubic_yards',
+  'ft': 'linear_feet',
+  'linear': 'linear_feet',
+
+  // Cubic yards variations
+  'cubicyards': 'cubic_yards',
+  'cubic_yards': 'cubic_yards',
+  'cu_yd': 'cubic_yards',
+  'cuyd': 'cubic_yards',
   'yards': 'cubic_yards',
-  'cubic yard': 'cubic_yards',
-  'cu yd': 'cubic_yards'
+  'yard': 'cubic_yards',
+
+  // Each variations
+  'each': 'each',
+  'ea': 'each',
+  'piece': 'each',
+  'pieces': 'each'
 };
 
-// GOOGLE SHEETS CONFIGURATION
-export const SHEETS_CONFIG = {
-  // CRITICAL: This is the exact spreadsheet from production
-  spreadsheetId: process.env.GOOGLE_SHEETS_ID || '', // Set in environment
-  spreadsheetName: 'NEW Quick Estimating Calculator - Official - Individual Projects',
-  
-  // Data ranges for calculations
-  ranges: {
-    input: 'B2:B33',      // Where quantities are written
-    labor: 'C2:C33',      // Calculated labor hours
-    cost: 'D2:D33',       // Calculated costs
-    totals: 'C34:D34',    // Project totals
-    clear: 'B2:B33'       // Range to clear after calculation
-  }
-};
-
-// Validation functions
-export const getServiceByName = (serviceName: string): ServiceConfig | null => {
-  return SERVICE_DATABASE[serviceName] || null;
-};
-
-export const findServiceBySynonym = (input: string): string | null => {
-  const lowerInput = input.toLowerCase().trim();
+// HELPER FUNCTIONS
+export function findServiceBySynonym(text: string): string | null {
+  const lowerText = text.toLowerCase();
   
   for (const [serviceName, synonyms] of Object.entries(SERVICE_SYNONYMS)) {
     for (const synonym of synonyms) {
-      if (lowerInput.includes(synonym.toLowerCase())) {
+      if (lowerText.includes(synonym.toLowerCase())) {
         return serviceName;
       }
     }
   }
   
   return null;
-};
-
-export const getAllServices = (): string[] => {
-  return Object.keys(SERVICE_DATABASE);
-};
-
-export const getServicesByCategory = (category: string): string[] => {
-  return Object.entries(SERVICE_DATABASE)
-    .filter(([, config]) => config.category === category)
-    .map(([serviceName]) => serviceName);
-};
-
-export const isSpecialService = (serviceName: string): boolean => {
-  const service = SERVICE_DATABASE[serviceName];
-  return service?.special === true;
-};
-
-// Total service count validation
-const EXPECTED_SERVICE_COUNT = 32;
-const actualCount = Object.keys(SERVICE_DATABASE).length;
-
-if (actualCount !== EXPECTED_SERVICE_COUNT) {
-  console.warn(`⚠️ SERVICE_DATABASE contains ${actualCount} services, expected ${EXPECTED_SERVICE_COUNT}`);
 }
 
-console.log(`✅ SERVICE_DATABASE loaded: ${actualCount} services across ${Object.keys(SERVICE_SYNONYMS).length} synonym groups`);
+export function getServiceByName(serviceName: string): ServiceConfig | null {
+  return SERVICE_DATABASE[serviceName] || null;
+}
+
+export function isSpecialService(serviceName: string): boolean {
+  const service = SERVICE_DATABASE[serviceName];
+  return service?.special === true;
+}
+
+// DEBUGGING AND VALIDATION
+export function validateServiceDatabase(): void {
+  console.log(`✅ SERVICE_DATABASE loaded: ${Object.keys(SERVICE_DATABASE).length} services across ${Object.keys(SERVICE_SYNONYMS).length} synonym groups`);
+  
+  // Validate that all services have synonyms
+  const servicesWithoutSynonyms = Object.keys(SERVICE_DATABASE).filter(
+    service => !SERVICE_SYNONYMS[service]
+  );
+  
+  if (servicesWithoutSynonyms.length > 0) {
+    console.warn('⚠️ Services without synonyms:', servicesWithoutSynonyms);
+  }
+  
+  // Validate that all synonyms have services
+  const synonymsWithoutServices = Object.keys(SERVICE_SYNONYMS).filter(
+    service => !SERVICE_DATABASE[service]
+  );
+  
+  if (synonymsWithoutServices.length > 0) {
+    console.warn('⚠️ Synonyms without services:', synonymsWithoutServices);
+  }
+}

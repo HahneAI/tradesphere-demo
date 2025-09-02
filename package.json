@@ -26,7 +26,14 @@
     "test:logic:verify": "tsx src/tests/business-logic-verify.ts",
     "test:edge-cases": "tsx src/tests/edge-case-tests.ts",
     "test:integration": "tsx src/tests/integration-test.ts",
-    "test:real-logic": "tsx src/tests/real-logic-test.ts"
+    "test:real-logic": "tsx src/tests/real-logic-test.ts",
+    "debug:service-mapping": "tsx src/tests/service-mapping-debug.ts",
+    "test:comprehensive": "tsx src/tests/comprehensive-multi-service-debug.ts",
+    "test:gpt": "tsx src/tests/gpt-enhanced-test.ts",
+    "test:gpt:traditional": "cross-env TEST_MODE=traditional tsx src/tests/gpt-enhanced-test.ts",
+    "test:gpt:enhanced": "cross-env TEST_MODE=gpt tsx src/tests/gpt-enhanced-test.ts",
+    "test:gpt:comparison": "cross-env TEST_MODE=comparison tsx src/tests/gpt-enhanced-test.ts",
+    "test:gpt-splitter": "tsx src/services/ai-engine/GPTServiceSplitter.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

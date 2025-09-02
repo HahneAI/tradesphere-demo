@@ -21,6 +21,7 @@ import {
   PricedService,
   MockDataProvider
 } from '../interfaces';
+import { ServiceMappingEngine } from '../../ai-engine/ServiceMappingEngine';
 
 // ===============================
 // MOCK DATA PROVIDER
@@ -373,7 +374,6 @@ export class MockDetector implements IServiceDetector {
     
     try {
       // USE REAL SERVICE MAPPING ENGINE - NOT HARDCODED PATTERNS
-      const { ServiceMappingEngine } = require('../../ai-engine/ServiceMappingEngine');
       const mappingResult = ServiceMappingEngine.mapUserInput(input);
       
       // Convert ServiceMappingEngine results to DetectionResult format

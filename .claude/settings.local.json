@@ -9,7 +9,14 @@
       "Bash(npx tsx:*)",
       "mcp__filesystem__read_text_file",
       "mcp__sequential__sequentialthinking",
-      "mcp__filesystem__create_directory"
+      "mcp__filesystem__create_directory",
+      "Bash(npm run test:real-logic:*)",
+      "Bash(npm run test:logic:verify:*)",
+      "Bash(npm run test:mock:simple:*)",
+      "Bash(npm run test:mock:pure:*)",
+      "Bash(npm run test:pipeline:mock:*)",
+      "Bash(TEST_INPUT=\"15x10 patio with wood chips and steel edging\" npx tsx src/services/ai-engine/GPTServiceSplitter.ts)",
+      "Bash(npm run test:gpt:comparison:*)"
     ],
     "deny": [],
     "ask": []
