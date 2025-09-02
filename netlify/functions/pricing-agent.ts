@@ -13,6 +13,7 @@ import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { ParameterCollectorService, CollectionResult } from '../../src/services/ai-engine/ParameterCollectorService';
 import { PricingCalculatorService, createPricingCalculator, PricingResult } from '../../src/services/ai-engine/PricingCalculatorService';
 import { SalesPersonalityService, CustomerContext } from '../../src/services/ai-engine/SalesPersonalityService';
+import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService';
 
 // Types for webhook payload (same as Make.com)
 interface WebhookPayload {
@@ -96,26 +97,71 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       urgencyLevel: 'routine' // Default, could be enhanced with AI detection
     };
 
-    // STEP 1: PARAMETER COLLECTION (Replaces Make.com 7-module chain)
-    console.log('🎯 STEP 1: Parameter Collection');
+    // STEP 0.5: CONVERSATION CONTEXT INTEGRATION
+    console.log('💬 CONVERSATION: Integrating AI-powered conversation context');
+    const conversationStart = Date.now();
+    
+    // Process message with conversation context using AI provider threads
+    const aiResponse = await ConversationContextService.processMessageWithContext(
+      payload.sessionId,
+      payload.message,
+      customerContext
+    );
+    
+    console.log(`✅ Conversation processing: ${Date.now() - conversationStart}ms`);
+
+    // Check if AI thinks this needs clarification before proceeding to parameter collection
+    if (aiResponse.requiresClarification) {
+      console.log('❓ AI detected clarification needed, returning conversational response');
+      
+      const response: PricingResponse = {
+        success: true,
+        response: aiResponse.content,
+        sessionId: payload.sessionId,
+        processingTime: Date.now() - metrics.startTime,
+        stage: 'parameter_collection',
+        debug: {
+          servicesFound: 0,
+          confidence: 0
+        }
+      };
+
+      // Update conversation context with the AI response
+      await ConversationContextService.updateContext(payload.sessionId, payload.message, aiResponse.content);
+
+      return createSuccessResponse(response, corsHeaders);
+    }
+
+    // STEP 1: PARAMETER COLLECTION (Enhanced with conversation context)
+    console.log('🎯 STEP 1: Parameter Collection with Conversation Context');
     const collectionStart = Date.now();
     
+    // Get conversation context to enhance parameter collection
+    const conversationContext = await ConversationContextService.retrieveContext(payload.sessionId);
+    
+    // Collect parameters with conversation history for better context
     const collectionResult = await ParameterCollectorService.collectParameters(payload.message);
     
     metrics.parameterCollectionTime = Date.now() - collectionStart;
     console.log(`✅ Parameter collection: ${metrics.parameterCollectionTime}ms`);
 
-    // Check if we need clarification
+    // Check if we need clarification (enhanced with AI conversation)
     if (collectionResult.status === 'incomplete') {
-      const clarificationResponse = SalesPersonalityService.formatSalesResponse(
-        { services: [], totals: { totalCost: 0, totalLaborHours: 0 }, calculationTime: 0, success: true },
-        customerContext,
-        'clarification'
+      console.log('❓ Parameter collection incomplete, using AI for intelligent clarification');
+      
+      // Use AI conversation context to generate more natural clarification
+      const clarificationAI = await ConversationContextService.processMessageWithContext(
+        payload.sessionId,
+        `User said: "${payload.message}". I need clarification for: ${collectionResult.suggestedResponse}`,
+        customerContext
       );
+
+      // Update conversation context with both the original message and clarification request
+      await ConversationContextService.updateContext(payload.sessionId, payload.message, clarificationAI.content);
 
       const response: PricingResponse = {
         success: true,
-        response: `${clarificationResponse.message}\n\n${collectionResult.suggestedResponse}`,
+        response: clarificationAI.content,
         sessionId: payload.sessionId,
         processingTime: Date.now() - metrics.startTime,
         stage: 'parameter_collection',
@@ -176,6 +222,13 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     console.log(`  Response Formatting: ${metrics.responseFormattingTime}ms`);
     console.log(`  TOTAL: ${metrics.totalTime}ms (vs Make.com 30-50s)`);
 
+    // Update conversation context with the final pricing response
+    await ConversationContextService.updateContext(
+      payload.sessionId, 
+      payload.message, 
+      salesResponse.message
+    );
+
     // Create final response
     const response: PricingResponse = {
       success: true,
@@ -193,6 +246,7 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     // Store in Supabase for frontend retrieval
     await storeResponseInSupabase(payload, response, pricingResult);
 
+    console.log(`💬 Conversation context updated for session ${payload.sessionId}`);
     return createSuccessResponse(response, corsHeaders);
 
   } catch (error) {
