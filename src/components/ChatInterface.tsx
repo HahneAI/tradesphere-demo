@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Icons from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { flushSync } from 'react-dom';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { AvatarSelectionPopup } from './ui/AvatarSelectionPopup';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -58,6 +59,18 @@ const ChatInterface = () => {
   const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResults | null>(null);
   const [showDiagnosticPanel, setShowDiagnosticPanel] = useState(false);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
+
+  // 🎤 VOICE INPUT: Speech recognition state
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
+  
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [micPermissionState, setMicPermissionState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
 
   const generateSessionId = () => {
     if (!user) {
@@ -585,6 +598,116 @@ const ChatInterface = () => {
     }
   };
 
+  // 🎤 VOICE INPUT: Check microphone permissions on mount
+  useEffect(() => {
+    const checkMicrophonePermission = async () => {
+      try {
+        if ('permissions' in navigator) {
+          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setMicPermissionState(permission.state as 'granted' | 'denied');
+          
+          permission.addEventListener('change', () => {
+            setMicPermissionState(permission.state as 'granted' | 'denied');
+          });
+        }
+      } catch (error) {
+        console.warn('Could not check microphone permission:', error);
+      }
+    };
+    
+    checkMicrophonePermission();
+  }, []);
+
+  // 🎤 VOICE INPUT: Update input text with transcript
+  useEffect(() => {
+    if (transcript && isRecording) {
+      setInputText(transcript);
+    }
+  }, [transcript, isRecording]);
+
+  // 🎤 VOICE INPUT: Handle voice recording toggle
+  const handleVoiceToggle = async () => {
+    setVoiceError(null);
+    
+    if (!browserSupportsSpeechRecognition) {
+      setVoiceError('Your browser does not support speech recognition. Please use Chrome, Edge, or Safari.');
+      return;
+    }
+    
+    if (isRecording) {
+      // Stop recording
+      SpeechRecognition.stopListening();
+      setIsRecording(false);
+      
+      // If we have transcript text and user wants to send it
+      if (transcript.trim()) {
+        // Let user edit the transcript if needed, don't auto-send
+        console.log('🎤 Voice recording stopped. Transcript available for editing.');
+      }
+    } else {
+      // Start recording
+      try {
+        resetTranscript();
+        setIsRecording(true);
+        
+        await SpeechRecognition.startListening({ 
+          continuous: true, 
+          language: 'en-US',
+          interimResults: true
+        });
+        
+        setMicPermissionState('granted');
+        console.log('🎤 Voice recording started');
+      } catch (error) {
+        console.error('Failed to start voice recognition:', error);
+        setVoiceError('Failed to access microphone. Please check your browser permissions.');
+        setIsRecording(false);
+        setMicPermissionState('denied');
+      }
+    }
+  };
+
+  // 🎤 VOICE INPUT: Get microphone button icon and style based on state
+  const getMicrophoneButtonConfig = () => {
+    if (!browserSupportsSpeechRecognition) {
+      return {
+        icon: 'MicOff',
+        className: 'opacity-50 cursor-not-allowed',
+        title: 'Voice input not supported in this browser'
+      };
+    }
+    
+    if (voiceError) {
+      return {
+        icon: 'MicOff',
+        className: 'text-red-500',
+        title: voiceError
+      };
+    }
+    
+    if (isRecording) {
+      return {
+        icon: 'MicIcon',
+        className: 'text-red-500 animate-pulse',
+        title: 'Click to stop recording'
+      };
+    }
+    
+    if (micPermissionState === 'denied') {
+      return {
+        icon: 'MicOff',
+        className: 'text-orange-500',
+        title: 'Microphone permission denied. Please enable in browser settings.'
+      };
+    }
+    
+    return {
+      icon: 'MicIcon',
+      className: 'text-gray-500 hover:text-blue-500 transition-colors',
+      title: 'Click to start voice input'
+    };
+  };
+
   const handleFeedbackSubmit = async (feedbackText: string) => {
     try {
       await sendFeedback(user?.first_name || 'Anonymous', feedbackText);
@@ -805,22 +928,53 @@ const ChatInterface = () => {
           >
             <div className="p-3">
               <div className="flex items-center space-x-4 max-w-4xl mx-auto">
-                <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={terminologyConfig.placeholderExamples}
-                  className="flex-1 px-3 py-2 resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
-                  style={{
-                    backgroundColor: visualConfig.colors.background,
-                    color: visualConfig.colors.text.primary,
-                    borderColor: visualConfig.colors.secondary,
-                    '--tw-ring-color': visualConfig.colors.primary,
-                    borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
-                  }}
-                  rows={1}
-                  disabled={isLoading}
-                />
+                <div className="flex-1 relative">
+                  <textarea
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={terminologyConfig.placeholderExamples}
+                    className="w-full px-3 py-2 pr-12 resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
+                    style={{
+                      backgroundColor: visualConfig.colors.background,
+                      color: visualConfig.colors.text.primary,
+                      borderColor: visualConfig.colors.secondary,
+                      '--tw-ring-color': visualConfig.colors.primary,
+                      borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
+                    }}
+                    rows={1}
+                    disabled={isLoading}
+                  />
+                  
+                  {/* 🎤 VOICE INPUT: Microphone button inside input field */}
+                  <button
+                    onClick={handleVoiceToggle}
+                    disabled={isLoading || !browserSupportsSpeechRecognition}
+                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-200 ${getMicrophoneButtonConfig().className} ${isRecording ? 'animate-recording-glow' : ''}`}
+                    title={getMicrophoneButtonConfig().title}
+                    aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording'}
+                  >
+                    <DynamicIcon 
+                      name={getMicrophoneButtonConfig().icon as keyof typeof Icons} 
+                      className={`h-4 w-4 ${isRecording ? 'animate-voice-pulse' : ''}`}
+                    />
+                  </button>
+                  
+                  {/* 🎤 VOICE INPUT: Recording indicator */}
+                  {isRecording && (
+                    <div className="absolute -top-8 right-0 flex items-center space-x-2 px-2 py-1 bg-red-500 text-white text-xs rounded-md animate-fade-in">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      <span>Recording...</span>
+                    </div>
+                  )}
+                  
+                  {/* 🎤 VOICE INPUT: Error message */}
+                  {voiceError && (
+                    <div className="absolute -top-8 right-0 px-2 py-1 bg-red-500 text-white text-xs rounded-md max-w-xs">
+                      {voiceError}
+                    </div>
+                  )}
+                </div>
                 <button
                   ref={sendButtonRef}
                   onClick={handleSendMessage}
