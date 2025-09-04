@@ -40,6 +40,19 @@ export class PricingCalculatorService {
   async calculatePricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
     const startTime = Date.now();
     
+    // 📈 ENHANCED DEBUG: GOOGLE SHEETS API REQUEST
+    console.log('📈 GOOGLE SHEETS API REQUEST:', {
+      services: services.map(s => ({
+        serviceName: s.serviceName,
+        row: s.row,
+        quantity: s.quantity,
+        unit: s.unit
+      })),
+      betaCodeId: betaCodeId,
+      sheetId: process.env.VITE_GOOGLE_SHEETS_SHEET_ID?.substring(0, 10) + '...',
+      timestamp: new Date().toISOString()
+    });
+    
     console.log(`💰 PRICING CALCULATION START: ${services.length} services (Beta Code: ${betaCodeId || 'default'})`);
     services.forEach(service => {
       console.log(`  - ${service.serviceName}: ${service.quantity} ${service.unit} (row ${service.row})`);
@@ -61,6 +74,28 @@ export class PricingCalculatorService {
       const calculationTime = Date.now() - startTime;
       result.calculationTime = calculationTime;
 
+      // 📈 ENHANCED DEBUG: GOOGLE SHEETS API RESPONSE
+      console.log('📈 GOOGLE SHEETS API RESPONSE:', {
+        success: result?.success !== false,
+        totalCost: result?.totals?.totalCost || 'unknown',
+        servicesProcessed: result?.services?.length || 0,
+        calculationTime: calculationTime || 'unknown',
+        errors: result?.error || 'none'
+      });
+      
+      // 📈 ENHANCED DEBUG: DETAILED SERVICE PRICING BREAKDOWN
+      if (result?.services) {
+        result.services.forEach((service, index) => {
+          console.log(`📈 SERVICE ${index + 1} PRICING:`, {
+            serviceName: service.serviceName,
+            quantity: service.quantity,
+            cost: service.cost,
+            laborHours: service.laborHours,
+            row: service.row
+          });
+        });
+      }
+      
       console.log(`✅ PRICING COMPLETE: ${calculationTime}ms (Beta Code: ${betaCodeId || 'default'})`);
       console.log(`   Total Cost: $${result.totals.totalCost}`);
       console.log(`   Total Hours: ${result.totals.totalLaborHours}h`);

@@ -52,11 +52,38 @@ export class SalesPersonalityService {
     requestType: 'pricing' | 'clarification' | 'follow_up' = 'pricing'
   ): SalesResponse {
     
+    // 🎭 ENHANCED DEBUG: RESPONSE FORMATTING START
+    console.log('🎭 RESPONSE FORMATTING START:', {
+      customerName: customerContext.firstName,
+      jobTitle: customerContext.jobTitle,
+      urgencyLevel: customerContext.urgencyLevel,
+      responseType: requestType,
+      totalCost: pricingResult.totals?.totalCost,
+      servicesCount: pricingResult.services?.length,
+      timestamp: new Date().toISOString()
+    });
+    
     console.log(`📝 SALES PERSONALITY: ${requestType}, $${pricingResult.totals.totalCost}`);
 
     const priceRange = this.determinePriceRange(pricingResult.totals.totalCost);
     const tone = this.determineTone(priceRange, customerContext);
     const urgency = this.determineUrgency(pricingResult.services, customerContext);
+    
+    // 🎭 ENHANCED DEBUG: PERSONALITY ANALYSIS
+    console.log('🎭 PERSONALITY ANALYSIS:', {
+      customerContext: {
+        firstName: customerContext.firstName,
+        urgencyLevel: customerContext.urgencyLevel,
+        isReturnCustomer: customerContext.isReturnCustomer
+      },
+      pricingContext: {
+        totalCost: pricingResult.totals?.totalCost,
+        serviceCount: pricingResult.services?.length,
+        priceRange: pricingResult.totals?.totalCost > 500 ? 'high' : 'standard'
+      },
+      selectedTone: tone,
+      determinedUrgency: urgency
+    });
 
     let message: string;
 
@@ -77,6 +104,16 @@ export class SalesPersonalityService {
       priceRange, 
       urgency
     );
+    
+    // 🎭 ENHANCED DEBUG: FINAL RESPONSE GENERATED
+    console.log('🎭 FINAL RESPONSE GENERATED:', {
+      messageLength: message?.length || 0,
+      includesPrice: message?.includes('$') || false,
+      includesTotalCost: message?.includes(pricingResult.totals?.totalCost?.toString()) || false,
+      tone: tone,
+      followUpSuggestionCount: followUpSuggestions?.length || 0,
+      timestamp: new Date().toISOString()
+    });
 
     return {
       message,

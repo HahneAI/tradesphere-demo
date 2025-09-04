@@ -132,8 +132,16 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       return createSuccessResponse(response, corsHeaders);
     }
 
-    // STEP 1: PARAMETER COLLECTION (Enhanced with conversation context)
-    console.log('🎯 STEP 1: Parameter Collection with Conversation Context');
+    // 🎯 ENHANCED DEBUG: STEP 1 START - Parameter Collection
+    console.log('🎯 STEP 1 START: Parameter Collection');
+    console.log('🎯 STEP 1 INPUT:', {
+      message: payload.message,
+      sessionId: payload.sessionId,
+      firstName: payload.firstName,
+      betaCodeId: payload.betaCodeId,
+      timestamp: new Date().toISOString()
+    });
+    
     const collectionStart = Date.now();
     
     // Get conversation context to enhance parameter collection
@@ -143,6 +151,16 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     const collectionResult = await ParameterCollectorService.collectParameters(payload.message);
     
     metrics.parameterCollectionTime = Date.now() - collectionStart;
+    
+    // 🎯 ENHANCED DEBUG: STEP 1 COMPLETE
+    console.log('🎯 STEP 1 COMPLETE:', {
+      status: collectionResult.status,
+      servicesFound: collectionResult.services.length,
+      confidence: collectionResult.confidence,
+      processingTime: metrics.parameterCollectionTime + 'ms',
+      needsClarification: collectionResult.status === 'incomplete'
+    });
+    
     console.log(`✅ Parameter collection: ${metrics.parameterCollectionTime}ms`);
 
     // Check if we need clarification (enhanced with AI conversation)
@@ -174,7 +192,15 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       return createSuccessResponse(response, corsHeaders);
     }
 
-    // STEP 2: PRICING CALCULATION (Replaces Make.com 10-module chain with multi-user support)
+    // 💰 ENHANCED DEBUG: STEP 2 START - Pricing Calculation
+    console.log('💰 STEP 2 START: Pricing Calculation');
+    console.log('💰 STEP 2 INPUT:', {
+      servicesCount: collectionResult.services.length,
+      services: collectionResult.services.map(s => ({ name: s.serviceName, quantity: s.quantity, row: s.row })),
+      betaCodeId: payload.betaCodeId,
+      hasIrrigation: collectionResult.services.some(s => s.serviceName.includes('Irrigation'))
+    });
+    
     console.log(`💰 STEP 2: Pricing Calculation for Beta Code ID ${payload.betaCodeId}`);
     const calculationStart = Date.now();
     
@@ -198,7 +224,16 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       throw new Error(`Pricing calculation failed: ${pricingResult.error}`);
     }
 
-    // STEP 3: RESPONSE FORMATTING (Replaces Make.com 5-module chain)
+    // 📝 ENHANCED DEBUG: STEP 3 START - Sales Response Formatting
+    console.log('📝 STEP 3 START: Sales Response Formatting');
+    console.log('📝 STEP 3 INPUT:', {
+      totalCost: pricingResult.totals?.totalCost,
+      servicesCount: pricingResult.services?.length,
+      customerName: customerContext.firstName,
+      urgencyLevel: customerContext.urgencyLevel,
+      processingTimeToDate: Date.now() - metrics.startTime + 'ms'
+    });
+    
     console.log('📝 STEP 3: Sales Response Formatting');
     const formattingStart = Date.now();
     

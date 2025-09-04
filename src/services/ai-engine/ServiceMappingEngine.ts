@@ -333,6 +333,9 @@ export class ServiceMappingEngine {
       return 0;
     }
 
+    // 📐 ENHANCED DEBUG: DIMENSION CHECK START
+    console.log(`📐 DIMENSION CHECK: Looking for dimensions in "${text}" for service "${serviceName}"`);
+    console.log(`📐 SERVICE CONFIG: Expected unit "${serviceConfig.unit}"`);
     console.log(`🔢 EXTRACTING QUANTITY from "${text}" for service "${serviceName}" (expects unit: ${serviceConfig.unit})`);
 
     // SMART DIMENSION CALCULATION - Check for dimensions first
@@ -340,24 +343,38 @@ export class ServiceMappingEngine {
       const dimensionResult = DimensionCalculator.parse(text, serviceName);
       
       if (dimensionResult) {
-        console.log(`📐 DIMENSION CALCULATION: Found ${dimensionResult.calculationType} calculation`);
+        // 📐 ENHANCED DEBUG: DIMENSION FOUND
+        console.log(`📐 DIMENSION FOUND:`, {
+          calculationType: dimensionResult.calculationType,
+          inputText: text,
+          serviceName: serviceName,
+          calculatedQuantity: dimensionResult.quantity,
+          unit: dimensionResult.unit,
+          confidence: dimensionResult.confidence,
+          dimensions: dimensionResult.dimensions
+        });
         
         // Check if the calculated unit matches the expected service unit
         const compatible = this.unitsAreCompatible(dimensionResult.unit, serviceConfig.unit);
         
+        // 📐 ENHANCED DEBUG: UNIT COMPATIBILITY CHECK
+        console.log(`📐 UNIT COMPATIBILITY CHECK: ${dimensionResult.unit} → ${serviceConfig.unit} = ${compatible}`);
+        
         if (compatible) {
-          console.log(`✅ DIMENSION QUANTITY: ${dimensionResult.quantity} ${dimensionResult.unit} (${dimensionResult.confidence * 100}% confidence)`);
+          console.log(`✅ DIMENSION QUANTITY ACCEPTED: ${dimensionResult.quantity} ${dimensionResult.unit}`);
           if (dimensionResult.dimensions) {
-            console.log(`   📏 Calculated from: ${dimensionResult.dimensions.length} x ${dimensionResult.dimensions.width} = ${dimensionResult.dimensions.area}`);
+            console.log(`   📏 Calculation: ${dimensionResult.dimensions.length} x ${dimensionResult.dimensions.width} = ${dimensionResult.dimensions.area}`);
           }
           return dimensionResult.quantity;
         } else {
-          console.log(`⚠️ DIMENSION UNIT MISMATCH: Got ${dimensionResult.unit}, expected ${serviceConfig.unit}`);
+          console.log(`⚠️ DIMENSION REJECTED: Unit mismatch, falling back to standard patterns`);
           // Continue to standard extraction
         }
+      } else {
+        console.log(`📐 NO DIMENSIONS FOUND: Using standard quantity extraction`);
       }
     } catch (error) {
-      console.log(`⚠️ DIMENSION CALCULATION ERROR: ${error.message}`);
+      console.log(`📐 DIMENSION CALCULATION ERROR: ${error.message}`);
       // Continue to standard extraction
     }
 
@@ -376,7 +393,9 @@ export class ServiceMappingEngine {
     let bestQuantity = 0;
     let matchDetails = '';
     
+    // 📐 ENHANCED DEBUG: FALLBACK TO STANDARD PATTERNS
     console.log(`🔄 FALLBACK: Using standard quantity extraction patterns`);
+    console.log(`🔄 PATTERNS TO TEST: ${enhancedPatterns.length} different regex patterns`);
     
     for (let i = 0; i < enhancedPatterns.length; i++) {
       const pattern = enhancedPatterns[i];

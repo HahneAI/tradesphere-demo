@@ -79,7 +79,41 @@ export class ParameterCollectorService {
    * Step 1: Initial service mapping using the engine
    */
   private static async performServiceMapping(userMessage: string): Promise<ServiceMappingResult> {
-    return ServiceMappingEngine.mapUserInput(userMessage);
+    // 🗺️ ENHANCED DEBUG: SERVICE MAPPING START
+    console.log('🗺️ SERVICE MAPPING START:', {
+      input: userMessage,
+      timestamp: new Date().toISOString()
+    });
+    
+    const mappingResult = await ServiceMappingEngine.mapUserInput(userMessage);
+    
+    // 🗺️ ENHANCED DEBUG: SERVICE MAPPING COMPLETE
+    console.log('🗺️ SERVICE MAPPING COMPLETE:', {
+      servicesFound: mappingResult.services.length,
+      overallConfidence: mappingResult.confidence,
+      needsClarification: mappingResult.needsClarification,
+      unmappedText: mappingResult.unmappedText
+    });
+    
+    // 🗺️ ENHANCED DEBUG: DETAILED SERVICE BREAKDOWN
+    mappingResult.services.forEach((service, index) => {
+      console.log(`🗺️ SERVICE ${index + 1}:`, {
+        serviceName: service.serviceName,
+        quantity: service.quantity,
+        unit: service.unit,
+        row: service.row,
+        category: service.category,
+        confidence: service.confidence,
+        isSpecial: service.isSpecial,
+        originalText: service.originalText
+      });
+    });
+    
+    if (mappingResult.unmappedText.length > 0) {
+      console.log('⚠️ UNMAPPED TEXT FOUND:', mappingResult.unmappedText);
+    }
+    
+    return mappingResult;
   }
 
   /**

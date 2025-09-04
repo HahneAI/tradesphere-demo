@@ -89,10 +89,32 @@ Output: {
     }
 
     try {
-      console.log('🤖 GPT-4o-mini API: Analyzing input for categories and splitting services');
+      // 🤖 ENHANCED DEBUG: GPT REQUEST PAYLOAD
+      console.log('🤖 GPT REQUEST PAYLOAD:', {
+        input: input,
+        model: GPTServiceSplitter.MODEL,
+        prompt: GPTServiceSplitter.COMBINED_PROMPT.substring(0, 100) + '...',
+        timestamp: new Date().toISOString()
+      });
       
       const response = await this.callOpenAI(input, apiKey);
-      const result = this.parseGPTResponse(response);
+      
+      // 🤖 ENHANCED DEBUG: GPT RAW RESPONSE
+      console.log('🤖 GPT RAW RESPONSE:', {
+        choices: response.choices?.length || 0,
+        content: response.choices?.[0]?.message?.content?.substring(0, 200) + '...',
+        usage: response.usage
+      });
+      
+      const result = this.parseGPTResponse(response.choices[0].message.content);
+      
+      // 🤖 ENHANCED DEBUG: GPT PARSED RESULT
+      console.log('🤖 GPT PARSED RESULT:', {
+        serviceCount: result.service_count,
+        categories: result.detected_categories,
+        separatedServices: result.separated_services,
+        confidence: result.confidence
+      });
       
       console.log(`✅ GPT Analysis: ${result.service_count} services in ${result.detected_categories.length} categories`);
       
@@ -119,7 +141,7 @@ Output: {
   /**
    * Call OpenAI GPT-4o-mini API
    */
-  private async callOpenAI(input: string, apiKey: string): Promise<string> {
+  private async callOpenAI(input: string, apiKey: string): Promise<OpenAIResponse> {
     const requestBody = {
       model: GPTServiceSplitter.MODEL,
       messages: [
@@ -136,6 +158,17 @@ Output: {
       max_tokens: 1000
     };
 
+    // 🤖 ENHANCED DEBUG: API REQUEST DETAILS
+    console.log('🤖 API REQUEST DETAILS:', {
+      endpoint: GPTServiceSplitter.API_ENDPOINT,
+      model: requestBody.model,
+      temperature: requestBody.temperature,
+      maxTokens: requestBody.max_tokens,
+      messageCount: requestBody.messages.length,
+      userInputLength: input.length,
+      apiKeyMasked: `${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}`
+    });
+
     const response = await fetch(GPTServiceSplitter.API_ENDPOINT, {
       method: 'POST',
       headers: {
@@ -143,6 +176,14 @@ Output: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestBody)
+    });
+
+    // 🤖 ENHANCED DEBUG: HTTP RESPONSE STATUS
+    console.log('🤖 HTTP RESPONSE STATUS:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
     });
 
     if (!response.ok) {
@@ -155,7 +196,7 @@ Output: {
       throw new Error('No response from OpenAI API');
     }
 
-    return data.choices[0].message.content;
+    return data;
   }
 
   /**
