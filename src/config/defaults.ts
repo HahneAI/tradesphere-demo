@@ -354,7 +354,8 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getSupabaseUrl(): string {
-    const url = import.meta.env.VITE_SUPABASE_URL;
+    const url = (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_URL : undefined);
     if (!url || url === 'YOUR_SUPABASE_URL') {
       throw new Error('VITE_SUPABASE_URL must be configured');
     }
@@ -362,7 +363,8 @@ export class EnvironmentManager {
   }
 
   static getSupabaseAnonKey(): string {
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const key = (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_ANON_KEY : undefined);
     if (!key || key === 'YOUR_SUPABASE_ANON_KEY') {
       throw new Error('VITE_SUPABASE_ANON_KEY must be configured');
     }
@@ -370,7 +372,8 @@ export class EnvironmentManager {
   }
 
   static getMakeWebhookUrl(): string {
-    const url = import.meta.env.VITE_MAKE_WEBHOOK_URL;
+    const url = (typeof process !== 'undefined' ? process.env.VITE_MAKE_WEBHOOK_URL : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_MAKE_WEBHOOK_URL : undefined);
     if (!url || url === 'YOUR_MAKE_WEBHOOK_URL') {
       throw new Error('VITE_MAKE_WEBHOOK_URL must be configured');
     }
@@ -378,7 +381,8 @@ export class EnvironmentManager {
   }
 
   static getFeedbackWebhookUrl(): string | undefined {
-    const url = import.meta.env.VITE_FEEDBACK_WEBHOOK_URL;
+    const url = (typeof process !== 'undefined' ? process.env.VITE_FEEDBACK_WEBHOOK_URL : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_FEEDBACK_WEBHOOK_URL : undefined);
     return (url && url !== 'YOUR_FEEDBACK_WEBHOOK_URL') ? url : undefined;
   }
 

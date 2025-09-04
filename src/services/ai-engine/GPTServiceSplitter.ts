@@ -79,14 +79,27 @@ Output: {
    * Main analysis method - combines category detection and service splitting
    */
   async analyzeAndSplit(input: string): Promise<CategorySplitResult> {
-    // Try both VITE_ prefixed (for frontend) and regular (for Node.js) versions
-    const apiKey = import.meta.env?.VITE_OPENAI_API_KEY_MINI || process.env.VITE_OPENAI_API_KEY_MINI;
+    // Use process.env directly (works in both Node.js and when dotenv is loaded)
+    const apiKey = process.env.VITE_OPENAI_API_KEY_MINI || 
+                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_OPENAI_API_KEY_MINI : undefined);
     
     if (!apiKey) {
       console.log('🔄 No VITE_OPENAI_API_KEY_MINI found, using mock mode');
+      console.log('💡 Environment check:', {
+        processEnv: !!process.env.VITE_OPENAI_API_KEY_MINI,
+        importMetaEnv: typeof import.meta.env !== 'undefined'
+      });
       console.log('💡 To use GPT-4o-mini API: Set VITE_OPENAI_API_KEY_MINI in your .env file');
       return this.mockAnalyzeAndSplit(input);
     }
+    
+    // Add masked key debug
+    console.log('✅ Using GPT-4o-mini API Key:', 
+      `${apiKey.substring(0, 7)}...${apiKey.substring(apiKey.length - 4)}`);
+    
+    console.log('🔍 Environment Variables Status:');
+    console.log('   - VITE_OPENAI_API_KEY_MINI:', apiKey ? 'SET' : 'NOT SET');
+    console.log('   - DEBUG_MODE:', process.env.DEBUG_MODE || 'undefined');
 
     try {
       // 🤖 ENHANCED DEBUG: GPT REQUEST PAYLOAD

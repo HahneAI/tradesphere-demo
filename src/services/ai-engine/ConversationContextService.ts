@@ -237,7 +237,8 @@ Remember: You're building toward a complete quote, so gather all necessary detai
    * Determine which AI provider to use based on configuration
    */
   private static determineAIProvider(): 'openai' | 'claude' {
-    const aiKey = import.meta.env?.VITE_AI_API_KEY || process.env.VITE_AI_API_KEY;
+    const aiKey = process.env.VITE_AI_API_KEY || 
+                  (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
     
     if (!aiKey) {
       console.warn('⚠️ No VITE_AI_API_KEY configured, defaulting to OpenAI');
@@ -259,7 +260,8 @@ Remember: You're building toward a complete quote, so gather all necessary detai
    * Create OpenAI thread for conversation
    */
   private static async createOpenAIThread(): Promise<string | undefined> {
-    const apiKey = import.meta.env?.VITE_AI_API_KEY || process.env.VITE_AI_API_KEY;
+    const apiKey = process.env.VITE_AI_API_KEY || 
+                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
     
     if (!apiKey || !apiKey.startsWith('sk-')) {
       console.warn('⚠️ No valid OpenAI API key for thread creation');
@@ -299,7 +301,8 @@ Remember: You're building toward a complete quote, so gather all necessary detai
     userMessage: string
   ): Promise<AIResponse> {
     
-    const apiKey = import.meta.env?.VITE_AI_API_KEY || process.env.VITE_AI_API_KEY;
+    const apiKey = process.env.VITE_AI_API_KEY || 
+                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
     
     if (!apiKey) {
       throw new Error('No OpenAI API key configured');
@@ -417,7 +420,8 @@ Remember: You're building toward a complete quote, so gather all necessary detai
     userMessage: string
   ): Promise<AIResponse> {
     
-    const apiKey = import.meta.env?.VITE_AI_API_KEY || process.env.VITE_AI_API_KEY;
+    const apiKey = process.env.VITE_AI_API_KEY || 
+                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
     
     if (!apiKey) {
       throw new Error('No Claude API key configured');
