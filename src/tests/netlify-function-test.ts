@@ -163,10 +163,12 @@ async function main() {
       
       if (pricingResult.totals) {
         console.log(`\n💰 Final Pricing:`);
-        console.log(`   • Materials: $${pricingResult.totals.materialsCost.toFixed(2)}`);
-        console.log(`   • Labor: $${pricingResult.totals.laborCost.toFixed(2)}`);
-        console.log(`   • Tax: $${pricingResult.totals.taxCost.toFixed(2)}`);
-        console.log(`   • TOTAL: $${pricingResult.totals.totalCost.toFixed(2)}`);
+        console.log(`   • Total Labor Hours: ${pricingResult.totals.totalLaborHours.toFixed(1)}h`);
+        console.log(`   • TOTAL COST: $${pricingResult.totals.totalCost.toFixed(2)}`);
+        // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
+        // console.log(`   • Materials: $${pricingResult.totals.materialsCost.toFixed(2)}`);
+        // console.log(`   • Labor: $${pricingResult.totals.laborCost.toFixed(2)}`);
+        // console.log(`   • Tax: $${pricingResult.totals.taxCost.toFixed(2)}`);
       }
       
       console.log('\n📄 Generated Sales Response:');

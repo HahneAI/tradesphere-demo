@@ -40,7 +40,8 @@
     "test:sales-personality": "tsx -r dotenv/config src/tests/sales-personality-test.ts",
     "test:parameter-collector": "tsx -r dotenv/config src/tests/parameter-collector-test.ts",
     "test:pricing-calculator": "tsx -r dotenv/config src/tests/pricing-calculator-test.ts",
-    "test:netlify-function": "tsx -r dotenv/config src/tests/netlify-function-test.ts"
+    "test:netlify-function": "tsx -r dotenv/config src/tests/netlify-function-test.ts",
+    "test:sheets-inspector": "tsx -r dotenv/config src/tests/sheets-inspector.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",

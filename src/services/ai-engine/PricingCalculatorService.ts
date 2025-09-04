@@ -22,6 +22,8 @@ export interface ServiceQuote {
   unit: string;
   laborHours: number;
   cost: number;
+  unitPrice: number;
+  totalPrice: number;
   row: number;
   category: string;
 }
@@ -127,7 +129,7 @@ export class PricingCalculatorService {
     // Step 2: Write the service quantity
     await this.sheetsClient.writeServiceQuantity(service.row, service.quantity, betaCodeId);
     
-    // Step 3: Read the calculated results
+    // Step 3: Read the calculated results for individual service breakdown
     const sheetResults = await this.sheetsClient.readCalculationResults([service.row], betaCodeId);
     const sheetResult = sheetResults[0];
 
@@ -137,16 +139,19 @@ export class PricingCalculatorService {
       unit: service.unit,
       laborHours: sheetResult.laborHours,
       cost: sheetResult.cost,
+      unitPrice: service.quantity > 0 ? sheetResult.cost / service.quantity : 0,
+      totalPrice: sheetResult.cost,
       row: service.row,
       category: this.getServiceCategory(service.serviceName)
     };
 
+    // Step 4: Read project totals from C34 and D34 for accurate totals
+    console.log(`🔢 Reading project totals from sheet cells...`);
+    const projectTotals = await this.sheetsClient.readProjectTotals(betaCodeId);
+
     return {
       services: [serviceQuote],
-      totals: {
-        totalCost: sheetResult.cost,
-        totalLaborHours: sheetResult.laborHours
-      },
+      totals: projectTotals, // Use accurate totals from C34/D34
       calculationTime: 0, // Set by caller
       success: true
     };
@@ -169,31 +174,35 @@ export class PricingCalculatorService {
     
     await this.sheetsClient.writeMultipleQuantities(updates, betaCodeId);
     
-    // Step 3: Read all calculated results
+    // Step 3: Read all calculated results for individual service breakdown
     const rows = services.map(service => service.row);
     const sheetResults = await this.sheetsClient.readCalculationResults(rows, betaCodeId);
 
-    // Map results back to our format
+    // Map results back to our format for detailed breakdown
     const serviceQuotes: ServiceQuote[] = services.map((service, index) => {
       const sheetResult = sheetResults.find(r => r.row === service.row) || sheetResults[index];
+      const cost = sheetResult?.cost || 0;
       
       return {
         serviceName: service.serviceName,
         quantity: service.quantity,
         unit: service.unit,
         laborHours: sheetResult?.laborHours || 0,
-        cost: sheetResult?.cost || 0,
+        cost: cost,
+        unitPrice: service.quantity > 0 ? cost / service.quantity : 0,
+        totalPrice: cost,
         row: service.row,
         category: this.getServiceCategory(service.serviceName)
       };
     });
 
-    // Calculate totals from the service quotes
-    const totals = this.sheetsClient.calculateProjectTotals(sheetResults);
+    // Step 4: Read project totals from C34 and D34 for accurate totals
+    console.log(`🔢 Reading project totals from sheet cells...`);
+    const projectTotals = await this.sheetsClient.readProjectTotals(betaCodeId);
 
     return {
-      services: serviceQuotes,
-      totals,
+      services: serviceQuotes, // Individual service breakdown
+      totals: projectTotals, // Accurate totals from C34/D34
       calculationTime: 0, // Set by caller
       success: true
     };

@@ -12,9 +12,11 @@ import { SalesPersonalityService } from '../services/ai-engine/SalesPersonalityS
 interface MockPricingResult {
   totals: {
     totalCost: number;
-    materialsCost: number;
-    laborCost: number;
-    taxCost: number;
+    totalLaborHours: number;
+    // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
+    // materialsCost: number;
+    // laborCost: number;
+    // taxCost: number;
   };
   services: Array<{
     serviceName: string;
@@ -52,9 +54,8 @@ async function main() {
       pricingResult: {
         totals: {
           totalCost: 2850.00,
-          materialsCost: 1200.00,
-          laborCost: 1400.00,
-          taxCost: 250.00
+          totalLaborHours: 15.5
+          // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
         },
         services: [
           {
@@ -101,9 +102,8 @@ async function main() {
       pricingResult: {
         totals: {
           totalCost: 8750.00,
-          materialsCost: 4200.00,
-          laborCost: 3800.00,
-          taxCost: 750.00
+          totalLaborHours: 42.0
+          // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
         },
         services: [
           {
@@ -141,9 +141,8 @@ async function main() {
       pricingResult: {
         totals: {
           totalCost: 1850.00,
-          materialsCost: 800.00,
-          laborCost: 900.00,
-          taxCost: 150.00
+          totalLaborHours: 12.5
+          // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
         },
         services: [
           {

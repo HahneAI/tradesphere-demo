@@ -21,6 +21,10 @@ export interface SheetCalculationResult {
 export interface ProjectTotal {
   totalLaborHours: number;
   totalCost: number;
+  // FUTURE: Add breakdown fields when business requirements are defined
+  // materialsCost: number;
+  // laborCost: number;  
+  // taxCost: number;
 }
 
 // Types for dynamic imports (to avoid compile-time dependencies)
@@ -228,10 +232,14 @@ export class GoogleSheetsClient {
     try {
       const ranges = rows.map(row => `'${sheetName}'!C${row}:E${row}`); // Labor hours (C), Cost (D), Service name (E)
       
+      console.log(`🔍 DEBUG: Reading from ranges:`, ranges);
+      
       const response = await this.sheets.spreadsheets.values.batchGet({
         spreadsheetId: this.spreadsheetId,
         ranges: ranges
       });
+
+      console.log(`🔍 DEBUG: Raw Google Sheets response:`, JSON.stringify(response.data, null, 2));
 
       const results: SheetCalculationResult[] = [];
       
@@ -239,10 +247,21 @@ export class GoogleSheetsClient {
         const values = valueRange.values?.[0] || [];
         const row = rows[index];
         
+        console.log(`🔍 DEBUG: Row ${row} raw values:`, values);
+        
+        const laborHours = parseFloat(values[0]) || 0;
+        // Parse cost string by removing $ and commas
+        const costString = (values[1] || '').toString();
+        const cost = parseFloat(costString.replace(/[\$,]/g, '')) || 0;
+        
+        console.log(`  - Column C (Labor Hours): "${values[0]}" -> ${laborHours}`);
+        console.log(`  - Column D (Cost): "${values[1]}" -> ${cost} (cleaned from "${costString}")`);
+        console.log(`  - Column E (Service): "${values[2]}"`);
+        
         results.push({
           row,
-          laborHours: parseFloat(values[0]) || 0,
-          cost: parseFloat(values[1]) || 0,
+          laborHours,
+          cost,
           service: values[2] || `Service ${row}`
         });
       });
@@ -258,12 +277,63 @@ export class GoogleSheetsClient {
   }
 
   /**
-   * Calculate project totals from individual service results
+   * Read project totals directly from Google Sheets cells C34 and D34
+   */
+  async readProjectTotals(betaCodeId?: number): Promise<ProjectTotal> {
+    const initialized = await this.initialize();
+    const sheetName = this.getSheetName(betaCodeId);
+    
+    if (!initialized) {
+      console.log(`🧪 MOCK: Would read project totals from ${sheetName} cells C34:D34`);
+      return { totalLaborHours: 0, totalCost: 0 };
+    }
+
+    try {
+      const range = `'${sheetName}'!C34:D34`; // Total hours (C34), Total cost (D34)
+      
+      console.log(`🔍 DEBUG: Reading project totals from range: ${range}`);
+      
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: range
+      });
+
+      console.log(`🔍 DEBUG: Raw totals response:`, JSON.stringify(response.data, null, 2));
+
+      const values = response.data.values?.[0] || [];
+      const totalLaborHours = parseFloat(values[0]) || 0;
+      // Parse cost string by removing $ and commas
+      const totalCostString = (values[1] || '').toString();
+      const totalCost = parseFloat(totalCostString.replace(/[\$,]/g, '')) || 0;
+      
+      console.log(`🔍 DEBUG: Parsed totals - Hours: "${values[0]}" -> ${totalLaborHours}, Cost: "${values[1]}" -> ${totalCost} (cleaned from "${totalCostString}")`);
+
+      // REMOVED: Artificial multipliers - see docs/pricing-multipliers-future.md
+      // Return raw values from Google Sheets only
+      const totals = {
+        totalLaborHours,
+        totalCost
+      };
+
+      console.log(`✅ Read project totals from sheet "${sheetName}": $${totalCost}, ${totalLaborHours}h (Beta Code: ${betaCodeId || 'default'})`);
+      return totals;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Failed to read project totals from sheet "${sheetName}":`, errorMessage);
+      throw new Error(`Google Sheets totals read failed: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Calculate project totals from individual service results (fallback method)
+   * REMOVED: Artificial multipliers - see docs/pricing-multipliers-future.md
    */
   calculateProjectTotals(results: SheetCalculationResult[]): ProjectTotal {
     const totalLaborHours = results.reduce((sum, result) => sum + result.laborHours, 0);
     const totalCost = results.reduce((sum, result) => sum + result.cost, 0);
 
+    // Return raw calculated totals only (no artificial breakdowns)
     return {
       totalLaborHours,
       totalCost

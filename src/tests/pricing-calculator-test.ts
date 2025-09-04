@@ -52,7 +52,7 @@ async function main() {
           serviceName: "Paver Patio (SQFT)",
           quantity: 150,
           unit: "sqft",
-          row: 3,
+          row: 2,
           category: "hardscaping",
           confidence: 95
         }
@@ -68,7 +68,7 @@ async function main() {
           serviceName: "Paver Patio (SQFT)",
           quantity: 150,
           unit: "sqft", 
-          row: 3,
+          row: 2,
           category: "hardscaping",
           confidence: 95
         },
@@ -76,7 +76,7 @@ async function main() {
           serviceName: "Triple Ground Mulch (SQFT)",
           quantity: 100,
           unit: "sqft",
-          row: 15,
+          row: 23,
           category: "materials",
           confidence: 90
         }
@@ -92,7 +92,7 @@ async function main() {
           serviceName: "Paver Patio (SQFT)",
           quantity: 200,
           unit: "sqft",
-          row: 3,
+          row: 2,
           category: "hardscaping", 
           confidence: 95
         },
@@ -100,15 +100,15 @@ async function main() {
           serviceName: "Triple Ground Mulch (SQFT)",
           quantity: 150,
           unit: "sqft",
-          row: 15,
+          row: 23,
           category: "materials",
           confidence: 90
         },
         {
-          serviceName: "Metal Edging (LNFT)",
+          serviceName: "Metal Edging",
           quantity: 40,
           unit: "linear_feet",
-          row: 12,
+          row: 21,
           category: "edging",
           confidence: 88
         }
@@ -148,7 +148,7 @@ async function main() {
           serviceName: "Cedar Pergola (SQFT)",
           quantity: 150,
           unit: "sqft",
-          row: 5,
+          row: 14,
           category: "structures",
           confidence: 98
         }
@@ -201,9 +201,11 @@ async function main() {
       if (result.totals) {
         console.log('\n💵 Cost Breakdown:');
         console.log(`   • Total Cost: $${result.totals.totalCost.toFixed(2)}`);
-        console.log(`   • Materials: $${result.totals.materialsCost.toFixed(2)}`);
-        console.log(`   • Labor: $${result.totals.laborCost.toFixed(2)}`);
-        console.log(`   • Tax: $${result.totals.taxCost.toFixed(2)}`);
+        console.log(`   • Total Labor Hours: ${result.totals.totalLaborHours.toFixed(1)}h`);
+        // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
+        // console.log(`   • Materials: $${result.totals.materialsCost.toFixed(2)}`);
+        // console.log(`   • Labor: $${result.totals.laborCost.toFixed(2)}`);
+        // console.log(`   • Tax: $${result.totals.taxCost.toFixed(2)}`);
       }
       
       if (result.services && result.services.length > 0) {
