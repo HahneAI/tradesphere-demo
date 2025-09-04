@@ -14,6 +14,8 @@ import { ParameterCollectorService, CollectionResult } from '../../src/services/
 import { PricingCalculatorService, createPricingCalculator, PricingResult } from '../../src/services/ai-engine/PricingCalculatorService';
 import { SalesPersonalityService, CustomerContext } from '../../src/services/ai-engine/SalesPersonalityService';
 import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService';
+import { GPTServiceSplitter } from '../../src/services/ai-engine/GPTServiceSplitter';
+import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService';
 
 // Types for webhook payload (same as Make.com)
 interface WebhookPayload {
@@ -81,7 +83,7 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
   }
 
   try {
-    console.log('🚀 PRICING AGENT START');
+    console.log('🚀 PRICING AGENT START - GPT-First Workflow with MainChatAgent');
     console.log('Headers:', event.headers);
     console.log('Body length:', event.body?.length || 0);
 
@@ -89,197 +91,102 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     const payload = parseWebhookPayload(event.body);
     console.log(`📥 Request: "${payload.message}" from ${payload.firstName} (${payload.sessionId})`);
 
-    // Create customer context
-    const customerContext: CustomerContext = {
-      firstName: payload.firstName,
-      jobTitle: payload.jobTitle,
-      isReturnCustomer: false, // Could enhance with database lookup
-      urgencyLevel: 'routine' // Default, could be enhanced with AI detection
-    };
-
-    // STEP 0.5: CONVERSATION CONTEXT INTEGRATION
-    console.log('💬 CONVERSATION: Integrating AI-powered conversation context');
-    const conversationStart = Date.now();
+    // STEP 1A: GPT Service Splitting
+    console.log('🤖 STEP 1A: GPT SERVICE SPLITTING');
+    const gptSplitStart = Date.now();
     
-    // Process message with conversation context using AI provider threads
-    const aiResponse = await ConversationContextService.processMessageWithContext(
-      payload.sessionId,
-      payload.message,
-      customerContext
-    );
+    const gptSplitter = new GPTServiceSplitter();
+    const splitResult = await gptSplitter.analyzeAndSplit(payload.message);
     
-    console.log(`✅ Conversation processing: ${Date.now() - conversationStart}ms`);
+    console.log(`✅ GPT Splitting: ${Date.now() - gptSplitStart}ms`);
+    console.log(`📊 Split Results: ${splitResult.service_count} services in ${splitResult.detected_categories.length} categories`);
 
-    // Check if AI thinks this needs clarification before proceeding to parameter collection
-    if (aiResponse.requiresClarification) {
-      console.log('❓ AI detected clarification needed, returning conversational response');
-      
-      const response: PricingResponse = {
-        success: true,
-        response: aiResponse.content,
-        sessionId: payload.sessionId,
-        processingTime: Date.now() - metrics.startTime,
-        stage: 'parameter_collection',
-        debug: {
-          servicesFound: 0,
-          confidence: 0
-        }
-      };
-
-      // Update conversation context with the AI response
-      await ConversationContextService.updateContext(payload.sessionId, payload.message, aiResponse.content);
-
-      return createSuccessResponse(response, corsHeaders);
-    }
-
-    // 🎯 ENHANCED DEBUG: STEP 1 START - Parameter Collection
-    console.log('🎯 STEP 1 START: Parameter Collection');
-    console.log('🎯 STEP 1 INPUT:', {
-      message: payload.message,
-      sessionId: payload.sessionId,
-      firstName: payload.firstName,
-      betaCodeId: payload.betaCodeId,
-      timestamp: new Date().toISOString()
-    });
-    
+    // STEP 1B: Enhanced Parameter Collection
+    console.log('🎯 STEP 1B: ENHANCED PARAMETER COLLECTION');
     const collectionStart = Date.now();
     
-    // Get conversation context to enhance parameter collection
-    const conversationContext = await ConversationContextService.retrieveContext(payload.sessionId);
-    
-    // Collect parameters with conversation history for better context
-    const collectionResult = await ParameterCollectorService.collectParameters(payload.message);
+    const collectionResult = await ParameterCollectorService.collectParametersWithSplitServices(
+      payload.message, 
+      splitResult
+    );
     
     metrics.parameterCollectionTime = Date.now() - collectionStart;
-    
-    // 🎯 ENHANCED DEBUG: STEP 1 COMPLETE
-    console.log('🎯 STEP 1 COMPLETE:', {
-      status: collectionResult.status,
-      servicesFound: collectionResult.services.length,
-      confidence: collectionResult.confidence,
-      processingTime: metrics.parameterCollectionTime + 'ms',
-      needsClarification: collectionResult.status === 'incomplete'
-    });
-    
-    console.log(`✅ Parameter collection: ${metrics.parameterCollectionTime}ms`);
+    console.log(`✅ Parameter Collection: ${metrics.parameterCollectionTime}ms`);
+    console.log(`📊 Services: ${collectionResult.services.length} complete + ${collectionResult.incompleteServices.length} incomplete`);
 
-    // Check if we need clarification (enhanced with AI conversation)
-    if (collectionResult.status === 'incomplete') {
-      console.log('❓ Parameter collection incomplete, using AI for intelligent clarification');
+    // STEP 2: Pricing Calculation (only for complete services)
+    let pricingResult: PricingResult | undefined;
+    
+    if (collectionResult.services.length > 0) {
+      console.log('💰 STEP 2: PRICING CALCULATION');
+      const calculationStart = Date.now();
       
-      // Use AI conversation context to generate more natural clarification
-      const clarificationAI = await ConversationContextService.processMessageWithContext(
-        payload.sessionId,
-        `User said: "${payload.message}". I need clarification for: ${collectionResult.suggestedResponse}`,
-        customerContext
-      );
+      const pricingCalculator = createPricingCalculator();
+      const hasIrrigation = collectionResult.services.some(s => s.serviceName.includes('Irrigation'));
+      
+      if (hasIrrigation) {
+        console.log(`💧 Using irrigation-specific pricing for Beta Code ${payload.betaCodeId}`);
+        pricingResult = await pricingCalculator.calculateIrrigationPricing(collectionResult.services, payload.betaCodeId);
+      } else {
+        pricingResult = await pricingCalculator.calculatePricing(collectionResult.services, payload.betaCodeId);
+      }
 
-      // Update conversation context with both the original message and clarification request
-      await ConversationContextService.updateContext(payload.sessionId, payload.message, clarificationAI.content);
+      metrics.pricingCalculationTime = Date.now() - calculationStart;
+      console.log(`✅ Pricing Calculation: ${metrics.pricingCalculationTime}ms`);
 
-      const response: PricingResponse = {
-        success: true,
-        response: clarificationAI.content,
-        sessionId: payload.sessionId,
-        processingTime: Date.now() - metrics.startTime,
-        stage: 'parameter_collection',
-        debug: {
-          servicesFound: collectionResult.services.length,
-          confidence: collectionResult.confidence
-        }
-      };
-
-      return createSuccessResponse(response, corsHeaders);
-    }
-
-    // 💰 ENHANCED DEBUG: STEP 2 START - Pricing Calculation
-    console.log('💰 STEP 2 START: Pricing Calculation');
-    console.log('💰 STEP 2 INPUT:', {
-      servicesCount: collectionResult.services.length,
-      services: collectionResult.services.map(s => ({ name: s.serviceName, quantity: s.quantity, row: s.row })),
-      betaCodeId: payload.betaCodeId,
-      hasIrrigation: collectionResult.services.some(s => s.serviceName.includes('Irrigation'))
-    });
-    
-    console.log(`💰 STEP 2: Pricing Calculation for Beta Code ID ${payload.betaCodeId}`);
-    const calculationStart = Date.now();
-    
-    const pricingCalculator = createPricingCalculator();
-    let pricingResult: PricingResult;
-
-    // Handle special irrigation pricing if needed
-    const hasIrrigation = collectionResult.services.some(s => s.serviceName.includes('Irrigation'));
-    
-    if (hasIrrigation) {
-      console.log(`💧 Using irrigation-specific pricing calculation for Beta Code ${payload.betaCodeId}`);
-      pricingResult = await pricingCalculator.calculateIrrigationPricing(collectionResult.services, payload.betaCodeId);
+      if (!pricingResult.success) {
+        throw new Error(`Pricing calculation failed: ${pricingResult.error}`);
+      }
     } else {
-      pricingResult = await pricingCalculator.calculatePricing(collectionResult.services, payload.betaCodeId);
+      console.log('⚠️ No complete services found, skipping pricing calculation');
     }
 
-    metrics.pricingCalculationTime = Date.now() - calculationStart;
-    console.log(`✅ Pricing calculation: ${metrics.pricingCalculationTime}ms`);
-
-    if (!pricingResult.success) {
-      throw new Error(`Pricing calculation failed: ${pricingResult.error}`);
-    }
-
-    // 📝 ENHANCED DEBUG: STEP 3 START - Sales Response Formatting
-    console.log('📝 STEP 3 START: Sales Response Formatting');
-    console.log('📝 STEP 3 INPUT:', {
-      totalCost: pricingResult.totals?.totalCost,
-      servicesCount: pricingResult.services?.length,
-      customerName: customerContext.firstName,
-      urgencyLevel: customerContext.urgencyLevel,
-      processingTimeToDate: Date.now() - metrics.startTime + 'ms'
-    });
+    // STEP 3: Main Chat Agent (Final AI Orchestration)
+    console.log('🧠 STEP 3: MAIN CHAT AGENT ORCHESTRATION');
+    const chatAgentStart = Date.now();
     
-    console.log('📝 STEP 3: Sales Response Formatting');
-    const formattingStart = Date.now();
-    
-    const salesResponse = SalesPersonalityService.formatSalesResponse(
+    const chatAgentInput = {
+      originalMessage: payload.message,
+      sessionId: payload.sessionId,
+      firstName: payload.firstName,
+      collectionResult,
       pricingResult,
-      customerContext,
-      'pricing'
-    );
+      betaCodeId: payload.betaCodeId
+    };
 
-    metrics.responseFormattingTime = Date.now() - formattingStart;
+    const chatAgentResponse = await MainChatAgentService.generateResponse(chatAgentInput);
+    
+    const chatAgentTime = Date.now() - chatAgentStart;
+    console.log(`✅ Main Chat Agent: ${chatAgentTime}ms`);
+    console.log(`📋 Response Type: ${chatAgentResponse.conversationType}`);
+
     metrics.totalTime = Date.now() - metrics.startTime;
 
-    console.log(`✅ Response formatting: ${metrics.responseFormattingTime}ms`);
-    console.log(`🏁 TOTAL PROCESSING TIME: ${metrics.totalTime}ms`);
-    console.log(`💰 Final price: $${pricingResult.totals.totalCost}`);
-
-    // Log performance comparison
     console.log('📊 PERFORMANCE METRICS:');
+    console.log(`  GPT Splitting: ${Date.now() - gptSplitStart}ms`);
     console.log(`  Parameter Collection: ${metrics.parameterCollectionTime}ms`);
-    console.log(`  Pricing Calculation: ${metrics.pricingCalculationTime}ms`);
-    console.log(`  Response Formatting: ${metrics.responseFormattingTime}ms`);
+    console.log(`  Pricing Calculation: ${metrics.pricingCalculationTime || 0}ms`);
+    console.log(`  Main Chat Agent: ${chatAgentTime}ms`);
     console.log(`  TOTAL: ${metrics.totalTime}ms (vs Make.com 30-50s)`);
-
-    // Update conversation context with the final pricing response
-    await ConversationContextService.updateContext(
-      payload.sessionId, 
-      payload.message, 
-      salesResponse.message
-    );
 
     // Create final response
     const response: PricingResponse = {
       success: true,
-      response: salesResponse.message,
+      response: chatAgentResponse.message,
       sessionId: payload.sessionId,
       processingTime: metrics.totalTime,
-      stage: 'pricing_calculation',
+      stage: chatAgentResponse.requiresClarification ? 'parameter_collection' : 'pricing_calculation',
       debug: {
-        servicesFound: pricingResult.services.length,
+        servicesFound: collectionResult.services.length + collectionResult.incompleteServices.length,
         confidence: collectionResult.confidence,
-        calculationTime: pricingResult.calculationTime
+        calculationTime: pricingResult?.calculationTime
       }
     };
 
-    // Store in Supabase for frontend retrieval
-    await storeResponseInSupabase(payload, response, pricingResult);
+    // Store in Supabase for frontend retrieval if we have pricing data
+    if (pricingResult) {
+      await storeResponseInSupabase(payload, response, pricingResult);
+    }
 
     console.log(`💬 Conversation context updated for session ${payload.sessionId}`);
     return createSuccessResponse(response, corsHeaders);

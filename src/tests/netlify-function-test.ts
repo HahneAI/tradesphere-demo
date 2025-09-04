@@ -12,8 +12,10 @@ import 'dotenv/config';
 
 // Import the main pricing agent function directly
 import { ParameterCollectorService } from '../services/ai-engine/ParameterCollectorService';
-import { PricingCalculatorService } from '../services/ai-engine/PricingCalculatorService';
+import { PricingCalculatorService, PricingResult } from '../services/ai-engine/PricingCalculatorService';
 import { SalesPersonalityService } from '../services/ai-engine/SalesPersonalityService';
+import { GPTServiceSplitter } from '../services/ai-engine/GPTServiceSplitter';
+import { MainChatAgentService } from '../services/ai-engine/MainChatAgentService';
 
 async function main() {
   console.log('⚡ Netlify Function (Pricing Agent) Full Pipeline Test');
@@ -87,63 +89,104 @@ async function main() {
     const pipelineStartTime = performance.now();
     
     try {
-      // STEP 1: Parameter Collection (includes GPT API calls)
-      console.log('\n🎯 STEP 1: PARAMETER COLLECTION');
+      // STEP 1A: Service Splitting with GPT-4o-mini (NEW FIRST STEP)
+      console.log('\n🤖 STEP 1A: GPT SERVICE SPLITTING');
       console.log('-'.repeat(40));
-      console.log('🚀 Starting parameter collection with GPT-4o-mini...');
+      console.log('🚀 Starting GPT-4o-mini service splitting...');
+
+      const step1aStartTime = performance.now();
+      const gptSplitter = new GPTServiceSplitter();
+      const splitResult = await gptSplitter.analyzeAndSplit(scenario.message);
+      const step1aEndTime = performance.now();
+      const step1aTime = (step1aEndTime - step1aStartTime).toFixed(2);
+
+      console.log(`⏱️ Step 1A completed in ${step1aTime}ms`);
+      console.log(`📊 GPT Split Results:`);
+      console.log(`   Categories: [${splitResult.detected_categories.join(', ')}]`);
+      console.log(`   Services: ${splitResult.service_count}`);
+      splitResult.separated_services.forEach((service, i) => {
+        console.log(`   ${i + 1}. ${service}`);
+      });
+
+      // STEP 1B: Enhanced Parameter Collection (UPDATED)
+      console.log('\n🎯 STEP 1B: ENHANCED PARAMETER COLLECTION');
+      console.log('-'.repeat(40));
+      console.log('🚀 Processing split services with category hints...');
+
+      const step1bStartTime = performance.now();
+      const collectionResult = await ParameterCollectorService.collectParametersWithSplitServices(
+        scenario.message, 
+        splitResult
+      );
+      const step1bEndTime = performance.now();
+      const step1bTime = (step1bEndTime - step1bStartTime).toFixed(2);
+      const totalStep1Time = (parseFloat(step1aTime) + parseFloat(step1bTime)).toFixed(2);
       
-      const step1StartTime = performance.now();
-      const collectionResult = await ParameterCollectorService.collectParameters(scenario.message);
-      const step1EndTime = performance.now();
-      const step1Time = (step1EndTime - step1StartTime).toFixed(2);
-      
-      console.log(`⏱️ Step 1 completed in ${step1Time}ms`);
+      console.log(`⏱️ Step 1B completed in ${step1bTime}ms`);
+      console.log(`⏱️ Total Step 1 (A+B) completed in ${totalStep1Time}ms`);
       console.log(`📊 Services found: ${collectionResult.services.length}`);
-      console.log(`📈 Overall confidence: ${collectionResult.overallConfidence}%`);
+      console.log(`📈 Overall confidence: ${(collectionResult.confidence * 100).toFixed(0)}%`);
       
-      if (collectionResult.services.length === 0) {
-        console.log('❌ No services detected, skipping to next scenario');
+      console.log(`📊 Service Analysis:`);
+      console.log(`   Complete Services: ${collectionResult.services.length}`);
+      console.log(`   Incomplete Services: ${collectionResult.incompleteServices.length}`);
+      console.log(`   Status: ${collectionResult.status}`);
+
+      if (collectionResult.services.length === 0 && collectionResult.incompleteServices.length === 0) {
+        console.log('❌ No services detected at all, skipping to next scenario');
         continue;
       }
       
-      // STEP 2: Pricing Calculation (Google Sheets API)
-      console.log('\n💰 STEP 2: PRICING CALCULATION');
-      console.log('-'.repeat(40));
-      console.log('🚀 Starting pricing calculation with Google Sheets API...');
+      // STEP 2: Pricing Calculation (only for complete services)
+      let pricingResult: PricingResult | undefined;
+      let step2Time = '0.00';
       
-      const step2StartTime = performance.now();
-      const calculator = new PricingCalculatorService();
-      const pricingResult = await calculator.calculatePricing(collectionResult.services, scenario.betaCodeId);
-      const step2EndTime = performance.now();
-      const step2Time = (step2EndTime - step2StartTime).toFixed(2);
-      
-      console.log(`⏱️ Step 2 completed in ${step2Time}ms`);
-      console.log(`💵 Total cost: $${pricingResult.totals?.totalCost.toFixed(2) || '0.00'}`);
-      console.log(`✅ Pricing success: ${pricingResult.success}`);
-      
-      if (!pricingResult.success) {
-        console.log('❌ Pricing failed, skipping to next scenario');
-        continue;
+      if (collectionResult.services.length > 0) {
+        console.log('\n💰 STEP 2: PRICING CALCULATION');
+        console.log('-'.repeat(40));
+        console.log('🚀 Starting pricing calculation with Google Sheets API...');
+        
+        const step2StartTime = performance.now();
+        const calculator = new PricingCalculatorService();
+        pricingResult = await calculator.calculatePricing(collectionResult.services, scenario.betaCodeId);
+        const step2EndTime = performance.now();
+        step2Time = (step2EndTime - step2StartTime).toFixed(2);
+        
+        console.log(`⏱️ Step 2 completed in ${step2Time}ms`);
+        console.log(`💵 Total cost: $${pricingResult.totals?.totalCost.toFixed(2) || '0.00'}`);
+        console.log(`✅ Pricing success: ${pricingResult.success}`);
+        
+        if (!pricingResult.success) {
+          console.log('❌ Pricing failed, will still proceed to MainChatAgent for clarification');
+        }
+      } else {
+        console.log('\n⚠️ STEP 2: SKIPPING PRICING - No complete services');
+        console.log('Will proceed to MainChatAgent for clarifying questions');
       }
       
-      // STEP 3: Sales Response Formatting
-      console.log('\n📝 STEP 3: SALES RESPONSE FORMATTING');
+      // STEP 3: Main Chat Agent (AI Orchestration)
+      console.log('\n🧠 STEP 3: MAIN CHAT AGENT ORCHESTRATION');
       console.log('-'.repeat(40));
-      console.log('🚀 Generating sales response...');
+      console.log('🚀 Starting AI orchestration with Claude Sonnet 3.5...');
       
       const step3StartTime = performance.now();
-      const customerContext = {
-        firstName: scenario.firstName,
-        isReturnCustomer: false,
-        projectType: scenario.description,
-        urgencyLevel: 'routine' as const
-      };
       
-      const salesResponse = SalesPersonalityService.formatSalesResponse(pricingResult, customerContext);
+      const chatAgentInput = {
+        originalMessage: scenario.message,
+        sessionId: scenario.sessionId,
+        firstName: scenario.firstName,
+        collectionResult,
+        pricingResult,
+        betaCodeId: scenario.betaCodeId
+      };
+
+      const chatAgentResponse = await MainChatAgentService.generateResponse(chatAgentInput);
       const step3EndTime = performance.now();
       const step3Time = (step3EndTime - step3StartTime).toFixed(2);
       
       console.log(`⏱️ Step 3 completed in ${step3Time}ms`);
+      console.log(`📋 Conversation Type: ${chatAgentResponse.conversationType}`);
+      console.log(`❓ Requires Clarification: ${chatAgentResponse.requiresClarification}`);
       
       const pipelineEndTime = performance.now();
       const totalPipelineTime = (pipelineEndTime - pipelineStartTime).toFixed(2);
@@ -152,36 +195,51 @@ async function main() {
       console.log('\n🎉 PIPELINE RESULTS SUMMARY');
       console.log('=' .repeat(50));
       console.log(`⏱️ Total Pipeline Time: ${totalPipelineTime}ms`);
-      console.log(`   • Parameter Collection: ${step1Time}ms`);
+      console.log(`   • GPT Service Splitting: ${step1aTime}ms`);
+      console.log(`   • Enhanced Parameter Collection: ${step1bTime}ms`);
       console.log(`   • Pricing Calculation: ${step2Time}ms`);
-      console.log(`   • Sales Formatting: ${step3Time}ms`);
+      console.log(`   • Main Chat Agent: ${step3Time}ms`);
       
-      console.log(`\n📊 Services Processed: ${collectionResult.services.length}`);
+      console.log(`\n📊 Services Analysis:`);
+      console.log(`   Complete Services: ${collectionResult.services.length}`);
       collectionResult.services.forEach((service, index) => {
-        console.log(`   ${index + 1}. ${service.serviceName}: ${service.quantity} ${service.unit}`);
+        console.log(`   ${index + 1}. ${service.serviceName}: ${service.quantity} ${service.unit} (${service.status})`);
       });
       
-      if (pricingResult.totals) {
+      if (collectionResult.incompleteServices.length > 0) {
+        console.log(`   Incomplete Services: ${collectionResult.incompleteServices.length}`);
+        collectionResult.incompleteServices.forEach((service, index) => {
+          console.log(`   ${index + 1}. ${service.serviceName}: MISSING QUANTITY (${service.status})`);
+        });
+      }
+      
+      if (pricingResult && pricingResult.totals) {
         console.log(`\n💰 Final Pricing:`);
         console.log(`   • Total Labor Hours: ${pricingResult.totals.totalLaborHours.toFixed(1)}h`);
         console.log(`   • TOTAL COST: $${pricingResult.totals.totalCost.toFixed(2)}`);
-        // REMOVED: Artificial breakdown fields - see docs/pricing-multipliers-future.md
-        // console.log(`   • Materials: $${pricingResult.totals.materialsCost.toFixed(2)}`);
-        // console.log(`   • Labor: $${pricingResult.totals.laborCost.toFixed(2)}`);
-        // console.log(`   • Tax: $${pricingResult.totals.taxCost.toFixed(2)}`);
       }
       
-      console.log('\n📄 Generated Sales Response:');
+      console.log('\n📄 Generated AI Response:');
+      console.log(`📋 Type: ${chatAgentResponse.conversationType}`);
       console.log('=' .repeat(60));
-      console.log(salesResponse);
+      console.log(chatAgentResponse.message);
       console.log('=' .repeat(60));
+      
+      if (chatAgentResponse.clarifyingQuestions.length > 0) {
+        console.log('\n❓ Clarifying Questions Generated:');
+        chatAgentResponse.clarifyingQuestions.forEach((question, index) => {
+          console.log(`   ${index + 1}. ${question}`);
+        });
+      }
       
       // API Usage Summary
       console.log('\n📡 API Calls Made:');
       console.log('   ✅ GPT-4o-mini: Service categorization & splitting');
-      console.log('   ✅ ServiceMappingEngine: Text-to-service conversion');
-      console.log('   ✅ Google Sheets API: Real pricing calculations');
-      console.log('   ✅ Sales Personality: Customer-focused response');
+      console.log('   ✅ ServiceMappingEngine: Text-to-service conversion with incomplete tracking');
+      if (pricingResult) {
+        console.log('   ✅ Google Sheets API: Real pricing calculations');
+      }
+      console.log('   ✅ Claude Sonnet 3.5: Final AI orchestration with conversation memory');
       
     } catch (error) {
       console.error(`\n❌ Pipeline failed for scenario "${scenario.name}":`, error);

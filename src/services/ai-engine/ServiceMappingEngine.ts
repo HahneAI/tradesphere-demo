@@ -19,13 +19,14 @@ import { GPTServiceSplitter, CategorySplitResult } from './GPTServiceSplitter';
 
 export interface RecognizedService {
   serviceName: string;
-  quantity: number;
+  quantity?: number; // Optional - can be undefined for incomplete services
   unit: string;
   confidence: number;
   row: number;
   category: string;
   isSpecial: boolean;
   originalText: string;
+  status: 'complete' | 'awaiting_quantity' | 'awaiting_details';
 }
 
 export interface ServiceMappingResult {
@@ -89,6 +90,34 @@ export class ServiceMappingEngine {
     
     // Recalculate overall confidence
     result.confidence = this.calculateOverallConfidence(result.services);
+    
+    return result;
+  }
+
+  /**
+   * Map user input with category hint from GPT splitting
+   */
+  static mapUserInputWithCategoryHint(userInput: string, categoryHint: string): ServiceMappingResult {
+    console.log(`🎯 SERVICE MAPPING WITH CATEGORY HINT: "${userInput}" (hint: ${categoryHint})`);
+    
+    // Get services that match the category hint
+    const categoryServices = Object.entries(SERVICE_DATABASE).filter(([serviceName, config]) => 
+      config.category.toLowerCase() === categoryHint.toLowerCase()
+    );
+    
+    console.log(`📂 Category "${categoryHint}" has ${categoryServices.length} possible services`);
+    
+    // Process with standard mapping
+    const result = this.mapUserInput(userInput);
+    
+    // Boost confidence for services matching the category hint
+    result.services.forEach(service => {
+      const serviceConfig = getServiceByName(service.serviceName);
+      if (serviceConfig && serviceConfig.category.toLowerCase() === categoryHint.toLowerCase()) {
+        console.log(`✅ CATEGORY BOOST: ${service.serviceName} matches hint "${categoryHint}"`);
+        service.confidence = Math.min(1.0, service.confidence * 1.2); // 20% boost
+      }
+    });
     
     return result;
   }
@@ -223,10 +252,10 @@ export class ServiceMappingEngine {
     for (const match of serviceMatches) {
       // Extract quantity for this service
       const quantity = this.extractQuantity(segment, match.serviceName);
+      const serviceConfig = getServiceByName(match.serviceName)!;
       
       if (quantity > 0) {
-        const serviceConfig = getServiceByName(match.serviceName)!;
-        
+        // Complete service with quantity
         services.push({
           serviceName: match.serviceName,
           quantity,
@@ -235,7 +264,22 @@ export class ServiceMappingEngine {
           row: serviceConfig.row,
           category: serviceConfig.category,
           isSpecial: isSpecialService(match.serviceName),
-          originalText: segment
+          originalText: segment,
+          status: 'complete'
+        });
+      } else {
+        // Incomplete service - found service but no quantity
+        console.log(`⚠️ SERVICE FOUND WITHOUT QUANTITY: ${match.serviceName} in "${segment}"`);
+        services.push({
+          serviceName: match.serviceName,
+          quantity: undefined,
+          unit: serviceConfig.unit,
+          confidence: match.confidence * 0.7, // Reduce confidence for incomplete
+          row: serviceConfig.row,
+          category: serviceConfig.category,
+          isSpecial: isSpecialService(match.serviceName),
+          originalText: segment,
+          status: 'awaiting_quantity'
         });
       }
     }

@@ -6,10 +6,12 @@
  */
 
 import { ServiceMappingEngine, ServiceMappingResult } from './ServiceMappingEngine';
+import { CategorySplitResult } from './GPTServiceSplitter';
 
 export interface CollectionResult {
-  status: 'incomplete' | 'ready_for_pricing';
+  status: 'incomplete' | 'ready_for_pricing' | 'partial';
   services: ExtractedService[];
+  incompleteServices: ExtractedService[]; // Services found but missing quantities
   missingInfo: string[];
   clarifyingQuestions: string[];
   confidence: number;
@@ -18,10 +20,11 @@ export interface CollectionResult {
 
 export interface ExtractedService {
   serviceName: string;
-  quantity: number;
+  quantity?: number; // Optional for incomplete services
   unit: string;
   row: number;
   isSpecial: boolean;
+  status?: 'complete' | 'awaiting_quantity' | 'awaiting_details';
   specialRequirements?: SpecialRequirements;
 }
 
@@ -45,7 +48,76 @@ export class ParameterCollectorService {
   private static readonly COMPLETION_THRESHOLD = 0.85;
   
   /**
-   * Main entry point - replaces Make.com parameter_collector
+   * Enhanced parameter collection using GPT split services with category hints
+   */
+  static async collectParametersWithSplitServices(
+    originalMessage: string, 
+    splitResult: CategorySplitResult
+  ): Promise<CollectionResult> {
+    console.log('🎯 ENHANCED PARAMETER COLLECTION START (with GPT splits)');
+    console.log(`Original message: "${originalMessage}"`);
+    console.log(`Processing ${splitResult.service_count} split services...`);
+    
+    const completeServices: ExtractedService[] = [];
+    const incompleteServices: ExtractedService[] = [];
+    
+    // Process each split service with its category hint
+    for (let i = 0; i < splitResult.separated_services.length; i++) {
+      const splitService = splitResult.separated_services[i];
+      const [serviceText, categoryHint] = splitService.split(',').map(s => s.trim());
+      
+      console.log(`🔍 Processing split service ${i + 1}: "${serviceText}" (category: ${categoryHint})`);
+      
+      // Use ServiceMappingEngine with category priority
+      const mappingResult = ServiceMappingEngine.mapUserInputWithCategoryHint(serviceText, categoryHint);
+      
+      // Separate complete and incomplete services
+      mappingResult.services.forEach(service => {
+        const extractedService: ExtractedService = {
+          serviceName: service.serviceName,
+          quantity: service.quantity,
+          unit: service.unit,
+          row: service.row,
+          isSpecial: service.isSpecial,
+          status: service.status
+        };
+        
+        if (service.status === 'complete' && service.quantity && service.quantity > 0) {
+          completeServices.push(extractedService);
+        } else {
+          incompleteServices.push(extractedService);
+        }
+      });
+    }
+    
+    console.log(`✅ ENHANCED COLLECTION: ${completeServices.length} complete + ${incompleteServices.length} incomplete services from ${splitResult.service_count} splits`);
+    
+    // Determine status based on what we found
+    let status: 'incomplete' | 'ready_for_pricing' | 'partial';
+    if (completeServices.length > 0 && incompleteServices.length === 0) {
+      status = 'ready_for_pricing';
+    } else if (completeServices.length > 0 && incompleteServices.length > 0) {
+      status = 'partial';
+    } else {
+      status = 'incomplete';
+    }
+    
+    // Calculate overall confidence
+    const overallConfidence = (completeServices.length + incompleteServices.length) > 0 ? 0.85 : 0.2;
+    
+    return {
+      status,
+      services: completeServices,
+      incompleteServices,
+      missingInfo: [],
+      clarifyingQuestions: [],
+      confidence: overallConfidence,
+      suggestedResponse: 'Services extracted - proceeding to AI orchestration'
+    };
+  }
+  
+  /**
+   * Main entry point - replaces Make.com parameter_collector (legacy method)
    */
   static async collectParameters(userMessage: string, conversationHistory?: string[]): Promise<CollectionResult> {
     console.log('🎯 PARAMETER COLLECTION START');
@@ -63,6 +135,7 @@ export class ParameterCollectorService {
     const result: CollectionResult = {
       status: completionStatus.isComplete ? 'ready_for_pricing' : 'incomplete',
       services: validationResult.services,
+      incompleteServices: [], // Legacy method doesn't track incomplete services
       missingInfo: completionStatus.missingInfo,
       clarifyingQuestions: completionStatus.clarifyingQuestions,
       confidence: validationResult.confidence,
