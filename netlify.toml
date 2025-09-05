@@ -11,6 +11,9 @@
   external_node_modules = ["google-auth-library", "googleapis", "@google-cloud/storage", "uuid"]
   node_bundler = "esbuild"
   
+[functions.environment]
+  NODE_OPTIONS = "--experimental-modules --experimental-json-modules"
+  
 # Increase timeout for AI/Google Sheets processing
 [functions."pricing-agent"]
   timeout = 60

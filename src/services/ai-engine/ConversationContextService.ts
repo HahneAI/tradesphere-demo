@@ -51,6 +51,25 @@ interface AIResponse {
   suggestedQuestions?: string[];
 }
 
+// Utility function for safe environment variable access
+const getEnvVar = (key: string): string | undefined => {
+  // Try process.env first (works in Node/Netlify functions)
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  
+  // Try import.meta.env for browser/Vite environments  
+  try {
+    if (import.meta?.env?.[key]) {
+      return import.meta.env[key];
+    }
+  } catch (e) {
+    // import.meta not available in this environment
+  }
+  
+  return undefined;
+};
+
 export class ConversationContextService {
   private static readonly OPENAI_API_ENDPOINT = 'https://api.openai.com/v1';
   private static readonly CLAUDE_API_ENDPOINT = 'https://api.anthropic.com/v1';
@@ -236,8 +255,7 @@ Remember: You have access to previous conversation history - reference it natura
    * Determine which AI provider to use based on configuration
    */
   private static determineAIProvider(): 'openai' | 'claude' {
-    const aiKey = process.env.VITE_AI_API_KEY || 
-                  (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
+    const aiKey = getEnvVar('VITE_AI_API_KEY');
     
     if (!aiKey) {
       console.warn('⚠️ No VITE_AI_API_KEY configured, defaulting to OpenAI');
@@ -259,8 +277,7 @@ Remember: You have access to previous conversation history - reference it natura
    * Create OpenAI thread for conversation
    */
   private static async createOpenAIThread(): Promise<string | undefined> {
-    const apiKey = process.env.VITE_AI_API_KEY || 
-                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
+    const apiKey = getEnvVar('VITE_AI_API_KEY');
     
     if (!apiKey || !apiKey.startsWith('sk-')) {
       console.warn('⚠️ No valid OpenAI API key for thread creation');
@@ -300,8 +317,7 @@ Remember: You have access to previous conversation history - reference it natura
     userMessage: string
   ): Promise<AIResponse> {
     
-    const apiKey = process.env.VITE_AI_API_KEY || 
-                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
+    const apiKey = getEnvVar('VITE_AI_API_KEY');
     
     if (!apiKey) {
       throw new Error('No OpenAI API key configured');
@@ -419,8 +435,7 @@ Remember: You have access to previous conversation history - reference it natura
     userMessage: string
   ): Promise<AIResponse> {
     
-    const apiKey = process.env.VITE_AI_API_KEY || 
-                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_AI_API_KEY : undefined);
+    const apiKey = getEnvVar('VITE_AI_API_KEY');
     
     if (!apiKey) {
       throw new Error('No Claude API key configured');
