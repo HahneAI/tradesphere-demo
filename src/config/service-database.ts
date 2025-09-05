@@ -183,51 +183,51 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
   }
 };
 
-// COMPREHENSIVE SERVICE_SYNONYMS with all Make.com variations
+// COMPREHENSIVE SERVICE_SYNONYMS with expanded variations for all services
 export const SERVICE_SYNONYMS: Record<string, string[]> = {
-  // HARDSCAPING
-  "Paver Patio (SQFT)": ["patio", "pavers", "paver patio", "brick patio", "stone patio"],
-  "3' Retaining wall (LNFT X SQFT)": ["retaining wall", "walls", "retention wall", "3 foot wall", "three foot wall", "small retaining wall", "small walls"],
-  "5' Retaining Wall (LNFTXSQFT)": ["5 foot wall", "five foot wall", "tall walls", "high wall", "large retaining wall"],
-  "2' Garden Walls (LNFTXSQFT)": ["garden wall", "garden walls", "short walls", "2 foot wall", "planter wall"],
-  "Flag stone steppers": ["bricks", "steps", "stone blocks", "stone steps", "walkway blocks", "blocks", "cinder blocks"],
-  "Outdoor Kitchen (LNFT)": ["outdoor kitchen", "kitchen", "bbq area", "cooking area"],
+  // HARDSCAPING SERVICES
+  "Paver Patio (SQFT)": ["patio", "pavers", "paver patio", "brick patio", "stone patio", "outdoor floor", "pavers patio"],
+  "3' Retaining wall (LNFT X SQFT)": ["retaining wall", "walls", "retention wall", "3 foot wall", "three foot wall", "small retaining wall", "small walls", "short wall", "3ft wall"],
+  "5' Retaining Wall (LNFTXSQFT)": ["5 foot wall", "five foot wall", "tall walls", "high wall", "large retaining wall", "big wall", "5ft wall"],
+  "2' Garden Walls (LNFTXSQFT)": ["garden wall", "garden walls", "short walls", "2 foot wall", "planter wall", "flower bed wall", "2ft wall"],
+  "Flag stone steppers": ["bricks", "steps", "stone blocks", "stone steps", "walkway blocks", "blocks", "cinder blocks", "stepping stones", "walkway stones"],
+  "Outdoor Kitchen (LNFT)": ["outdoor kitchen", "kitchen", "bbq area", "grill area", "cooking area", "outdoor cooking", "patio kitchen", "barbecue area", "grilling station", "outdoor cook space", "BBQ area"],
 
-  // DRAINAGE
-  "Dry Creek with plants (sqft)": ["dry creek", "drainage creek", "rock creek", "creek", "dry pond", "pond"],
-  "Buried Downspout (EACH)": ["downspout", "spout", "spouts", "gutter spout", "buried downspout", "drainage pipe"],
-  "Drainage Burying (LNFT)": ["drainage", "drain", "drain line", "drainage burying"],
-  "EZ Flow French Drain (10' section)": ["ez flow", "french drain", "perforated pipe"],
-  "Flow Well Drainage- 4X4 (EACH)": ["flow well", "drain well", "drainage well"],
+  // DRAINAGE SERVICES
+  "Dry Creek with plants (sqft)": ["dry creek", "drainage creek", "rock creek", "creek", "dry pond", "pond", "rock bed", "dry riverbed"],
+  "Buried Downspout (EACH)": ["downspout", "spout", "spouts", "gutter spout", "buried downspout", "drainage pipe", "down spout", "gutter pipe"],
+  "Drainage Burying (LNFT)": ["drainage", "drain", "drain line", "drainage burying", "drainige", "water drain"],
+  "EZ Flow French Drain (10' section)": ["ez flow", "french drain", "perforated pipe", "french drains", "perf pipe"],
+  "Flow Well Drainage- 4X4 (EACH)": ["flow well", "drain well", "drainage well", "flow wells", "drain box"],
 
   // STRUCTURES
-  "Intellishade Pergola (SQFT)": ["intellishade", "intellishade pergola", "smart pergola", "automated pergola"],
-  "Cedar Pergola (SQFT)": ["pergola", "cedar pergola", "wooden pergola", "wood pergola"],
+  "Intellishade Pergola (SQFT)": ["intellishade", "intellishade pergola", "adjustable pergola", "louvered pergola", "smart pergola", "intelli shade"],
+  "Cedar Pergola (SQFT)": ["cedar pergola", "wood pergola", "wooden pergola", "timber pergola", "cedar structure", "traditional pergola", "wood shade structure", "cedar pergolla", "pergola", "pergolla"],
 
-  // PLANTING
-  "Sod Install (1 pallatte-450sqft)": ["sod", "grass", "lawn", "turf", "pallet", "instant lawn"],
-  "Seed/Straw (SQFT)": ["seed", "straw", "grass seed", "seeding", "lawn seed", "overseed"],
-  "Annuals 4\" ( 1 per sq ft)": ["small flowers", "annuals", "small plants", "bedding plants", "seasonal flowers", "small annuals", "4 inch flowers"],
-  "Annuals 10\" ( 1 per sq ft)": ["large flowers", "big annuals", "large plants", "large bedding plants", "big seasonal flowers", "large flowering plants", "10 inch flowers"],
-  "Perennial (1 gal)": ["perennials", "flowers", "garden plants", "flowering plants", "perennial flowers", "comeback plants"],
-  "Medium Shrub": ["shrub", "bush", "medium shrub"],
-  "Large Shrub": ["large shrub", "big bush", "hedge"],
-  "Small Tree (<2in Caliper)": ["small tree", "young tree", "sapling", "starter tree"],
-  "Medium Tree (2.25-4in Caliper)": ["tree", "medium tree", "shade tree"],
-  "Large Tree (4.25-8in Caliper)": ["large tree", "big tree", "mature tree"],
+  // PLANTING SERVICES
+  "Sod Install (1 pallatte-450sqft)": ["sod", "grass", "lawn", "turf", "pallet", "instant lawn", "new grass", "sod install"],
+  "Seed/Straw (SQFT)": ["seed", "straw", "grass seed", "seeding", "lawn seed", "overseed", "grass starter", "seed & straw"],
+  "Annuals 4\" ( 1 per sq ft)": ["small flowers", "annuals", "small plants", "bedding plants", "seasonal flowers", "small annuals", "little flowers", "4 inch flowers"],
+  "Annuals 10\" ( 1 per sq ft)": ["large flowers", "big annuals", "large plants", "large bedding plants", "big seasonal flowers", "large flowering plants", "big flowers", "10 inch flowers"],
+  "Perennial (1 gal)": ["perennials", "flowers", "garden plants", "flowering plants", "perennial flowers", "comeback plants", "return flowers", "perrenials"],
+  "Medium Shrub": ["shrub", "bush", "medium shrub", "med shrub", "middle size bush"],
+  "Large Shrub": ["large shrub", "big bush", "hedge", "lg shrub", "huge bush"],
+  "Small Tree (<2in Caliper)": ["small tree", "young tree", "sapling", "starter tree", "baby tree", "sm tree"],
+  "Medium Tree (2.25-4in Caliper)": ["tree", "medium tree", "shade tree", "med tree", "regular tree"],
+  "Large Tree (4.25-8in Caliper)": ["large tree", "big tree", "mature tree", "lg tree", "huge tree"],
 
-  // REMOVAL
-  "sod removal": ["sod removal", "excavate", "dirt cleanup", "grass removal"],
+  // REMOVAL SERVICES  
+  "sod removal": ["sod removal", "excavate", "dirt cleanup", "grass removal", "rip up grass", "sod takeout", "remove grass", "take out grass"],
 
-  // EDGING
-  "Stone Edgers Tumbled": ["stone edging", "rock edging", "natural edging", "stone border"],
-  "Metal Edging": ["metal edging", "steel edging", "aluminum edging", "landscape edging"],
-  "Spade Edging": ["spade edging", "cut edging", "natural edging", "hand edging"],
+  // EDGING SERVICES
+  "Stone Edgers Tumbled": ["stone edging", "rock edging", "stone border", "rock border", "stone edges"],
+  "Metal Edging": ["metal edging", "steel edging", "aluminum edging", "landscape edging", "metal border", "steel edge"],
+  "Spade Edging": ["spade edging", "cut edging", "natural edging", "hand edging", "hand cut edge", "spade edge"],
 
-  // MATERIALS
-  "Triple Ground Mulch (SQFT)": ["mulch", "black mulch", "triple ground", "wood chips", "bark mulch", "mulching"],
-  "Iowa Rainbow Rock Bed (sqft)": ["rainbow rock", "decorative rock", "colored rock", "river rock"],
-  "Topsoil (CUYD)": ["topsoil", "dirt", "soil", "fill dirt", "garden soil"]
+  // MATERIALS SERVICES
+  "Triple Ground Mulch (SQFT)": ["mulch", "black mulch", "triple ground", "wood chips", "bark mulch", "brown stuff", "mlch"],
+  "Iowa Rainbow Rock Bed (sqft)": ["rainbow rock", "decorative rock", "colored rock", "river rock", "pretty rocks", "rainbow rocks"],
+  "Topsoil (CUYD)": ["topsoil", "dirt", "soil", "fill dirt", "garden soil", "top soil", "good dirt"]
 };
 
 // UNIT_CONVERSIONS for flexible input handling

@@ -11,7 +11,7 @@
 
 export interface RawService {
   name: string;
-  quantity: number;
+  quantity: number | undefined;
   unit?: string;
   confidence: number;
   originalText: string;

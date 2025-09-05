@@ -35,42 +35,33 @@ async function main() {
   console.log(`✅ Google API Key: ${googleApiKey ? `SET (${googleApiKey.substring(0, 10)}...)` : 'NOT SET'}`);
   console.log('   - DEBUG_MODE:', process.env.DEBUG_MODE || 'undefined');
   
-  // Test scenarios that simulate real customer requests
+  // Optimized test scenarios - reduced to 3 for API efficiency
   const testScenarios = [
     {
-      name: "Standard Backyard Project",
+      name: "Mixed Complete/Incomplete Services",
       message: "I need a 15x10 patio with mulch and metal edging",
       sessionId: "test-session-001",
       firstName: "John",
       betaCodeId: 1,
-      description: "Complete standard landscaping project"
+      description: "Tests both complete (patio) and incomplete services (mulch/edging) - validates completeness detection fix"
     },
     
     {
-      name: "Complex Multi-Area Project", 
+      name: "All Complete Services", 
       message: "200 sqft paver patio, 150 sqft mulch bed, and 40 feet of metal edging for my backyard",
       sessionId: "test-session-002",
       firstName: "Sarah",
       betaCodeId: 1,
-      description: "Large-scale project with multiple components"
+      description: "All services have quantities - tests full quote generation with price-based AI personality"
     },
     
     {
-      name: "Emergency Drainage Solution",
-      message: "need french drain 50 feet with flow well, have standing water after rain",
-      sessionId: "test-session-003",
-      firstName: "Mike",
-      betaCodeId: 1,
-      description: "Urgent drainage problem requiring specialized services"
-    },
-    
-    {
-      name: "Premium Structure Installation",
+      name: "Premium Structure Project",
       message: "want a cedar pergola for 20x15 area, looking for quality materials",
-      sessionId: "test-session-004",
+      sessionId: "test-session-003",
       firstName: "Lisa",
       betaCodeId: 1,
-      description: "High-end structure project"
+      description: "High-value project ($8000+) - tests premium sales personality tier"
     }
   ];
 

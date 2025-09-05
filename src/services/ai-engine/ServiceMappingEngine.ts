@@ -531,15 +531,21 @@ export class ServiceMappingEngine {
     const validServices: RecognizedService[] = [];
     
     for (const service of services) {
-      // Basic validation
-      if (service.quantity <= 0) {
+      // Basic validation - only exclude services with extremely low confidence or invalid data
+      if (service.confidence < 0.5) {
+        console.warn(`⚠️ Very low confidence for ${service.serviceName}: ${service.confidence} - excluding`);
+        continue;
+      }
+      
+      // Allow incomplete services (undefined quantity) to pass through for pipeline handling
+      if (service.quantity !== undefined && service.quantity <= 0) {
         console.warn(`⚠️ Invalid quantity for ${service.serviceName}: ${service.quantity}`);
         continue;
       }
       
+      // Log low confidence but don't exclude - let CheckerImpl handle validation
       if (service.confidence < this.CONFIDENCE_THRESHOLD) {
         console.warn(`⚠️ Low confidence for ${service.serviceName}: ${service.confidence}`);
-        continue;
       }
       
       // Special service validation

@@ -88,7 +88,7 @@ export class CheckerImpl implements ICompletenessChecker {
     }
 
     // Check quantity
-    if (!service.quantity || service.quantity <= this.MIN_QUANTITY) {
+    if (!service.quantity || service.quantity <= CheckerImpl.MIN_QUANTITY) {
       missingInfo.push('Quantity');
       questions.push(`How much ${service.name || 'of this service'} do you need?`);
     }
@@ -103,7 +103,7 @@ export class CheckerImpl implements ICompletenessChecker {
     }
 
     // Check confidence level
-    if (service.confidence < this.COMPLETENESS_THRESHOLD) {
+    if (service.confidence < CheckerImpl.COMPLETENESS_THRESHOLD) {
       missingInfo.push('Service clarity');
       questions.push(`Did you mean "${service.name}" for your request?`);
     }
@@ -113,7 +113,7 @@ export class CheckerImpl implements ICompletenessChecker {
     missingInfo.push(...specialRequirements.missing);
     questions.push(...specialRequirements.questions);
 
-    const isComplete = missingInfo.length === 0 && service.confidence >= this.COMPLETENESS_THRESHOLD;
+    const isComplete = missingInfo.length === 0 && service.confidence >= CheckerImpl.COMPLETENESS_THRESHOLD;
 
     return {
       ...service,
@@ -271,7 +271,7 @@ export class CheckerImpl implements ICompletenessChecker {
     }
 
     // Need clarification if overall confidence is low
-    if (inputAnalysis.overallConfidence < this.COMPLETENESS_THRESHOLD) {
+    if (inputAnalysis.overallConfidence < CheckerImpl.COMPLETENESS_THRESHOLD) {
       return true;
     }
 
