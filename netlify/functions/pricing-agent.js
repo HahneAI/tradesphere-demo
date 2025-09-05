@@ -1,61 +1,20 @@
 /**
- * TradeSphere Pricing Agent - Native TypeScript replacement for Make.com
+ * TradeSphere Pricing Agent - Production Version with TypeScript Integration
  * 
- * Single comprehensive Netlify Function that replicates 22 Make.com modules:
- * - Parameter Collector (7 modules)
- * - Pricing Calculator (10 modules) 
- * - Response Formatter (5 modules)
- * 
- * Target: 3-8s response time vs 30-50s Make.com
+ * Uses ES6 imports that esbuild can bundle automatically
+ * Imports TypeScript files directly - esbuild handles compilation
  */
 
-import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
-import { ParameterCollectorService, CollectionResult } from '../../src/services/ai-engine/ParameterCollectorService';
-import { PricingCalculatorService, createPricingCalculator, PricingResult } from '../../src/services/ai-engine/PricingCalculatorService';
-import { SalesPersonalityService, CustomerContext } from '../../src/services/ai-engine/SalesPersonalityService';
-import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService';
-import { GPTServiceSplitter } from '../../src/services/ai-engine/GPTServiceSplitter';
-import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService';
+// ES6 imports for TypeScript services - esbuild will bundle these
+import { ParameterCollectorService } from '../../src/services/ai-engine/ParameterCollectorService.ts';
+import { createPricingCalculator } from '../../src/services/ai-engine/PricingCalculatorService.ts';
+import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPersonalityService.ts';
+import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.ts';
+import { GPTServiceSplitter } from '../../src/services/ai-engine/GPTServiceSplitter.ts';
+import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.ts';
 
-// Types for webhook payload (same as Make.com)
-interface WebhookPayload {
-  message: string;
-  timestamp: string;
-  sessionId: string;
-  source: string;
-  techId: string;
-  firstName: string;
-  jobTitle: string;
-  betaCodeId: number;
-}
-
-interface PricingResponse {
-  success: boolean;
-  response: string;
-  sessionId: string;
-  processingTime: number;
-  stage: 'parameter_collection' | 'pricing_calculation' | 'error';
-  debug?: {
-    servicesFound: number;
-    confidence: number;
-    calculationTime?: number;
-  };
-}
-
-// Performance tracking
-interface PerformanceMetrics {
-  startTime: number;
-  parameterCollectionTime?: number;
-  pricingCalculationTime?: number;
-  responseFormattingTime?: number;
-  totalTime: number;
-}
-
-export const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-  const metrics: PerformanceMetrics = {
-    startTime: Date.now(),
-    totalTime: 0
-  };
+export const handler = async (event, context) => {
+  const startTime = Date.now();
 
   // CORS headers
   const corsHeaders = {
@@ -110,12 +69,13 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       splitResult
     );
     
-    metrics.parameterCollectionTime = Date.now() - collectionStart;
-    console.log(`✅ Parameter Collection: ${metrics.parameterCollectionTime}ms`);
+    const parameterCollectionTime = Date.now() - collectionStart;
+    console.log(`✅ Parameter Collection: ${parameterCollectionTime}ms`);
     console.log(`📊 Services: ${collectionResult.services.length} complete + ${collectionResult.incompleteServices.length} incomplete`);
 
     // STEP 2: Pricing Calculation (only for complete services)
-    let pricingResult: PricingResult | undefined;
+    let pricingResult = undefined;
+    let pricingCalculationTime = 0;
     
     if (collectionResult.services.length > 0) {
       console.log('💰 STEP 2: PRICING CALCULATION');
@@ -131,8 +91,8 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
         pricingResult = await pricingCalculator.calculatePricing(collectionResult.services, payload.betaCodeId);
       }
 
-      metrics.pricingCalculationTime = Date.now() - calculationStart;
-      console.log(`✅ Pricing Calculation: ${metrics.pricingCalculationTime}ms`);
+      pricingCalculationTime = Date.now() - calculationStart;
+      console.log(`✅ Pricing Calculation: ${pricingCalculationTime}ms`);
 
       if (!pricingResult.success) {
         throw new Error(`Pricing calculation failed: ${pricingResult.error}`);
@@ -160,21 +120,21 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     console.log(`✅ Main Chat Agent: ${chatAgentTime}ms`);
     console.log(`📋 Response Type: ${chatAgentResponse.conversationType}`);
 
-    metrics.totalTime = Date.now() - metrics.startTime;
+    const totalTime = Date.now() - startTime;
 
     console.log('📊 PERFORMANCE METRICS:');
     console.log(`  GPT Splitting: ${Date.now() - gptSplitStart}ms`);
-    console.log(`  Parameter Collection: ${metrics.parameterCollectionTime}ms`);
-    console.log(`  Pricing Calculation: ${metrics.pricingCalculationTime || 0}ms`);
+    console.log(`  Parameter Collection: ${parameterCollectionTime}ms`);
+    console.log(`  Pricing Calculation: ${pricingCalculationTime}ms`);
     console.log(`  Main Chat Agent: ${chatAgentTime}ms`);
-    console.log(`  TOTAL: ${metrics.totalTime}ms (vs Make.com 30-50s)`);
+    console.log(`  TOTAL: ${totalTime}ms (vs Make.com 30-50s)`);
 
     // Create final response
-    const response: PricingResponse = {
+    const response = {
       success: true,
       response: chatAgentResponse.message,
       sessionId: payload.sessionId,
-      processingTime: metrics.totalTime,
+      processingTime: totalTime,
       stage: chatAgentResponse.requiresClarification ? 'parameter_collection' : 'pricing_calculation',
       debug: {
         servicesFound: collectionResult.services.length + collectionResult.incompleteServices.length,
@@ -189,19 +149,31 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
     }
 
     console.log(`💬 Conversation context updated for session ${payload.sessionId}`);
-    return createSuccessResponse(response, corsHeaders);
+    
+    return {
+      statusCode: 200,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        'X-Processing-Time': totalTime.toString(),
+        'X-Stage': response.stage,
+        'X-Services-Found': response.debug?.servicesFound?.toString() || '0',
+        'X-Confidence': (response.debug?.confidence * 100)?.toFixed(1) || '0'
+      },
+      body: JSON.stringify(response),
+    };
 
   } catch (error) {
-    metrics.totalTime = Date.now() - metrics.startTime;
+    const totalTime = Date.now() - startTime;
     
     console.error('❌ PRICING AGENT ERROR:', error);
     console.error('Stack:', error.stack);
 
-    const errorResponse: PricingResponse = {
+    const errorResponse = {
       success: false,
       response: SalesPersonalityService.formatErrorMessage(error.message),
       sessionId: extractSessionId(event.body),
-      processingTime: metrics.totalTime,
+      processingTime: totalTime,
       stage: 'error'
     };
 
@@ -210,7 +182,7 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
       headers: { 
         ...corsHeaders,
         'Content-Type': 'application/json',
-        'X-Processing-Time': metrics.totalTime.toString()
+        'X-Processing-Time': totalTime.toString()
       },
       body: JSON.stringify(errorResponse),
     };
@@ -220,20 +192,19 @@ export const handler: Handler = async (event: HandlerEvent, context: HandlerCont
 /**
  * Parse and validate webhook payload
  */
-function parseWebhookPayload(body: string | null): WebhookPayload {
+function parseWebhookPayload(body) {
   if (!body) {
     throw new Error('Request body is empty');
   }
 
-  let payload: any;
-  
+  let payload;
   try {
     payload = JSON.parse(body);
   } catch (error) {
     throw new Error(`Invalid JSON payload: ${error.message}`);
   }
 
-  // Validate required fields (same as Make.com webhook)
+  // Validate required fields
   const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'];
   
   for (const field of requiredFields) {
@@ -257,7 +228,7 @@ function parseWebhookPayload(body: string | null): WebhookPayload {
 /**
  * Extract session ID from payload for error cases
  */
-function extractSessionId(body: string | null): string {
+function extractSessionId(body) {
   try {
     const payload = JSON.parse(body || '{}');
     return payload.sessionId || 'unknown';
@@ -268,14 +239,8 @@ function extractSessionId(body: string | null): string {
 
 /**
  * Store response in Supabase for frontend retrieval
- * Maintains compatibility with existing chat-messages.js function
  */
-async function storeResponseInSupabase(
-  payload: WebhookPayload, 
-  response: PricingResponse, 
-  pricingResult: PricingResult
-): Promise<void> {
-  
+async function storeResponseInSupabase(payload, response, pricingResult) {
   try {
     console.log('💾 Storing response in Supabase');
     
@@ -287,7 +252,7 @@ async function storeResponseInSupabase(
       return;
     }
 
-    // Store AI response in demo_messages table (same format as Make.com)
+    // Store AI response in demo_messages table
     const messageData = {
       session_id: payload.sessionId,
       message_text: response.response,
@@ -298,7 +263,7 @@ async function storeResponseInSupabase(
         services_count: response.debug?.servicesFound || 0,
         total_cost: pricingResult.totals.totalCost,
         confidence: response.debug?.confidence || 0,
-        source: 'native_pricing_agent' // vs 'make_com'
+        source: 'native_pricing_agent'
       }
     };
 
@@ -325,49 +290,3 @@ async function storeResponseInSupabase(
     // Don't throw - storage failure shouldn't break the response
   }
 }
-
-/**
- * Create success response with proper headers
- */
-function createSuccessResponse(response: PricingResponse, corsHeaders: Record<string, string>) {
-  return {
-    statusCode: 200,
-    headers: {
-      ...corsHeaders,
-      'Content-Type': 'application/json',
-      'X-Processing-Time': response.processingTime.toString(),
-      'X-Stage': response.stage,
-      'X-Services-Found': response.debug?.servicesFound?.toString() || '0',
-      'X-Confidence': (response.debug?.confidence * 100)?.toFixed(1) || '0'
-    },
-    body: JSON.stringify(response),
-  };
-}
-
-/**
- * Health check endpoint for testing
- */
-export const healthCheck = async (): Promise<boolean> => {
-  try {
-    console.log('🔍 Health check starting');
-    
-    // Test Google Sheets connection
-    const pricingCalculator = createPricingCalculator();
-    const testResult = await pricingCalculator.runTestCalculation();
-    
-    if (!testResult) {
-      console.error('❌ Health check failed: Pricing calculation test failed');
-      return false;
-    }
-    
-    console.log('✅ Health check passed');
-    return true;
-    
-  } catch (error) {
-    console.error('❌ Health check failed:', error);
-    return false;
-  }
-};
-
-// Export for testing
-export { parseWebhookPayload, extractSessionId };
