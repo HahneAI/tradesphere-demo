@@ -79,15 +79,28 @@ Output: {
    * Main analysis method - combines category detection and service splitting
    */
   async analyzeAndSplit(input: string): Promise<CategorySplitResult> {
-    // Use process.env directly (works in both Node.js and when dotenv is loaded)
-    const apiKey = process.env.VITE_OPENAI_API_KEY_MINI || 
-                   (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_OPENAI_API_KEY_MINI : undefined);
+    // Safe environment variable access helper
+    const getEnvVar = (key: string): string | undefined => {
+      if (typeof process !== 'undefined' && process.env && process.env[key]) {
+        return process.env[key];
+      }
+      try {
+        if (typeof import.meta !== 'undefined' && import.meta?.env?.[key]) {
+          return import.meta.env[key];
+        }
+      } catch (e) {
+        // import.meta not available in this environment
+      }
+      return undefined;
+    };
+
+    const apiKey = getEnvVar('VITE_OPENAI_API_KEY_MINI') || getEnvVar('VITE_AI_API_KEY');
     
     if (!apiKey) {
-      console.log('🔄 No VITE_OPENAI_API_KEY_MINI found, using mock mode');
+      console.log('🔄 No OpenAI API key found, using mock mode');
       console.log('💡 Environment check:', {
-        processEnv: !!process.env.VITE_OPENAI_API_KEY_MINI,
-        importMetaEnv: typeof import.meta.env !== 'undefined'
+        processEnv: !!getEnvVar('VITE_OPENAI_API_KEY_MINI'),
+        hasProcessEnv: typeof process !== 'undefined'
       });
       console.log('💡 To use GPT-4o-mini API: Set VITE_OPENAI_API_KEY_MINI in your .env file');
       return this.mockAnalyzeAndSplit(input);
@@ -99,7 +112,7 @@ Output: {
     
     console.log('🔍 Environment Variables Status:');
     console.log('   - VITE_OPENAI_API_KEY_MINI:', apiKey ? 'SET' : 'NOT SET');
-    console.log('   - DEBUG_MODE:', process.env.DEBUG_MODE || 'undefined');
+    console.log('   - DEBUG_MODE:', getEnvVar('DEBUG_MODE') || 'undefined');
 
     try {
       // 🤖 ENHANCED DEBUG: GPT REQUEST PAYLOAD
@@ -373,7 +386,15 @@ export { GPTServiceSplitter as default };
 
 // CLI interface for quick testing
 if (process.argv[1] && process.argv[1].endsWith('GPTServiceSplitter.ts')) {
-  const testInput = process.env.TEST_INPUT || '15x10 patio with wood chips and steel edging';
+  // Safe environment variable access helper
+  const getEnvVar = (key: string): string | undefined => {
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key];
+    }
+    return undefined;
+  };
+  
+  const testInput = getEnvVar('TEST_INPUT') || '15x10 patio with wood chips and steel edging';
   GPTServiceSplitter.quickTest(testInput)
     .then(() => console.log('\n✅ GPTServiceSplitter test completed'))
     .catch(error => console.error('❌ GPTServiceSplitter test failed:', error));

@@ -5,7 +5,7 @@
  * "NEW Quick Estimating Calculator - Official - Individual Projects"
  * 
  * Features:
- * - Dynamic imports for Google APIs (prevents build failures)
+ * - Conditional imports for Google APIs (prevents build failures)
  * - Graceful fallback to mock mode when dependencies unavailable
  * - Environment-based configuration switching
  * - Production-ready error handling
@@ -45,14 +45,14 @@ export class GoogleSheetsClient {
   }
 
   /**
-   * Initialize Google APIs with dynamic imports
+   * Initialize Google APIs with conditional imports
    */
   private async initialize(): Promise<boolean> {
     if (this.isInitialized) return true;
     if (this.initializationFailed) return false;
 
     try {
-      console.log('🔌 Initializing Google Sheets API with dynamic imports...');
+      console.log('🔌 Initializing Google Sheets API with conditional imports...');
 
       // Check if we're in a browser environment
       if (typeof window !== 'undefined') {
@@ -61,9 +61,23 @@ export class GoogleSheetsClient {
         return false;
       }
 
-      // Dynamic import of Google APIs
-      const { GoogleAuth } = await import('google-auth-library');
-      const { google } = await import('googleapis');
+      // Try to load Google APIs - but handle gracefully if they fail
+      let GoogleAuth: any;
+      let google: any;
+      
+      try {
+        // Import Google APIs
+        const googleAuthLib = await import('google-auth-library');
+        const googleApis = await import('googleapis');
+        GoogleAuth = googleAuthLib.GoogleAuth;
+        google = googleApis.google;
+        
+        console.log('📦 Google APIs imported successfully');
+      } catch (importError) {
+        console.log('📦 Google APIs import failed - fallback to mock mode');
+        this.initializationFailed = true;
+        return false;
+      }
 
       // Initialize authentication
       const auth = new GoogleAuth({
@@ -99,10 +113,24 @@ export class GoogleSheetsClient {
    * Get Google service account credentials from environment
    */
   private getCredentials() {
+    // Safe environment variable access helper
+    const getEnvVar = (key) => {
+      if (typeof process !== 'undefined' && process.env && process.env[key]) {
+        return process.env[key];
+      }
+      try {
+        if (typeof import.meta !== 'undefined' && import.meta?.env?.[key]) {
+          return import.meta.env[key];
+        }
+      } catch (e) {
+        // import.meta not available in this environment
+      }
+      return undefined;
+    };
+
     // Check for service account JSON in environment variable
-    const serviceAccountJson = import.meta.env?.VITE_GOOGLE_SERVICE_ACCOUNT_JSON || 
-                              process.env.VITE_GOOGLE_SERVICE_ACCOUNT_JSON ||
-                              process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+    const serviceAccountJson = getEnvVar('VITE_GOOGLE_SERVICE_ACCOUNT_JSON') || 
+                              getEnvVar('GOOGLE_SERVICE_ACCOUNT_JSON');
 
     if (serviceAccountJson) {
       try {
@@ -113,23 +141,22 @@ export class GoogleSheetsClient {
       }
     }
 
-    // Fallback to individual environment variables
-    const getEnvVar = (key: string) => 
-      import.meta.env?.[`VITE_${key}`] || 
-      process.env[`VITE_${key}`] || 
-      process.env[key];
+    // Fallback to individual environment variables using safe helper
+    const getCredentialVar = (key: string) => 
+      getEnvVar(`VITE_${key}`) || 
+      getEnvVar(key);
 
     const credentials = {
       type: 'service_account',
-      project_id: getEnvVar('GOOGLE_PROJECT_ID'),
-      private_key_id: getEnvVar('GOOGLE_PRIVATE_KEY_ID'),
-      private_key: getEnvVar('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
-      client_email: getEnvVar('GOOGLE_CLIENT_EMAIL'),
-      client_id: getEnvVar('GOOGLE_CLIENT_ID'),
+      project_id: getCredentialVar('GOOGLE_PROJECT_ID'),
+      private_key_id: getCredentialVar('GOOGLE_PRIVATE_KEY_ID'),
+      private_key: getCredentialVar('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
+      client_email: getCredentialVar('GOOGLE_CLIENT_EMAIL'),
+      client_id: getCredentialVar('GOOGLE_CLIENT_ID'),
       auth_uri: 'https://accounts.google.com/o/oauth2/auth',
       token_uri: 'https://oauth2.googleapis.com/token',
       auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-      client_x509_cert_url: getEnvVar('GOOGLE_CLIENT_CERT_URL')
+      client_x509_cert_url: getCredentialVar('GOOGLE_CLIENT_CERT_URL')
     };
 
     // Validate required fields
