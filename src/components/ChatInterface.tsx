@@ -38,6 +38,123 @@ const DynamicIcon = ({ name, ...props }: { name: keyof typeof Icons } & Icons.Lu
   return <IconComponent {...props} />;
 };
 
+// 🔄 DUAL TESTING: Component for displaying dual responses side-by-side
+const DualResponseDisplay = ({ makeMsg, nativeMsg, visualConfig, theme }: {
+  makeMsg: Message;
+  nativeMsg: Message;
+  visualConfig: any;
+  theme: string;
+}) => {
+  const makeProcessingTime = makeMsg.metadata?.processing_time || 0;
+  const nativeProcessingTime = nativeMsg.metadata?.processing_time || 0;
+  const speedup = makeProcessingTime > 0 && nativeProcessingTime > 0 
+    ? (makeProcessingTime / nativeProcessingTime).toFixed(1)
+    : 'N/A';
+
+  return (
+    <div className="space-y-3">
+      {/* Dual Response Header */}
+      <div className="flex items-center justify-center">
+        <div 
+          className="px-3 py-1 rounded-full text-xs font-medium"
+          style={{ 
+            backgroundColor: visualConfig.colors.primary + '20',
+            color: visualConfig.colors.primary
+          }}
+        >
+          🔄 Dual Testing Comparison
+        </div>
+      </div>
+      
+      {/* Side-by-Side Responses */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Make.com Response */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span style={{ color: visualConfig.colors.text.secondary }}>
+              🔗 Make.com Pipeline
+            </span>
+            <span style={{ color: visualConfig.colors.text.secondary }}>
+              {makeProcessingTime > 0 ? `${(makeProcessingTime / 1000).toFixed(1)}s` : 'N/A'}
+            </span>
+          </div>
+          <div
+            className="p-4 rounded-lg border border-orange-300"
+            style={{ backgroundColor: visualConfig.colors.elevated }}
+          >
+            <ThemeAwareMessageBubble
+              message={makeMsg}
+              visualConfig={visualConfig}
+              theme={theme}
+              compact={true}
+            />
+          </div>
+        </div>
+
+        {/* Native Pipeline Response */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span style={{ color: visualConfig.colors.text.secondary }}>
+              ⚡ Native Pipeline
+            </span>
+            <span className="text-green-500 font-medium">
+              {nativeProcessingTime > 0 ? `${(nativeProcessingTime / 1000).toFixed(1)}s` : 'N/A'}
+              {speedup !== 'N/A' && ` (${speedup}x faster)`}
+            </span>
+          </div>
+          <div
+            className="p-4 rounded-lg border border-green-300"
+            style={{ backgroundColor: visualConfig.colors.elevated }}
+          >
+            <ThemeAwareMessageBubble
+              message={nativeMsg}
+              visualConfig={visualConfig}
+              theme={theme}
+              compact={true}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics Comparison */}
+      {(makeMsg.metadata || nativeMsg.metadata) && (
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div 
+            className="p-2 rounded"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div style={{ color: visualConfig.colors.text.secondary }}>Make.com Metrics:</div>
+            {makeMsg.metadata?.services_count && (
+              <div>Services: {makeMsg.metadata.services_count}</div>
+            )}
+            {makeMsg.metadata?.total_cost && (
+              <div>Cost: ${makeMsg.metadata.total_cost}</div>
+            )}
+            {makeMsg.metadata?.confidence && (
+              <div>Confidence: {(makeMsg.metadata.confidence * 100).toFixed(0)}%</div>
+            )}
+          </div>
+          <div 
+            className="p-2 rounded"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div style={{ color: visualConfig.colors.text.secondary }}>Native Metrics:</div>
+            {nativeMsg.metadata?.services_count && (
+              <div>Services: {nativeMsg.metadata.services_count}</div>
+            )}
+            {nativeMsg.metadata?.total_cost && (
+              <div>Cost: ${nativeMsg.metadata.total_cost}</div>
+            )}
+            {nativeMsg.metadata?.confidence && (
+              <div>Confidence: {(nativeMsg.metadata.confidence * 100).toFixed(0)}%</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ChatInterface = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut, isAdmin } = useAuth();
@@ -50,7 +167,9 @@ const ChatInterface = () => {
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
     webhookLatency: null,
-    totalResponseTime: null
+    totalResponseTime: null,
+    nativeLatency: null,
+    makeLatency: null
   });
   const [processingStartTime, setProcessingStartTime] = useState(null);
   const [showPerformancePanel, setShowPerformancePanel] = useState(false);
@@ -112,6 +231,8 @@ const ChatInterface = () => {
 
   const MAKE_WEBHOOK_URL = coreConfig.makeWebhookUrl;
   const NETLIFY_API_URL = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
+  const NATIVE_PRICING_AGENT_URL = '/.netlify/functions/pricing-agent';
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -276,7 +397,8 @@ const ChatInterface = () => {
       // Track performance metrics
       setPerformanceMetrics(prev => ({
         ...prev,
-        webhookLatency: webhookLatency.toFixed(2)
+        webhookLatency: webhookLatency.toFixed(2),
+        makeLatency: webhookLatency.toFixed(2)
       }));
 
       // Handle different response scenarios
@@ -353,6 +475,78 @@ const ChatInterface = () => {
         console.groupEnd();
         throw error;
       }
+    }
+  };
+
+  // 🚀 DUAL TESTING: Send message to native pricing agent endpoint
+  const sendUserMessageToNative = async (userMessageText: string) => {
+    const debugPrefix = `🔗 NATIVE [${sessionIdRef.current.slice(-8)}]`;
+    
+    console.group(`${debugPrefix} Starting native pipeline request`);
+    console.log('📤 Message:', userMessageText.substring(0, 100) + (userMessageText.length > 100 ? '...' : ''));
+    
+    // Validate user authentication
+    if (!user) {
+      console.error('❌ No user data available for native pipeline');
+      console.groupEnd();
+      throw new Error("User not authenticated");
+    }
+
+    const payload = {
+      message: userMessageText,
+      timestamp: new Date().toISOString(),
+      sessionId: sessionIdRef.current,
+      source: 'TradeSphere_Native',
+      techId: user.tech_uuid,
+      firstName: user.first_name,
+      jobTitle: user.job_title,
+      betaCodeId: user.beta_code_id
+    };
+
+    const startTime = performance.now();
+    
+    try {
+      console.log('🚀 Sending to native pricing agent...');
+      
+      const response = await fetch(NATIVE_PRICING_AGENT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const nativeLatency = performance.now() - startTime;
+      
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        nativeLatency: nativeLatency.toFixed(2)
+      }));
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unable to read error response');
+        console.error('❌ Native pipeline failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText.substring(0, 500)
+        });
+        throw new Error(`Native pipeline failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Native pipeline success:', {
+        processingTime: `${result.processingTime}ms`,
+        stage: result.stage,
+        servicesFound: result.debug?.servicesFound || 0
+      });
+      
+      console.groupEnd();
+      return result;
+
+    } catch (error) {
+      console.error('❌ Native pipeline error:', error.message);
+      console.groupEnd();
+      throw error;
     }
   };
 
@@ -516,6 +710,56 @@ const ChatInterface = () => {
     }
   }, [user]);
 
+  // 🔄 DUAL TESTING: Group messages for dual display
+  const groupMessagesForDualDisplay = (messages: Message[]) => {
+    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ single: msg }));
+
+    const grouped: Array<{ single?: Message; dual?: { make: Message; native: Message } }> = [];
+    const processed = new Set<string>();
+
+    messages.forEach((msg) => {
+      if (processed.has(msg.id)) return;
+
+      if (msg.sender === 'user') {
+        grouped.push({ single: msg });
+        processed.add(msg.id);
+      } else if (msg.sender === 'ai') {
+        // Look for corresponding response from other source
+        const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
+        const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
+        
+        const correspondingMsg = messages.find(otherMsg => 
+          otherMsg.id !== msg.id &&
+          otherMsg.sender === 'ai' &&
+          Math.abs(new Date(otherMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000 && // Within 1 minute
+          otherMsg.sessionId === msg.sessionId &&
+          !processed.has(otherMsg.id) &&
+          ((isNative && (otherMsg.metadata?.source === 'make_com' || (!otherMsg.metadata?.source && !otherMsg.source))) ||
+           (isMake && (otherMsg.metadata?.source === 'native_pricing_agent' || otherMsg.source === 'native_pricing_agent')))
+        );
+
+        if (correspondingMsg) {
+          // We have a dual response
+          const makeMsg = isMake ? msg : correspondingMsg;
+          const nativeMsg = isNative ? msg : correspondingMsg;
+          
+          grouped.push({
+            dual: { make: makeMsg, native: nativeMsg }
+          });
+          
+          processed.add(msg.id);
+          processed.add(correspondingMsg.id);
+        } else {
+          // Single response
+          grouped.push({ single: msg });
+          processed.add(msg.id);
+        }
+      }
+    });
+
+    return grouped;
+  };
+
   const handleRefreshChat = () => {
     if (!user) {
       console.error("Cannot refresh chat - no user logged in");
@@ -577,7 +821,45 @@ const ChatInterface = () => {
     }
 
     try {
-      await sendUserMessageToMake(userMessageText);
+      if (DUAL_TESTING_ENABLED) {
+        console.log('🔄 DUAL TESTING: Sending to both Make.com and Native Pipeline');
+        
+        // Send to both endpoints simultaneously
+        const promises = [
+          sendUserMessageToMake(userMessageText).catch(error => ({ error, source: 'make' })),
+          sendUserMessageToNative(userMessageText).catch(error => ({ error, source: 'native' }))
+        ];
+        
+        const results = await Promise.allSettled(promises);
+        
+        // Log results for both
+        results.forEach((result, index) => {
+          const source = index === 0 ? 'Make.com' : 'Native';
+          if (result.status === 'fulfilled') {
+            if (result.value?.error) {
+              console.warn(`⚠️ ${source} failed:`, result.value.error.message);
+            } else {
+              console.log(`✅ ${source} succeeded`);
+            }
+          } else {
+            console.error(`❌ ${source} rejected:`, result.reason);
+          }
+        });
+        
+        // If both failed, show error message
+        const bothFailed = results.every(result => 
+          result.status === 'rejected' || 
+          (result.status === 'fulfilled' && result.value?.error)
+        );
+        
+        if (bothFailed) {
+          throw new Error('Both Make.com and Native pipeline failed');
+        }
+        
+      } else {
+        // Original single webhook behavior
+        await sendUserMessageToMake(userMessageText);
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: uuidv4(),
@@ -878,22 +1160,30 @@ const ChatInterface = () => {
             borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.5rem' : '0.75rem'
           }}
         >
-          {/* ORIGINAL: Messages Area - exact same structure */}
+          {/* 🔄 DUAL TESTING: Enhanced Messages Area with dual response support */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {messages.map((message, index) => (
+            {groupMessagesForDualDisplay(messages).map((messageGroup, index) => (
               <div
-                key={message.id}
+                key={messageGroup.single?.id || `dual-${messageGroup.dual?.make.id}-${messageGroup.dual?.native.id}`}
                 className={`
                   ${isRefreshing ? 'animate-fade-up-out' : ''}
-                  ${!isRefreshing && index === messages.length - 1 && message.sender === 'user' ? 'animate-fade-up-in-delay-user' : ''}
-                  ${!isRefreshing && index === messages.length - 1 && message.sender === 'ai' ? 'animate-fade-up-in-delay' : ''}
+                  ${!isRefreshing && index === messages.length - 1 ? 'animate-fade-up-in-delay' : ''}
                 `}
               >
-                <ThemeAwareMessageBubble
-                  message={message}
-                  visualConfig={visualConfig}
-                  theme={theme}
-                />
+                {messageGroup.single ? (
+                  <ThemeAwareMessageBubble
+                    message={messageGroup.single}
+                    visualConfig={visualConfig}
+                    theme={theme}
+                  />
+                ) : messageGroup.dual ? (
+                  <DualResponseDisplay
+                    makeMsg={messageGroup.dual.make}
+                    nativeMsg={messageGroup.dual.native}
+                    visualConfig={visualConfig}
+                    theme={theme}
+                  />
+                ) : null}
               </div>
             ))}
 
@@ -1102,9 +1392,26 @@ const ChatInterface = () => {
 
       {/* 🏢 ENTERPRISE: Performance metrics (dev only, non-intrusive) */}
       {isAdmin && showPerformancePanel && (
-        <div className="fixed bottom-20 right-4 bg-black bg-opacity-80 text-white text-xs p-2 rounded max-w-xs">
-          <div>🏢 PERFORMANCE</div>
-          <div>Webhook: {performanceMetrics.webhookLatency}ms</div>
+        <div className="fixed bottom-20 right-4 bg-black bg-opacity-80 text-white text-xs p-3 rounded max-w-xs">
+          <div className="font-semibold mb-2">🏢 PERFORMANCE</div>
+          {DUAL_TESTING_ENABLED ? (
+            <>
+              <div className="text-blue-300">🔄 DUAL TESTING MODE</div>
+              {performanceMetrics.makeLatency && (
+                <div>Make.com: {performanceMetrics.makeLatency}ms</div>
+              )}
+              {performanceMetrics.nativeLatency && (
+                <div className="text-green-300">Native: {performanceMetrics.nativeLatency}ms</div>
+              )}
+              {performanceMetrics.makeLatency && performanceMetrics.nativeLatency && (
+                <div className="text-yellow-300 border-t border-gray-600 pt-1 mt-1">
+                  Speedup: {((parseFloat(performanceMetrics.makeLatency) / parseFloat(performanceMetrics.nativeLatency)) || 1).toFixed(1)}x
+                </div>
+              )}
+            </>
+          ) : (
+            <div>Webhook: {performanceMetrics.webhookLatency}ms</div>
+          )}
           {performanceMetrics.totalResponseTime && <div>Total: {performanceMetrics.totalResponseTime}s</div>}
         </div>
       )}

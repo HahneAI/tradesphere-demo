@@ -1,7 +1,7 @@
 import * as Icons from 'lucide-react';
 import { SmartVisualThemeConfig } from '../../config/industry';
 import { ThemeAwareAvatar } from './ThemeAwareAvatar';
-import { Message } from '../../types/job';
+import { Message } from '../../types/message';
 
 const formatRelativeTime = (date: Date) => {
   const now = new Date();
@@ -56,7 +56,12 @@ const StatusIcon = ({ status }: { status: Message['status'] }) => {
     }
 };
 
-export const ThemeAwareMessageBubble = ({ message, visualConfig }: { message: Message, visualConfig: SmartVisualThemeConfig }) => {
+export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact = false }: { 
+  message: Message, 
+  visualConfig: SmartVisualThemeConfig,
+  theme?: string,
+  compact?: boolean 
+}) => {
   const animationClass = visualConfig.animations.messageEntry === 'grow' ? 'landscaping-grow' : 'tech-slide';
 
   const bubbleStyles = {
@@ -70,28 +75,30 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig }: { message: Me
   };
 
   return (
-    <div className={`flex items-start gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-      {message.sender === 'ai' && <ThemeAwareAvatar sender="ai" visualConfig={visualConfig} />}
+    <div className={`flex items-start ${compact ? 'gap-2' : 'gap-3'} ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+      {message.sender === 'ai' && !compact && <ThemeAwareAvatar sender="ai" visualConfig={visualConfig} />}
       <div
-        className={`max-w-md lg:max-w-2xl px-5 py-3 shadow-md message-bubble-animate ${animationClass} transition-all duration-300`}
+        className={`${compact ? 'max-w-full px-3 py-2' : 'max-w-md lg:max-w-2xl px-5 py-3'} shadow-md message-bubble-animate ${animationClass} transition-all duration-300`}
         style={bubbleStyles}
       >
         <div
-          className="text-base whitespace-pre-wrap"
+          className={`${compact ? 'text-sm' : 'text-base'} whitespace-pre-wrap`}
           dangerouslySetInnerHTML={{ __html: formatMessageText(message.text) }}
         />
-        <div className="flex items-center justify-end mt-2">
-          <p className="text-xs opacity-60">
-            {formatRelativeTime(message.timestamp)}
-          </p>
-          {message.sender === 'user' && message.status && (
-            <div className="ml-2">
-              <StatusIcon status={message.status} />
-            </div>
-          )}
-        </div>
+        {!compact && (
+          <div className="flex items-center justify-end mt-2">
+            <p className="text-xs opacity-60">
+              {formatRelativeTime(message.timestamp)}
+            </p>
+            {message.sender === 'user' && message.status && (
+              <div className="ml-2">
+                <StatusIcon status={message.status} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      {message.sender === 'user' && <ThemeAwareAvatar sender="user" visualConfig={visualConfig} />}
+      {message.sender === 'user' && !compact && <ThemeAwareAvatar sender="user" visualConfig={visualConfig} />}
     </div>
   );
 };
