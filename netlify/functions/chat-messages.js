@@ -80,14 +80,14 @@ export const handler = async (event, context) => {
         'created_at': `gte.${since}`,
         'order': 'created_at.asc',
         'limit': '10', // ⚡ ENTERPRISE: Limit for performance
-        'select': 'id,message_text,sender,created_at,session_id' // 🔍 DEBUG: Rollback to basic fields first
+        'select': 'id,message_text,sender,created_at,session_id,message_source' // ✅ RESTORED: Include source for visual differentiation
       });
       
       console.log('🔍 DEBUG - Query URL:', `${supabaseUrl}?${queryParams}`);
       console.log('🔍 DEBUG - Query params:', {
         sessionId,
         since,
-        selectFields: 'id,message_text,sender,created_at,session_id'
+        selectFields: 'id,message_text,sender,created_at,session_id,message_source'
       });
 
       const supabaseResponse = await fetch(`${supabaseUrl}?${queryParams}`, {
@@ -136,7 +136,7 @@ export const handler = async (event, context) => {
               queryUrl: `${supabaseUrl}?${queryParams}`,
               sessionId,
               since,
-              selectFields: 'id,message_text,sender,created_at,session_id'
+              selectFields: 'id,message_text,sender,created_at,session_id,message_source'
             },
             retryAfter: 5 // ⚡ ENTERPRISE: Retry guidance
           })
@@ -155,8 +155,9 @@ export const handler = async (event, context) => {
             text: msg.message_text || '',
             sender: msg.sender || 'ai',
             timestamp: msg.created_at || new Date().toISOString(),
-            sessionId: msg.session_id || sessionId
-            // 🔍 DEBUG: Temporarily removed source fields to fix 400 error
+            sessionId: msg.session_id || sessionId,
+            // ✅ RESTORED: Include source for visual differentiation
+            source: msg.message_source || 'make_com'
           };
         } catch (formatError) {
           console.error('❌ Message formatting error:', formatError, msg);

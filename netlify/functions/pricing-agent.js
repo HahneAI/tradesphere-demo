@@ -146,21 +146,15 @@ export const handler = async (event, context) => {
       }
     };
 
-    // Store ALL responses in Supabase (clarifications AND pricing)
+    // ✅ SIMPLIFIED: Store ALL responses with minimal metadata
     const storageMetadata = {
-      processing_time: response.processingTime,
-      services_count: response.debug?.servicesFound || 0,
-      total_cost: pricingResult?.totals?.totalCost || null,
-      confidence: response.debug?.confidence || 0,
-      source: 'native_pricing_agent'
+      source: 'native_pricing_agent' // Simplified - no complex metadata
     };
 
     console.log('💾 ABOUT TO STORE RESPONSE (ALL RESPONSES):', {
       sessionId: payload.sessionId,
       responseLength: response.response.length,
-      hasMetadata: !!storageMetadata,
-      metadataKeys: Object.keys(storageMetadata),
-      pricingResultExists: !!pricingResult,
+      source: storageMetadata.source,
       responseType: pricingResult ? 'pricing' : 'clarification'
     });
 
@@ -312,7 +306,8 @@ async function storeExactChatResponseFormat(sessionId, responseText, techId) {
           message_text: decodedResponse,
           sender: 'ai',
           tech_id: techId,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          message_source: 'native_pricing_agent'
         })
       }
     );

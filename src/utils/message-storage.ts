@@ -88,29 +88,23 @@ export class MessageStorageService {
       // Clean problematic characters
       cleanedResponse = cleanedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
       
-      // 🔄 DUAL TESTING: Enhanced message data with source tracking
+      // ✅ FIXED: Simplified message data matching existing DB schema
       const messageData = {
         session_id: payload.sessionId,
         message_text: cleanedResponse,
         sender: 'ai',
         tech_id: payload.techId || null,
         created_at: new Date().toISOString(),
-        message_source: metadata.source || 'native_pricing_agent', // 🔄 DUAL TESTING: Source tracking
-        metadata: {
-          processing_time: metadata.processing_time,
-          services_count: metadata.services_count || 0,
-          total_cost: metadata.total_cost,
-          confidence: metadata.confidence || 0,
-          source: metadata.source || 'native_pricing_agent'
-        }
+        message_source: metadata.source || 'native_pricing_agent'
+        // No metadata field - keeping it simple to match DB schema
       };
 
       // Compare with original working structure
       console.log('🔍 [MessageStorage] STRUCTURE COMPARISON:');
-      console.log('  Target structure: { session_id, message_text, sender, tech_id, created_at }');
+      console.log('  Target structure: { session_id, message_text, sender, tech_id, created_at, message_source }');
       console.log('  Our structure keys:', Object.keys(messageData));
-      console.log('  Exact match:', Object.keys(messageData).length === 5 && 
-        ['session_id', 'message_text', 'sender', 'tech_id', 'created_at']
+      console.log('  Schema match:', Object.keys(messageData).length === 6 && 
+        ['session_id', 'message_text', 'sender', 'tech_id', 'created_at', 'message_source']
         .every(field => messageData.hasOwnProperty(field)));
 
       console.log('🗄️ DATA TO WRITE:', { 
@@ -119,8 +113,7 @@ export class MessageStorageService {
         sender: messageData.sender,
         techId: messageData.tech_id,
         createdAt: messageData.created_at,
-        messageSource: messageData.message_source, // 🔄 DUAL TESTING: Source tracking
-        hasMetadata: !!messageData.metadata
+        messageSource: messageData.message_source
       });
       console.log('🔍 [MessageStorage] Complete data structure:', messageData);
 
