@@ -36,7 +36,7 @@ export class MainChatAgentService {
   /**
    * Enhanced system prompt for Claude Sonnet 3.5 
    */
-  private static readonly CLAUDE_SYSTEM_PROMPT = 'CRITICAL: Generate ONLY the exact format below. No greetings, no fluff, maximum 200 characters total.\n\nFORMAT (copy exactly):\n[SERVICE NAME] QUOTE\n\n[Service Description] ([quantity] [unit])\nService Price: $[price]\n\nLabor Time: [hours] hours\n\nProject Total: $[total]\n\n[One sentence sales line matching price range]\n\nPRICE RANGES:\n- Budget ($500-2,000): \"Smart choice starting with quality [service]! This foundation work pays dividends - proper [service] prevents [common problem].\"\n- Mid-Range ($2,000-8,000): \"Now we\'re talking real transformation! You\'ll get quotes 30% cheaper, but they\'ll skip [critical element].\"\n- Premium ($8,000+): \"This caliber project transforms [outcome]. Contractors bidding 40% lower aren\'t in the same league.\"\n\nEXAMPLE:\nMULCH INSTALLATION QUOTE\n\nTriple Ground Mulch (15 sq ft)\nService Price: $37.50\n\nLabor Time: 0.30 hours\n\nProject Total: $37.50\n\nSmart choice starting with quality mulch! This foundation work pays dividends - proper mulch application prevents weed issues and moisture loss that most homeowners battle later.';
+  private static readonly CLAUDE_SYSTEM_PROMPT = 'Generate professional quotes in exactly 1,000 characters or less. Use this EXACT format and structure:\n\n**[PROJECT TYPE] QUOTE**\n[Price range personality line]. Here\'s your professional breakdown:\n\n**SERVICE BREAKDOWN:**\n• [Service Name] ([quantity] [unit]): $[price] | [hours] labor hours\n• [Service Name] ([quantity] [unit]): $[price] | [hours] labor hours\n\n**PROJECT TOTALS:**\n• Total Labor Hours: [total] hours\n• **GRAND TOTAL: $[total]**\n\n[Expertise paragraph with sales confidence]\n\n[Technical insight paragraph mentioning common contractor issues]\n\nReady to move forward with [project outcome]?\n\nCRITICAL FORMATTING:\n- Use **text** for bold headers and grand total (Claude API markdown)\n- Include BOTH price AND hours for every single service\n- Use bullet points with • symbol\n- Price personality by range: Budget: \"Smart choice\", Mid-range: \"Now we\'re talking transformation\", Premium: \"This caliber project transforms\"\n- Always end with action question\n\nEXAMPLE OUTPUT:\n**COMPREHENSIVE PROJECT QUOTE**\nThis caliber of project transforms outdoor living completely. Here\'s your professional breakdown:\n\n**SERVICE BREAKDOWN:**\n• Triple Ground Mulch (15 sq ft): $37.50 | 0.30 labor hours\n• Paver Patio (100 sq ft): $5,500.00 | 30.00 labor hours\n• Outdoor Kitchen (36 linear ft): $61,200.00 | 0.00 labor hours\n\n**PROJECT TOTALS:**\n• Total Labor Hours: 30.30 hours\n• **GRAND TOTAL: $66,737.50**\n\nYou\'re buying peace of mind with this investment. Contractors bidding 40% lower aren\'t in the same league - they\'re missing critical details that separate premium work from budget installations.\n\nThis prevents the #1 issue we see with outdoor kitchen projects: inadequate infrastructure planning. Most contractors miss this, but proper execution requires understanding utility integration and structural requirements.\n\nReady to move forward with creating your dream outdoor space?';
 
   /**
    * Main orchestration method - decides response type based on service completeness
@@ -173,8 +173,11 @@ export class MainChatAgentService {
    */
   private static buildDataPrompt(input: ChatAgentInput, conversationType: string): string {
     if (conversationType === 'complete_quote' && input.pricingResult) {
-      const service = input.pricingResult.services[0];
-      return `Service: ${service.serviceName} (${service.quantity} ${service.unit})\nPrice: $${service.totalPrice.toFixed(2)}\nHours: ${service.laborHours}`;
+      const services = input.pricingResult.services.map(service => 
+        `• ${service.serviceName} (${service.quantity} ${service.unit}): $${service.totalPrice.toFixed(2)} | ${service.laborHours} hours`
+      ).join('\n');
+      
+      return `SERVICES:\n${services}\n\nTOTALS:\nTotal Cost: $${input.pricingResult.totals.totalCost.toFixed(2)}\nTotal Hours: ${input.pricingResult.totals.totalLaborHours.toFixed(2)}`;
     }
     return `Customer needs help with: ${input.originalMessage}`;
   }
