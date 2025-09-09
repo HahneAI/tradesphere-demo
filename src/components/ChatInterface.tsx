@@ -849,52 +849,61 @@ const ChatInterface = () => {
         grouped.push({ type: 'shared', message: msg });
         processed.add(msg.id);
       } else if (msg.sender === 'ai') {
-        // ✅ SLOT FILLING FIX: Try to fill existing waiting slot first
-        if (findAndFillExistingSlot(msg)) {
-          processed.add(msg.id);
-          return; // Skip creating new dual panel
-        }
-        // ✅ DUAL COMPARISON: AI responses - always create dual slots when dual testing enabled
-        const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
-        const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
-        
-        const correspondingMsg = messages.find(otherMsg => 
-          otherMsg.id !== msg.id &&
-          otherMsg.sender === 'ai' &&
-          Math.abs(new Date(otherMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000 && // Within 1 minute
-          otherMsg.sessionId === msg.sessionId &&
-          !processed.has(otherMsg.id) &&
-          ((isNative && (otherMsg.metadata?.source === 'make_com' || (!otherMsg.metadata?.source && !otherMsg.source))) ||
-           (isMake && (otherMsg.metadata?.source === 'native_pricing_agent' || otherMsg.source === 'native_pricing_agent')))
-        );
+        if (DUAL_TESTING_ENABLED) {
+          // ✅ SLOT FILLING FIX: Try to fill existing waiting slot first
+          if (findAndFillExistingSlot(msg)) {
+            processed.add(msg.id);
+            return; // Skip creating new dual panel
+          }
+          // ✅ DUAL COMPARISON: AI responses - always create dual slots when dual testing enabled
+          const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
+          const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
+          
+          const correspondingMsg = messages.find(otherMsg => 
+            otherMsg.id !== msg.id &&
+            otherMsg.sender === 'ai' &&
+            Math.abs(new Date(otherMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000 && // Within 1 minute
+            otherMsg.sessionId === msg.sessionId &&
+            !processed.has(otherMsg.id) &&
+            ((isNative && (otherMsg.metadata?.source === 'make_com' || (!otherMsg.metadata?.source && !otherMsg.source))) ||
+             (isMake && (otherMsg.metadata?.source === 'native_pricing_agent' || otherMsg.source === 'native_pricing_agent')))
+          );
 
-        if (correspondingMsg) {
-          // ✅ DUAL DISPLAY: Both responses available
-          const makeMsg = isMake ? msg : correspondingMsg;
-          const nativeMsg = isNative ? msg : correspondingMsg;
-          
-          grouped.push({
-            type: 'dual',
-            dual: { 
-              make: makeMsg, 
-              native: nativeMsg,
-              waitingFor: null // Both responses available
-            }
-          });
-          
-          processed.add(msg.id);
-          processed.add(correspondingMsg.id);
+          if (correspondingMsg) {
+            // ✅ DUAL DISPLAY: Both responses available
+            const makeMsg = isMake ? msg : correspondingMsg;
+            const nativeMsg = isNative ? msg : correspondingMsg;
+            
+            grouped.push({
+              type: 'dual',
+              dual: { 
+                make: makeMsg, 
+                native: nativeMsg,
+                waitingFor: null // Both responses available
+              }
+            });
+            
+            processed.add(msg.id);
+            processed.add(correspondingMsg.id);
+          } else {
+            // ✅ TIMING FIX: Always create dual slot, fill as responses arrive
+            grouped.push({
+              type: 'dual',
+              dual: { 
+                make: isMake ? msg : null, 
+                native: isNative ? msg : null,
+                waitingFor: isMake ? 'native' : 'make'
+              }
+            });
+            
+            processed.add(msg.id);
+          }
         } else {
-          // ✅ TIMING FIX: Always create dual slot, fill as responses arrive
+          // When dual testing is disabled, show AI responses as normal shared messages
           grouped.push({
-            type: 'dual',
-            dual: { 
-              make: isMake ? msg : null, 
-              native: isNative ? msg : null,
-              waitingFor: isMake ? 'native' : 'make'
-            }
+            type: 'shared',
+            message: msg
           });
-          
           processed.add(msg.id);
         }
       }
@@ -1334,8 +1343,8 @@ const ChatInterface = () => {
                     visualConfig={visualConfig}
                     theme={theme}
                   />
-                ) : messageGroup.type === 'single' && messageGroup.message ? (
-                  /* ✅ ORPHANED RESPONSE: Single AI response with context */
+                ) : messageGroup.type === 'single' && messageGroup.message && DUAL_TESTING_ENABLED ? (
+                  /* ✅ ORPHANED RESPONSE: Single AI response with context (only in dual testing mode) */
                   <div className="space-y-2">
                     <div className="flex justify-center">
                       <div 
