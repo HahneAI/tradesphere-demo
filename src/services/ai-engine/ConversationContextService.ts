@@ -429,7 +429,7 @@ Remember: You have access to previous conversation history - reference it natura
   }
 
   /**
-   * Process message using Claude
+   * Process message using Claude (with OpenAI Mini fallback on 529 errors)
    */
   private static async processWithClaude(
     context: ConversationContext, 
@@ -455,33 +455,139 @@ Remember: You have access to previous conversation history - reference it natura
       content: userMessage
     });
 
-    const response = await fetch(`${this.CLAUDE_API_ENDPOINT}/messages`, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 500,
-        system: context.customerContext?.systemPrompt || this.TRADESPHERE_SYSTEM_PROMPT,
-        messages: messages
-      })
-    });
+    const systemPrompt = context.customerContext?.systemPrompt || this.TRADESPHERE_SYSTEM_PROMPT;
 
-    if (!response.ok) {
-      throw new Error(`Claude API error: ${response.status}`);
+    try {
+      console.log(`💬 Processing with Claude Sonnet 3.5 for session ${context.sessionId}`);
+      
+      const response = await fetch(`${this.CLAUDE_API_ENDPOINT}/messages`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',
+          max_tokens: 500,
+          system: systemPrompt,
+          messages: messages
+        })
+      });
+
+      // Check for 529 error specifically (server overload)
+      if (response.status === 529) {
+        console.warn(`⚠️ Claude API Error 529: Server Overloaded for session ${context.sessionId}`);
+        console.log(`🔄 FALLBACK: Switching to OpenAI GPT-4o-mini for session ${context.sessionId}`);
+        
+        // Fallback to OpenAI Mini with same system prompt and messages
+        return await this.processWithOpenAIMini(context, userMessage, systemPrompt, messages);
+      }
+
+      if (!response.ok) {
+        throw new Error(`Claude API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const content = data.content[0]?.text || 'I apologize, but I could not generate a response.';
+
+      console.log(`✅ Claude response generated successfully for session ${context.sessionId}`);
+
+      return {
+        content,
+        requiresClarification: this.detectClarificationNeeds(content),
+        suggestedQuestions: this.extractSuggestedQuestions(content)
+      };
+
+    } catch (error) {
+      // Only fallback to OpenAI Mini on 529 errors, otherwise re-throw
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      if (errorMessage.includes('529')) {
+        console.warn(`⚠️ Claude API Error 529 (caught in catch): Server Overloaded for session ${context.sessionId}`);
+        console.log(`🔄 FALLBACK: Switching to OpenAI GPT-4o-mini for session ${context.sessionId}`);
+        
+        return await this.processWithOpenAIMini(context, userMessage, systemPrompt, messages);
+      }
+      
+      // For all other errors, re-throw
+      throw error;
+    }
+  }
+
+  /**
+   * Fallback processing using OpenAI GPT-4o-mini (used when Claude returns 529 error)
+   */
+  private static async processWithOpenAIMini(
+    context: ConversationContext,
+    userMessage: string,
+    systemPrompt: string,
+    messages: Array<{role: string, content: string}>
+  ): Promise<AIResponse> {
+    
+    const apiKey = getEnvVar('VITE_OPENAI_API_KEY_MINI');
+    
+    if (!apiKey) {
+      console.error(`❌ No OpenAI Mini API key configured for fallback - session ${context.sessionId}`);
+      throw new Error('OpenAI Mini fallback unavailable: No API key configured');
     }
 
-    const data = await response.json();
-    const content = data.content[0]?.text || 'I apologize, but I could not generate a response.';
+    try {
+      console.log(`⚡ Processing with OpenAI GPT-4o-mini fallback for session ${context.sessionId}`);
+      
+      // Convert messages to OpenAI format (include system as first message)
+      const openAIMessages = [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ];
 
-    return {
-      content,
-      requiresClarification: this.detectClarificationNeeds(content),
-      suggestedQuestions: this.extractSuggestedQuestions(content)
-    };
+      const startTime = performance.now();
+      
+      const response = await fetch(`${this.OPENAI_API_ENDPOINT}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: openAIMessages,
+          temperature: 0.7,
+          max_tokens: 500
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error(`❌ OpenAI Mini fallback failed for session ${context.sessionId}: ${response.status} ${errorText}`);
+        throw new Error(`OpenAI Mini API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content || 'I apologize, but I could not generate a response using the fallback system.';
+      
+      const processingTime = performance.now() - startTime;
+      
+      console.log(`✅ OpenAI Mini fallback response generated for session ${context.sessionId} (${processingTime.toFixed(2)}ms)`);
+      console.log(`📊 FALLBACK SUCCESS: Claude 529 → OpenAI Mini completed for session ${context.sessionId}`);
+
+      return {
+        content,
+        requiresClarification: this.detectClarificationNeeds(content),
+        suggestedQuestions: this.extractSuggestedQuestions(content)
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ OpenAI Mini fallback failed completely for session ${context.sessionId}: ${errorMessage}`);
+      
+      // Return a final fallback response if even OpenAI Mini fails
+      return {
+        content: "I'm experiencing technical difficulties with both primary and backup AI services. Please try again in a moment.",
+        requiresClarification: false,
+        suggestedQuestions: []
+      };
+    }
   }
 
   /**
