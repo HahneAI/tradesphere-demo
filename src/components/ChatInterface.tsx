@@ -38,6 +38,29 @@ const DynamicIcon = ({ name, ...props }: { name: keyof typeof Icons } & Icons.Lu
   return <IconComponent {...props} />;
 };
 
+// ✅ TIMING FIX: Waiting placeholder component for empty panels
+const WaitingPlaceholder = ({ system, visualConfig }: {
+  system: string;
+  visualConfig: any;
+}) => (
+  <div 
+    className="flex flex-col items-center justify-center p-8 rounded-lg border border-dashed"
+    style={{ 
+      backgroundColor: visualConfig.colors.surface,
+      borderColor: visualConfig.colors.text.secondary + '40'
+    }}
+  >
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 mb-3" 
+         style={{ borderColor: visualConfig.colors.primary }}></div>
+    <span 
+      className="text-sm font-medium"
+      style={{ color: visualConfig.colors.text.secondary }}
+    >
+      Waiting for {system} response...
+    </span>
+  </div>
+);
+
 // 🔄 DUAL TESTING: Performance comparison component
 const PerformanceComparison = ({ makeTime, nativeTime, visualConfig }: {
   makeTime: number;
@@ -65,14 +88,15 @@ const PerformanceComparison = ({ makeTime, nativeTime, visualConfig }: {
 };
 
 // 🔄 DUAL TESTING: Component for displaying dual responses side-by-side
-const DualResponseDisplay = ({ makeMsg, nativeMsg, visualConfig, theme }: {
-  makeMsg: Message;
-  nativeMsg: Message;
+const DualResponseDisplay = ({ makeMsg, nativeMsg, waitingFor, visualConfig, theme }: {
+  makeMsg: Message | null;
+  nativeMsg: Message | null;
+  waitingFor?: 'make' | 'native' | null;
   visualConfig: any;
   theme: string;
 }) => {
-  const makeProcessingTime = makeMsg.metadata?.processing_time || 0;
-  const nativeProcessingTime = nativeMsg.metadata?.processing_time || 0;
+  const makeProcessingTime = makeMsg?.metadata?.processing_time || 0;
+  const nativeProcessingTime = nativeMsg?.metadata?.processing_time || 0;
   const speedup = makeProcessingTime > 0 && nativeProcessingTime > 0 
     ? (makeProcessingTime / nativeProcessingTime).toFixed(1)
     : 'N/A';
@@ -94,66 +118,80 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, visualConfig, theme }: {
       
       {/* Side-by-Side Responses */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Make.com Response */}
+        {/* Make.com Response Panel */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: visualConfig.colors.text.secondary }}>
               🔗 Make.com Pipeline
             </span>
             <span style={{ color: visualConfig.colors.text.secondary }}>
-              {makeProcessingTime > 0 ? `${(makeProcessingTime / 1000).toFixed(1)}s` : 'N/A'}
+              {makeMsg && makeProcessingTime > 0 ? `${(makeProcessingTime / 1000).toFixed(1)}s` : 
+               waitingFor === 'make' ? 'Pending...' : 'N/A'}
             </span>
           </div>
           <div
-            className="p-4 rounded-lg border border-orange-300"
+            className="rounded-lg border border-green-300 min-h-[100px]"
             style={{ backgroundColor: visualConfig.colors.elevated }}
           >
-            <ThemeAwareMessageBubble
-              message={makeMsg}
-              visualConfig={visualConfig}
-              theme={theme}
-              compact={true}
-            />
+            {makeMsg ? (
+              <div className="p-4">
+                <ThemeAwareMessageBubble
+                  message={makeMsg}
+                  visualConfig={visualConfig}
+                  theme={theme}
+                  compact={true}
+                />
+              </div>
+            ) : (
+              <WaitingPlaceholder system="Make.com" visualConfig={visualConfig} />
+            )}
           </div>
         </div>
 
-        {/* Native Pipeline Response */}
+        {/* Native Pipeline Response Panel */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: visualConfig.colors.text.secondary }}>
               ⚡ Native Pipeline
             </span>
-            <span className="text-green-500 font-medium">
-              {nativeProcessingTime > 0 ? `${(nativeProcessingTime / 1000).toFixed(1)}s` : 'N/A'}
-              {speedup !== 'N/A' && ` (${speedup}x faster)`}
+            <span className="text-yellow-500 font-medium">
+              {nativeMsg && nativeProcessingTime > 0 ? `${(nativeProcessingTime / 1000).toFixed(1)}s` : 
+               waitingFor === 'native' ? 'Pending...' : 'N/A'}
+              {nativeMsg && makeMsg && speedup !== 'N/A' && ` (${speedup}x faster)`}
             </span>
           </div>
           <div
-            className="p-4 rounded-lg border border-green-300"
+            className="rounded-lg border border-yellow-300 min-h-[100px]"
             style={{ backgroundColor: visualConfig.colors.elevated }}
           >
-            <ThemeAwareMessageBubble
-              message={nativeMsg}
-              visualConfig={visualConfig}
-              theme={theme}
-              compact={true}
-            />
+            {nativeMsg ? (
+              <div className="p-4">
+                <ThemeAwareMessageBubble
+                  message={nativeMsg}
+                  visualConfig={visualConfig}
+                  theme={theme}
+                  compact={true}
+                />
+              </div>
+            ) : (
+              <WaitingPlaceholder system="Native" visualConfig={visualConfig} />
+            )}
           </div>
         </div>
       </div>
 
       {/* Metrics Comparison */}
-      {(makeMsg.metadata || nativeMsg.metadata) && (
+      {(makeMsg?.metadata || nativeMsg?.metadata) && (
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div 
             className="p-2 rounded"
             style={{ backgroundColor: visualConfig.colors.surface }}
           >
             <div style={{ color: visualConfig.colors.text.secondary }}>Make.com Metrics:</div>
-            {makeMsg.metadata?.services_count && (
+            {makeMsg?.metadata?.services_count && (
               <div>Services: {makeMsg.metadata.services_count}</div>
             )}
-            {makeMsg.metadata?.total_cost && (
+            {makeMsg?.metadata?.total_cost && (
               <div>Cost: ${makeMsg.metadata.total_cost}</div>
             )}
             {makeMsg.metadata?.confidence && (
@@ -165,13 +203,13 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, visualConfig, theme }: {
             style={{ backgroundColor: visualConfig.colors.surface }}
           >
             <div style={{ color: visualConfig.colors.text.secondary }}>Native Metrics:</div>
-            {nativeMsg.metadata?.services_count && (
+            {nativeMsg?.metadata?.services_count && (
               <div>Services: {nativeMsg.metadata.services_count}</div>
             )}
-            {nativeMsg.metadata?.total_cost && (
+            {nativeMsg?.metadata?.total_cost && (
               <div>Cost: ${nativeMsg.metadata.total_cost}</div>
             )}
-            {nativeMsg.metadata?.confidence && (
+            {nativeMsg?.metadata?.confidence && (
               <div>Confidence: {(nativeMsg.metadata.confidence * 100).toFixed(0)}%</div>
             )}
           </div>
@@ -773,7 +811,7 @@ const ChatInterface = () => {
     const grouped: Array<{ 
       type: 'shared' | 'dual' | 'single';
       message?: Message;
-      dual?: { make: Message; native: Message };
+      dual?: { make: Message | null; native: Message | null; waitingFor?: 'make' | 'native' | null };
     }> = [];
     const processed = new Set<string>();
 
@@ -785,7 +823,7 @@ const ChatInterface = () => {
         grouped.push({ type: 'shared', message: msg });
         processed.add(msg.id);
       } else if (msg.sender === 'ai') {
-        // ✅ DUAL COMPARISON: AI responses only
+        // ✅ DUAL COMPARISON: AI responses - always create dual slots when dual testing enabled
         const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
         const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
         
@@ -800,20 +838,32 @@ const ChatInterface = () => {
         );
 
         if (correspondingMsg) {
-          // ✅ DUAL DISPLAY: Paired AI responses
+          // ✅ DUAL DISPLAY: Both responses available
           const makeMsg = isMake ? msg : correspondingMsg;
           const nativeMsg = isNative ? msg : correspondingMsg;
           
           grouped.push({
             type: 'dual',
-            dual: { make: makeMsg, native: nativeMsg }
+            dual: { 
+              make: makeMsg, 
+              native: nativeMsg,
+              waitingFor: null // Both responses available
+            }
           });
           
           processed.add(msg.id);
           processed.add(correspondingMsg.id);
         } else {
-          // ✅ ORPHANED RESPONSE: Single AI response (waiting for pair or error)
-          grouped.push({ type: 'single', message: msg });
+          // ✅ TIMING FIX: Always create dual slot, fill as responses arrive
+          grouped.push({
+            type: 'dual',
+            dual: { 
+              make: isMake ? msg : null, 
+              native: isNative ? msg : null,
+              waitingFor: isMake ? 'native' : 'make'
+            }
+          });
+          
           processed.add(msg.id);
         }
       }
@@ -1249,6 +1299,7 @@ const ChatInterface = () => {
                   <DualResponseDisplay
                     makeMsg={messageGroup.dual.make}
                     nativeMsg={messageGroup.dual.native}
+                    waitingFor={messageGroup.dual.waitingFor}
                     visualConfig={visualConfig}
                     theme={theme}
                   />
