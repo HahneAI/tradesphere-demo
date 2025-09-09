@@ -148,13 +148,37 @@ export const handler = async (event, context) => {
 
     // Store in Supabase for frontend retrieval using shared storage service
     if (pricingResult) {
-      await MessageStorageService.storeAIResponse(payload, response.response, {
+      const storageMetadata = {
         processing_time: response.processingTime,
         services_count: response.debug?.servicesFound || 0,
         total_cost: pricingResult.totals.totalCost,
         confidence: response.debug?.confidence || 0,
         source: 'native_pricing_agent'
+      };
+
+      console.log('💾 ABOUT TO STORE RESPONSE:', {
+        sessionId: payload.sessionId,
+        responseLength: response.response.length,
+        hasMetadata: !!storageMetadata,
+        metadataKeys: Object.keys(storageMetadata),
+        pricingResultExists: !!pricingResult
       });
+
+      try {
+        await MessageStorageService.storeAIResponse(payload, response.response, storageMetadata);
+        console.log('✅ STORAGE CONFIRMED: Record written to database');
+      } catch (storageError) {
+        console.error('❌ STORAGE FAILED:', storageError.message);
+        console.error('🔍 STORAGE ERROR DETAILS:', storageError);
+        console.error('🔍 STORAGE ERROR STACK:', storageError.stack);
+        
+        // Try manual database test to isolate the issue
+        console.log('🧪 RUNNING MANUAL DATABASE TEST...');
+        const manualTestResult = await testManualDatabaseWrite(payload.sessionId);
+        console.log('🧪 MANUAL TEST RESULT:', manualTestResult ? 'PASSED' : 'FAILED');
+      }
+    } else {
+      console.warn('⚠️ SKIPPING STORAGE: No pricingResult available');
     }
 
     console.log(`💬 Conversation context updated for session ${payload.sessionId}`);
@@ -252,4 +276,55 @@ function extractSessionId(body) {
  */
 function debugEnvironmentVariables() {
   MessageStorageService.debugEnvironment();
+}
+
+/**
+ * Manual database test to verify Supabase connection
+ * Tests the exact same format that chat-response.js uses
+ */
+async function testManualDatabaseWrite(sessionId) {
+  console.log('🧪 MANUAL DATABASE TEST: Starting...');
+  
+  try {
+    const testData = {
+      session_id: sessionId,
+      message_text: 'MANUAL TEST: Database connection verification from native function',
+      sender: 'ai',
+      tech_id: 'test_tech_123',
+      created_at: new Date().toISOString()
+    };
+
+    console.log('🧪 TEST DATA:', testData);
+
+    const response = await fetch('https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(testData)
+    });
+
+    console.log('🧪 MANUAL TEST RESPONSE:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('🧪 MANUAL TEST FAILED:', errorText);
+      return false;
+    }
+
+    console.log('✅ MANUAL TEST PASSED: Direct database write successful');
+    return true;
+
+  } catch (error) {
+    console.error('🧪 MANUAL TEST ERROR:', error.message);
+    console.error('🧪 MANUAL TEST STACK:', error.stack);
+    return false;
+  }
 }

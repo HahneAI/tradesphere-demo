@@ -59,10 +59,24 @@ export class MessageStorageService {
     metadata: Partial<StorageMetadata> = {}
   ): Promise<void> {
     try {
+      console.log('🗄️ STORAGE SERVICE: Starting database write...');
       console.log('💾 [MessageStorage] Storing AI response');
       console.log(`📝 [MessageStorage] Session: ${payload.sessionId}, Length: ${response.length}`);
+      console.log('🔍 [MessageStorage] Payload details:', {
+        sessionId: payload.sessionId,
+        firstName: payload.firstName,
+        techId: payload.techId,
+        betaCodeId: payload.betaCodeId
+      });
       
       const { url, key } = this.getEnvironmentCredentials();
+      console.log('🗄️ CREDENTIALS:', { 
+        hasUrl: !!url, 
+        hasKey: !!key,
+        urlLength: url?.length,
+        keyLength: key?.length,
+        urlStart: url?.substring(0, 30) + '...'
+      });
       
       // Ensure response is properly truncated if too long
       let cleanedResponse = response;
@@ -75,6 +89,8 @@ export class MessageStorageService {
       cleanedResponse = cleanedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
       
       // Prepare message data with consistent structure
+      // ORIGINAL chat-response.js structure:
+      // { session_id, message_text, sender: 'ai', tech_id, created_at }
       const messageData = {
         session_id: payload.sessionId,
         message_text: cleanedResponse,
@@ -90,14 +106,29 @@ export class MessageStorageService {
         }
       };
 
-      console.log('🔍 [MessageStorage] Data structure:', {
-        session_id: messageData.session_id,
-        sender: messageData.sender,
-        text_length: messageData.message_text.length,
-        metadata_keys: Object.keys(messageData.metadata)
-      });
+      // Compare with original working structure
+      console.log('🔍 [MessageStorage] STRUCTURE COMPARISON:');
+      console.log('  Original working (chat-response.js): { session_id, message_text, sender, tech_id, created_at }');
+      console.log('  Our structure keys:', Object.keys(messageData));
+      console.log('  Extra field (metadata):', !!messageData.metadata);
+      console.log('  Core fields match:', ['session_id', 'message_text', 'sender', 'tech_id', 'created_at']
+        .every(field => messageData.hasOwnProperty(field)));
 
-      const supabaseResponse = await fetch(`${url}/rest/v1/demo_messages`, {
+      console.log('🗄️ DATA TO WRITE:', { 
+        sessionId: messageData.session_id, 
+        messageLength: messageData.message_text.length,
+        sender: messageData.sender,
+        techId: messageData.tech_id,
+        hasMetadata: !!messageData.metadata,
+        metadataKeys: Object.keys(messageData.metadata)
+      });
+      console.log('🔍 [MessageStorage] Complete data structure:', messageData);
+
+      const endpoint = `${url}/rest/v1/demo_messages`;
+      console.log('🌐 [MessageStorage] Request endpoint:', endpoint);
+      console.log('📤 [MessageStorage] Starting HTTP request...');
+
+      const supabaseResponse = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${key}`,
@@ -108,32 +139,58 @@ export class MessageStorageService {
         body: JSON.stringify(messageData)
       });
 
+      console.log('📥 [MessageStorage] HTTP response received:', {
+        status: supabaseResponse.status,
+        statusText: supabaseResponse.statusText,
+        ok: supabaseResponse.ok,
+        headers: Object.fromEntries(supabaseResponse.headers.entries())
+      });
+
       if (!supabaseResponse.ok) {
         const errorText = await supabaseResponse.text();
-        console.error('❌ [MessageStorage] Supabase error:', supabaseResponse.status, errorText);
-        throw new Error(`Supabase error: ${supabaseResponse.status} - ${errorText}`);
+        console.error('❌ [MessageStorage] Supabase HTTP error:', {
+          status: supabaseResponse.status,
+          statusText: supabaseResponse.statusText,
+          errorBody: errorText,
+          endpoint: endpoint,
+          requestData: messageData
+        });
+        throw new Error(`Supabase HTTP error: ${supabaseResponse.status} - ${errorText}`);
       }
 
       // Handle response properly to avoid JSON parsing errors
+      console.log('📋 [MessageStorage] Processing response...');
       const responseText = await supabaseResponse.text();
+      console.log('📋 [MessageStorage] Response text:', responseText || '(empty)');
+      
       if (responseText && responseText.trim()) {
         try {
           const savedMessage = JSON.parse(responseText);
           console.log('✅ [MessageStorage] Stored with ID:', savedMessage[0]?.id || 'success');
+          console.log('✅ [MessageStorage] Database write confirmed');
         } catch (jsonError) {
           console.log('✅ [MessageStorage] Stored successfully (non-JSON response)');
+          console.log('✅ [MessageStorage] Database write confirmed');
         }
       } else {
         console.log('✅ [MessageStorage] Stored successfully (minimal response)');
+        console.log('✅ [MessageStorage] Database write confirmed');
       }
 
     } catch (error) {
-      console.error('❌ [MessageStorage] Storage failed:', error.message);
-      console.error('❌ [MessageStorage] Stack:', error.stack);
+      console.error('❌ [MessageStorage] Storage failed with error:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      });
       
       // Don't throw - storage failure shouldn't break the main response
       // Could implement fallback storage here if needed
       console.log('⚠️ [MessageStorage] Continuing without storage (non-blocking error)');
+      
+      // Re-throw the error so the calling function can handle it
+      throw error;
     }
   }
 
