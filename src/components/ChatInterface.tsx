@@ -1090,13 +1090,14 @@ const ChatInterface = () => {
     };
   }, [voiceTimeout, pauseTimeout]);
 
-  // 🎤 VOICE INPUT: Enhanced speech recognition event handlers for state cleanup
+  // 🎤 VOICE INPUT: Safe cleanup effect using listening state
   useEffect(() => {
-    if (!browserSupportsSpeechRecognition) return;
-
-    const cleanupVoiceState = () => {
+    // Clean up voice state when speech recognition stops listening
+    if (!listening && isRecording) {
+      console.log('🎤 Speech recognition stopped - cleaning up state');
       setIsRecording(false);
       setVoiceError(null);
+      
       if (voiceTimeout) {
         clearTimeout(voiceTimeout);
         setVoiceTimeout(null);
@@ -1105,53 +1106,8 @@ const ChatInterface = () => {
         clearTimeout(pauseTimeout);
         setPauseTimeout(null);
       }
-    };
-
-    // Set up comprehensive event handlers for all end conditions
-    const speechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (speechRecognition && speechRecognition.prototype) {
-      const originalOnEnd = speechRecognition.prototype.onend;
-      const originalOnError = speechRecognition.prototype.onerror;
-      const originalOnSpeechEnd = speechRecognition.prototype.onspeechend;
-      const originalOnAudioEnd = speechRecognition.prototype.onaudioend;
-
-      // Override onend to ensure cleanup
-      speechRecognition.prototype.onend = function(event) {
-        console.log('🎤 Speech recognition ended - cleaning up state');
-        cleanupVoiceState();
-        if (originalOnEnd) originalOnEnd.call(this, event);
-      };
-
-      // Override onerror to ensure cleanup
-      speechRecognition.prototype.onerror = function(event) {
-        console.log('🎤 Speech recognition error - cleaning up state:', event.error);
-        cleanupVoiceState();
-        if (originalOnError) originalOnError.call(this, event);
-      };
-
-      // Override onspeechend to ensure cleanup
-      speechRecognition.prototype.onspeechend = function(event) {
-        console.log('🎤 Speech ended - cleaning up state');
-        cleanupVoiceState();
-        if (originalOnSpeechEnd) originalOnSpeechEnd.call(this, event);
-      };
-
-      // Override onaudioend to ensure cleanup
-      speechRecognition.prototype.onaudioend = function(event) {
-        console.log('🎤 Audio ended - cleaning up state');
-        cleanupVoiceState();
-        if (originalOnAudioEnd) originalOnAudioEnd.call(this, event);
-      };
-
-      // Cleanup on unmount
-      return () => {
-        speechRecognition.prototype.onend = originalOnEnd;
-        speechRecognition.prototype.onerror = originalOnError;
-        speechRecognition.prototype.onspeechend = originalOnSpeechEnd;
-        speechRecognition.prototype.onaudioend = originalOnAudioEnd;
-      };
     }
-  }, [browserSupportsSpeechRecognition, voiceTimeout, pauseTimeout]);
+  }, [listening, isRecording, voiceTimeout, pauseTimeout]);
 
   // 🎤 VOICE INPUT: Smart text appending with transcript
   const [voiceStartText, setVoiceStartText] = useState('');
@@ -1200,7 +1156,11 @@ const ChatInterface = () => {
         // Restart pause detection
         const pauseTimer = setTimeout(() => {
           console.log('🎤 Auto-stopping voice input after 8s pause');
-          SpeechRecognition.stopListening();
+          try {
+            SpeechRecognition.stopListening();
+          } catch (error) {
+            console.warn('🎤 Error stopping speech recognition in transcript pause detection:', error);
+          }
           setIsRecording(false);
           setVoiceTimeout(null);
           setPauseTimeout(null);
@@ -1242,7 +1202,11 @@ const ChatInterface = () => {
         setPauseTimeout(null);
       }
       
-      SpeechRecognition.stopListening();
+      try {
+        SpeechRecognition.stopListening();
+      } catch (error) {
+        console.warn('🎤 Error stopping speech recognition:', error);
+      }
       setIsRecording(false);
       
       console.log('🎤 Voice recording stopped manually');
@@ -1260,17 +1224,26 @@ const ChatInterface = () => {
         setIsRecording(true);
         
         // Use mobile-aware configuration
-        await SpeechRecognition.startListening({ 
-          continuous: voiceConfig.continuous,
-          language: voiceConfig.language,
-          interimResults: voiceConfig.interimResults,
-          maxAlternatives: voiceConfig.maxAlternatives
-        });
+        try {
+          await SpeechRecognition.startListening({ 
+            continuous: voiceConfig.continuous,
+            language: voiceConfig.language,
+            interimResults: voiceConfig.interimResults,
+            maxAlternatives: voiceConfig.maxAlternatives
+          });
+        } catch (startError) {
+          console.error('🎤 Error starting speech recognition:', startError);
+          throw startError;
+        }
         
         // Set up fallback timeout (30 seconds)
         const fallbackTimeout = setTimeout(() => {
           console.log('🎤 Auto-stopping voice input after 30s fallback timeout');
-          SpeechRecognition.stopListening();
+          try {
+            SpeechRecognition.stopListening();
+          } catch (error) {
+            console.warn('🎤 Error stopping speech recognition in timeout:', error);
+          }
           setIsRecording(false);
           setVoiceTimeout(null);
           setPauseTimeout(null);
@@ -1286,7 +1259,11 @@ const ChatInterface = () => {
           
           const pauseTimer = setTimeout(() => {
             console.log('🎤 Auto-stopping voice input after 8s pause');
-            SpeechRecognition.stopListening();
+            try {
+              SpeechRecognition.stopListening();
+            } catch (error) {
+              console.warn('🎤 Error stopping speech recognition in pause detection:', error);
+            }
             setIsRecording(false);
             setVoiceTimeout(null);
             setPauseTimeout(null);
