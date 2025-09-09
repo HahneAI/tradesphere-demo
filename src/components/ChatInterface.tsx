@@ -585,19 +585,19 @@ const ChatInterface = () => {
     }
   };
 
-  // 🔧 ENHANCED: Polling with comprehensive debug logging and error handling
+  // 🔧 SIMPLIFIED: Fixed polling with proper URL construction
   const pollForAiMessages = async () => {
     const debugPrefix = `📡 POLL [${sessionIdRef.current.slice(-8)}]`;
     
     // Quick validation before polling
-    if (!NETLIFY_API_URL) {
-      console.warn(`${debugPrefix} Skipped - No Netlify API URL configured`);
+    if (!sessionIdRef.current) {
+      console.warn(`${debugPrefix} Skipped - No session ID`);
       return;
     }
     
     const pollStart = performance.now();
-    const currentApiUrl = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
-    const sinceParam = lastPollTimeRef.current.toISOString();
+    const currentApiUrl = `/.netlify/functions/chat-messages/${encodeURIComponent(sessionIdRef.current)}`;
+    const sinceParam = encodeURIComponent(lastPollTimeRef.current.toISOString());
     
     // Only log detailed info if admin or if there's been a recent user message
     const shouldDetailLog = isAdmin || (Date.now() - (processingStartTime || 0)) < 30000;
@@ -726,42 +726,19 @@ const ChatInterface = () => {
     }
   };
 
-  // 🔄 DUAL TESTING: Enhanced smart polling with dynamic intervals
+  // 🔍 DEBUG: Simple polling rollback to isolate 400 error
   useEffect(() => {
-    const getDynamicInterval = () => {
-      // If dual testing is enabled and we're waiting for responses
-      if (DUAL_TESTING_ENABLED && isLoading) {
-        return 500; // Super aggressive when waiting for dual responses
-      }
-      
-      // If recently sent message (last 30 seconds)
-      if (processingStartTime && (Date.now() - processingStartTime) < 30000) {
-        return 1000; // Fast polling for recent activity
-      }
-      
-      // Normal idle polling
-      return 3000;
-    };
-
-    let pollingInterval: NodeJS.Timeout;
+    console.log('🔍 DEBUG: Starting simple 2-second polling');
+    const polling = setInterval(() => {
+      console.log('🔍 DEBUG: Polling attempt...');
+      pollForAiMessages();
+    }, 2000);
     
-    const startDynamicPolling = () => {
-      const interval = getDynamicInterval();
-      console.log(`🔄 POLLING: Setting interval to ${interval}ms (dual:${DUAL_TESTING_ENABLED}, loading:${isLoading})`);
-      
-      pollingInterval = setInterval(() => {
-        pollForAiMessages();
-        
-        // Re-evaluate interval after each poll
-        clearInterval(pollingInterval);
-        startDynamicPolling();
-      }, interval);
+    return () => {
+      console.log('🔍 DEBUG: Cleaning up polling interval');
+      clearInterval(polling);
     };
-
-    startDynamicPolling();
-    
-    return () => clearInterval(pollingInterval);
-  }, [DUAL_TESTING_ENABLED, isLoading, processingStartTime]);
+  }, []); // Simplified dependency array
 
   // ORIGINAL: Auto-scroll functionality
   useEffect(() => {
