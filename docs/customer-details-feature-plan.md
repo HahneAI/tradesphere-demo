@@ -184,7 +184,28 @@ POST /api/load-session-context
 }
 ```
 
-#### 2. Enhanced JSON Payloads
+#### 2. Core Record Creation (Current Make.com Pattern)
+```javascript
+// Primary VC_Usage record creation - MAINTAIN THIS EXACT PATTERN
+{
+  "user_name": user.first_name,
+  "user_tech_id": user.tech_id, 
+  "session_id": sessionId,
+  "beta_code_id": user.beta_code_id,
+  "user_input": message_text,
+  "ai_response": ai_output,
+  "interaction_number": current_interaction + 1,
+  "interaction_summary": generated_summary,
+  // NEW: Customer fields (optional)
+  "customer_name": customerDetails?.name || null,
+  "customer_address": customerDetails?.address || null,
+  "customer_email": customerDetails?.email || null,
+  "customer_phone": customerDetails?.phone || null
+}
+```
+**Critical**: This core pattern must remain unchanged during customer feature implementation.
+
+#### 3. Enhanced JSON Payloads
 ```javascript
 // Existing message payload enhancement
 {
@@ -236,7 +257,27 @@ POST /api/load-session-context
 
 ### Session Context Management
 
-#### 1. Context Loading Flow
+#### 1. Interaction Summary Generation & Storage
+```typescript
+const processAIResponse = async (userInput: string, aiResponse: string, sessionId: string) => {
+  // Generate interaction summary for this exchange
+  const interactionSummary = await generateInteractionSummary(userInput, aiResponse);
+  
+  // Store complete record with summary
+  const record = {
+    user_input: userInput,
+    ai_response: aiResponse,
+    interaction_number: currentInteractionNumber + 1,
+    interaction_summary: interactionSummary,
+    session_id: sessionId,
+    // ... other required fields
+  };
+  
+  await CustomerDataService.saveVCUsageRecord(record);
+};
+```
+
+#### 2. Context Loading Flow
 ```typescript
 const loadCustomerSession = async (sessionId: string) => {
   try {
@@ -265,7 +306,7 @@ const loadCustomerSession = async (sessionId: string) => {
 };
 ```
 
-#### 2. Interaction Number Management
+#### 3. Interaction Number Management
 ```typescript
 const sendMessageWithCustomerContext = async (message: string) => {
   // Get current interaction number for session
@@ -327,6 +368,34 @@ Session context loads:
     ↓
 User continues conversation with full context
 ```
+
+## AI Agent System Prompt Integration
+
+### Dynamic Context Injection
+When loading existing customer sessions, the interaction_summary from the highest interaction_number must be dynamically inserted into the main AI agent's system prompt:
+
+```typescript
+const loadCustomerSessionWithAIContext = async (sessionId: string) => {
+  // Get latest interaction summary
+  const latestContext = await getLatestInteractionSummary(sessionId);
+  
+  // Inject into AI system prompt
+  const systemPromptWithContext = `
+    ${BASE_AI_SYSTEM_PROMPT}
+    
+    CUSTOMER CONTEXT:
+    Previous conversation summary: ${latestContext.interaction_summary}
+    Customer: ${latestContext.customer_name}
+    
+    Continue this conversation with full context of previous interactions.
+  `;
+  
+  // Pass to AI agent
+  return systemPromptWithContext;
+};
+```
+
+**Integration Point**: This context injection must occur BEFORE the first AI response in a recalled session.
 
 ## Implementation Roadmap
 
