@@ -63,7 +63,7 @@ export const handler = async (event, context) => {
         },
         decodedResponse,
         {
-          source: 'make_com_webhook'
+          source: 'make_com' // 🔄 DUAL TESTING: Consistent source naming
         }
       );
       

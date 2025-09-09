@@ -88,17 +88,22 @@ export class MessageStorageService {
       // Clean problematic characters
       cleanedResponse = cleanedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
       
-      // Prepare message data EXACTLY matching chat-response.js structure
-      // ORIGINAL working format: { session_id, message_text, sender: 'ai', tech_id, created_at }
+      // 🔄 DUAL TESTING: Enhanced message data with source tracking
       const messageData = {
         session_id: payload.sessionId,
         message_text: cleanedResponse,
         sender: 'ai',
         tech_id: payload.techId || null,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        message_source: metadata.source || 'native_pricing_agent', // 🔄 DUAL TESTING: Source tracking
+        metadata: {
+          processing_time: metadata.processing_time,
+          services_count: metadata.services_count || 0,
+          total_cost: metadata.total_cost,
+          confidence: metadata.confidence || 0,
+          source: metadata.source || 'native_pricing_agent'
+        }
       };
-
-      // Note: Removing metadata for now to match exact working structure
 
       // Compare with original working structure
       console.log('🔍 [MessageStorage] STRUCTURE COMPARISON:');
@@ -113,7 +118,9 @@ export class MessageStorageService {
         messageLength: messageData.message_text.length,
         sender: messageData.sender,
         techId: messageData.tech_id,
-        createdAt: messageData.created_at
+        createdAt: messageData.created_at,
+        messageSource: messageData.message_source, // 🔄 DUAL TESTING: Source tracking
+        hasMetadata: !!messageData.metadata
       });
       console.log('🔍 [MessageStorage] Complete data structure:', messageData);
 

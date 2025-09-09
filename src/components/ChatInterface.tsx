@@ -38,6 +38,32 @@ const DynamicIcon = ({ name, ...props }: { name: keyof typeof Icons } & Icons.Lu
   return <IconComponent {...props} />;
 };
 
+// 🔄 DUAL TESTING: Performance comparison component
+const PerformanceComparison = ({ makeTime, nativeTime, visualConfig }: {
+  makeTime: number;
+  nativeTime: number;
+  visualConfig: any;
+}) => {
+  const speedup = makeTime && nativeTime ? (makeTime / nativeTime).toFixed(1) : null;
+  
+  return (
+    <div className="flex items-center justify-center mt-3">
+      <div 
+        className="px-4 py-2 rounded-lg text-xs flex items-center gap-4"
+        style={{ 
+          backgroundColor: visualConfig.colors.surface,
+          border: `1px solid ${visualConfig.colors.secondary}`,
+          color: visualConfig.colors.text.secondary
+        }}
+      >
+        <span className="text-green-600">🔧 Make.com: {(makeTime / 1000).toFixed(1)}s</span>
+        <span className="text-yellow-600">⚡ Native: {(nativeTime / 1000).toFixed(1)}s</span>
+        {speedup && <span className="text-blue-600 font-medium">📈 {speedup}x faster</span>}
+      </div>
+    </div>
+  );
+};
+
 // 🔄 DUAL TESTING: Component for displaying dual responses side-by-side
 const DualResponseDisplay = ({ makeMsg, nativeMsg, visualConfig, theme }: {
   makeMsg: Message;
@@ -150,6 +176,15 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, visualConfig, theme }: {
             )}
           </div>
         </div>
+      )}
+      
+      {/* 🔄 DUAL TESTING: Enhanced Performance Comparison */}
+      {makeProcessingTime > 0 && nativeProcessingTime > 0 && (
+        <PerformanceComparison 
+          makeTime={makeProcessingTime}
+          nativeTime={nativeProcessingTime}
+          visualConfig={visualConfig}
+        />
       )}
     </div>
   );
@@ -638,6 +673,28 @@ const ChatInterface = () => {
             lastPollTimeRef.current = new Date();
             
             console.log(`✅ ${debugPrefix} Added ${uniqueNewMessages.length} new messages to chat`);
+            
+            // 🔄 DUAL TESTING: Check if both responses received
+            if (DUAL_TESTING_ENABLED && uniqueNewMessages.some(msg => msg.sender === 'ai')) {
+              const allMessages = [...prev, ...uniqueNewMessages];
+              const recentAIMessages = allMessages.filter(msg => 
+                msg.sender === 'ai' && 
+                Math.abs(new Date(msg.timestamp).getTime() - Date.now()) < 60000 // Last minute
+              );
+              
+              const hasMakeResponse = recentAIMessages.some(msg => 
+                !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
+              );
+              const hasNativeResponse = recentAIMessages.some(msg => 
+                msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
+              );
+              
+              if (hasMakeResponse && hasNativeResponse) {
+                console.log('🎯 DUAL TESTING: Both responses received - returning to idle polling');
+                setIsLoading(false); // This will trigger slower polling
+              }
+            }
+            
             return [...prev, ...uniqueNewMessages];
           } else {
             console.log(`🔄 ${debugPrefix} No new unique messages (${processedMessages.length} already exist)`);
@@ -669,20 +726,42 @@ const ChatInterface = () => {
     }
   };
 
-  // 🏢 ENTERPRISE: Smart polling - faster initial, then regular
+  // 🔄 DUAL TESTING: Enhanced smart polling with dynamic intervals
   useEffect(() => {
-    // Start with faster polling, then regular
-    const initialFastPolling = setInterval(pollForAiMessages, 1500); // 1.5s for first few polls
-    
-    setTimeout(() => {
-      clearInterval(initialFastPolling);
-      const regularPolling = setInterval(pollForAiMessages, 3000); // Then 3s regular
+    const getDynamicInterval = () => {
+      // If dual testing is enabled and we're waiting for responses
+      if (DUAL_TESTING_ENABLED && isLoading) {
+        return 500; // Super aggressive when waiting for dual responses
+      }
       
-      return () => clearInterval(regularPolling);
-    }, 10000); // Fast polling for first 10 seconds
+      // If recently sent message (last 30 seconds)
+      if (processingStartTime && (Date.now() - processingStartTime) < 30000) {
+        return 1000; // Fast polling for recent activity
+      }
+      
+      // Normal idle polling
+      return 3000;
+    };
+
+    let pollingInterval: NodeJS.Timeout;
     
-    return () => clearInterval(initialFastPolling);
-  }, []);
+    const startDynamicPolling = () => {
+      const interval = getDynamicInterval();
+      console.log(`🔄 POLLING: Setting interval to ${interval}ms (dual:${DUAL_TESTING_ENABLED}, loading:${isLoading})`);
+      
+      pollingInterval = setInterval(() => {
+        pollForAiMessages();
+        
+        // Re-evaluate interval after each poll
+        clearInterval(pollingInterval);
+        startDynamicPolling();
+      }, interval);
+    };
+
+    startDynamicPolling();
+    
+    return () => clearInterval(pollingInterval);
+  }, [DUAL_TESTING_ENABLED, isLoading, processingStartTime]);
 
   // ORIGINAL: Auto-scroll functionality
   useEffect(() => {

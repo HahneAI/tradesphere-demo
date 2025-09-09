@@ -15,6 +15,46 @@ const formatRelativeTime = (date: Date) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+// 🔄 DUAL TESTING: Get message source styling for visual differentiation
+const getMessageSourceStyle = (message: Message) => {
+  const source = message.metadata?.source || message.source;
+  
+  if (source === 'native_pricing_agent') {
+    return {
+      border: '2px solid #FCD34D', // Yellow outline for native
+      boxShadow: '0 0 8px rgba(252, 211, 77, 0.3)'
+    };
+  } else if (source === 'make_com' || (!source && message.sender === 'ai')) {
+    return {
+      border: '2px solid #10B981', // Green outline for Make.com
+      boxShadow: '0 0 8px rgba(16, 185, 129, 0.3)'
+    };
+  }
+  
+  return {}; // Default styling for user messages
+};
+
+// 🔄 DUAL TESTING: Get source badge for message identification
+const getSourceBadge = (message: Message) => {
+  const source = message.metadata?.source || message.source;
+  
+  if (source === 'native_pricing_agent') {
+    return (
+      <span className="inline-flex items-center px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-medium">
+        ⚡ Native
+      </span>
+    );
+  } else if (source === 'make_com' || (!source && message.sender === 'ai')) {
+    return (
+      <span className="inline-flex items-center px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full font-medium">
+        🔧 Make.com
+      </span>
+    );
+  }
+  
+  return null;
+};
+
 const formatMessageText = (text: string) => {
   let html = text
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -64,6 +104,8 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
 }) => {
   const animationClass = visualConfig.animations.messageEntry === 'grow' ? 'landscaping-grow' : 'tech-slide';
 
+  // 🔄 DUAL TESTING: Merge default bubble styles with source-based styling
+  const sourceStyle = getMessageSourceStyle(message);
   const bubbleStyles = {
     backgroundColor: message.sender === 'user'
       ? visualConfig.colors.primary
@@ -71,7 +113,8 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
     color: message.sender === 'user'
       ? visualConfig.colors.text.onPrimary
       : visualConfig.colors.text.primary,
-    borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.5rem' : '0.75rem'
+    borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.5rem' : '0.75rem',
+    ...sourceStyle
   };
 
   return (
@@ -81,6 +124,13 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
         className={`${compact ? 'max-w-full px-3 py-2' : 'max-w-md lg:max-w-2xl px-5 py-3'} shadow-md message-bubble-animate ${animationClass} transition-all duration-300`}
         style={bubbleStyles}
       >
+        {/* 🔄 DUAL TESTING: Add source badge for AI messages */}
+        {message.sender === 'ai' && getSourceBadge(message) && (
+          <div className="mb-2">
+            {getSourceBadge(message)}
+          </div>
+        )}
+        
         <div
           className={`${compact ? 'text-sm' : 'text-base'} whitespace-pre-wrap`}
           dangerouslySetInnerHTML={{ __html: formatMessageText(message.text) }}

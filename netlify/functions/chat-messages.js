@@ -80,7 +80,7 @@ export const handler = async (event, context) => {
         'created_at': `gte.${since}`,
         'order': 'created_at.asc',
         'limit': '10', // ⚡ ENTERPRISE: Limit for performance
-        'select': 'id,message_text,sender,created_at,session_id' // ⚡ ENTERPRISE: Select only needed fields
+        'select': 'id,message_text,sender,created_at,session_id,metadata,message_source' // ⚡ ENTERPRISE: Include source tracking fields
       });
 
       const supabaseResponse = await fetch(`${supabaseUrl}?${queryParams}`, {
@@ -124,7 +124,7 @@ export const handler = async (event, context) => {
       const sessionMessages = await supabaseResponse.json();
       console.log('📥 CONCURRENCY DEBUG - Raw messages from DB:', sessionMessages.length);
       
-      // EXISTING: Message formatting with ENHANCED validation
+      // 🔄 DUAL TESTING: Enhanced message formatting with source tracking
       const formattedMessages = sessionMessages.map(msg => {
         try {
           return {
@@ -133,7 +133,10 @@ export const handler = async (event, context) => {
             text: msg.message_text || '',
             sender: msg.sender || 'ai',
             timestamp: msg.created_at || new Date().toISOString(),
-            sessionId: msg.session_id || sessionId
+            sessionId: msg.session_id || sessionId,
+            // 🔄 DUAL TESTING: Include source information for visual differentiation
+            source: msg.message_source || (msg.metadata?.source),
+            metadata: msg.metadata || {}
           };
         } catch (formatError) {
           console.error('❌ Message formatting error:', formatError, msg);
