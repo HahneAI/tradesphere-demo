@@ -67,6 +67,10 @@ const PerformanceComparison = ({ makeTime, nativeTime, visualConfig }: {
   nativeTime: number;
   visualConfig: any;
 }) => {
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  
+  if (!DUAL_TESTING_ENABLED) return null;
+  
   const speedup = makeTime && nativeTime ? (makeTime / nativeTime).toFixed(1) : null;
   
   return (
@@ -95,6 +99,9 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, waitingFor, visualConfig, the
   visualConfig: any;
   theme: string;
 }) => {
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  
+  if (!DUAL_TESTING_ENABLED) return null;
   const makeProcessingTime = makeMsg?.metadata?.processing_time || 0;
   const nativeProcessingTime = nativeMsg?.metadata?.processing_time || 0;
   const speedup = makeProcessingTime > 0 && nativeProcessingTime > 0 
@@ -1334,7 +1341,7 @@ const ChatInterface = () => {
                     theme={theme}
                     removeSourceStyling={true}
                   />
-                ) : messageGroup.type === 'dual' && messageGroup.dual ? (
+                ) : messageGroup.type === 'dual' && messageGroup.dual && DUAL_TESTING_ENABLED ? (
                   /* ✅ DUAL COMPARISON: Side-by-side AI responses with performance metrics */
                   <DualResponseDisplay
                     makeMsg={messageGroup.dual.make}

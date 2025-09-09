@@ -36,6 +36,10 @@ const getMessageSourceStyle = (message: Message) => {
 
 // 🔄 DUAL TESTING: Get source badge for message identification
 const getSourceBadge = (message: Message) => {
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  
+  if (!DUAL_TESTING_ENABLED) return null;
+  
   const source = message.metadata?.source || message.source;
   
   if (source === 'native_pricing_agent') {
