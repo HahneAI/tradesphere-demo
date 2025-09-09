@@ -12,6 +12,7 @@ import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPerso
 import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.ts';
 import { GPTServiceSplitter } from '../../src/services/ai-engine/GPTServiceSplitter.ts';
 import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.ts';
+import { MessageStorageService } from '../../src/utils/message-storage.ts';
 
 export const handler = async (event, context) => {
   const startTime = Date.now();
@@ -119,6 +120,8 @@ export const handler = async (event, context) => {
     const chatAgentTime = Date.now() - chatAgentStart;
     console.log(`✅ Main Chat Agent: ${chatAgentTime}ms`);
     console.log(`📋 Response Type: ${chatAgentResponse.conversationType}`);
+    console.log('🤖 AI RESPONSE CONTENT:', chatAgentResponse.message);
+    console.log('🤖 RESPONSE LENGTH:', chatAgentResponse.message.length);
 
     const totalTime = Date.now() - startTime;
 
@@ -143,9 +146,15 @@ export const handler = async (event, context) => {
       }
     };
 
-    // Store in Supabase for frontend retrieval if we have pricing data
+    // Store in Supabase for frontend retrieval using shared storage service
     if (pricingResult) {
-      await storeResponseInSupabase(payload, response, pricingResult);
+      await MessageStorageService.storeAIResponse(payload, response.response, {
+        processing_time: response.processingTime,
+        services_count: response.debug?.servicesFound || 0,
+        total_cost: pricingResult.totals.totalCost,
+        confidence: response.debug?.confidence || 0,
+        source: 'native_pricing_agent'
+      });
     }
 
     console.log(`💬 Conversation context updated for session ${payload.sessionId}`);
@@ -238,55 +247,9 @@ function extractSessionId(body) {
 }
 
 /**
- * Store response in Supabase for frontend retrieval
+ * Debug environment variables for troubleshooting
+ * (Replaced old storeResponseInSupabase with shared service)
  */
-async function storeResponseInSupabase(payload, response, pricingResult) {
-  try {
-    console.log('💾 Storing response in Supabase');
-    
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
-    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.warn('⚠️ Supabase credentials missing, skipping database storage');
-      return;
-    }
-
-    // Store AI response in demo_messages table
-    const messageData = {
-      session_id: payload.sessionId,
-      message_text: response.response,
-      sender: 'ai',
-      created_at: new Date().toISOString(),
-      metadata: {
-        processing_time: response.processingTime,
-        services_count: response.debug?.servicesFound || 0,
-        total_cost: pricingResult.totals.totalCost,
-        confidence: response.debug?.confidence || 0,
-        source: 'native_pricing_agent'
-      }
-    };
-
-    const supabaseResponse = await fetch(`${supabaseUrl}/rest/v1/demo_messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify(messageData)
-    });
-
-    if (!supabaseResponse.ok) {
-      const error = await supabaseResponse.text();
-      console.error('❌ Supabase storage failed:', supabaseResponse.status, error);
-    } else {
-      console.log('✅ Response stored in Supabase');
-    }
-
-  } catch (error) {
-    console.error('❌ Error storing in Supabase:', error);
-    // Don't throw - storage failure shouldn't break the response
-  }
+function debugEnvironmentVariables() {
+  MessageStorageService.debugEnvironment();
 }

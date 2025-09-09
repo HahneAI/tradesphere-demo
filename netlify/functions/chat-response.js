@@ -1,3 +1,6 @@
+// Import shared storage service for consistent data handling
+import { MessageStorageService } from '../../src/utils/message-storage.ts';
+
 export const handler = async (event, context) => {
   // Handle CORS for demo
   if (event.httpMethod === 'OPTIONS') {
@@ -51,51 +54,23 @@ export const handler = async (event, context) => {
       techId 
     });
     
-    // Store message in Supabase demo_messages table
+    // Store message using shared storage service
     try {
-      const supabaseResponse = await fetch(
-        'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages',
+      await MessageStorageService.storeAIResponse(
+        { 
+          sessionId, 
+          techId 
+        },
+        decodedResponse,
         {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            message_text: decodedResponse,
-            sender: 'ai',
-            tech_id: techId,
-            created_at: timestamp || new Date().toISOString()
-          })
+          source: 'make_com_webhook'
         }
       );
-
-      if (!supabaseResponse.ok) {
-        const errorText = await supabaseResponse.text();
-        console.error('Supabase error:', supabaseResponse.status, errorText);
-        throw new Error(`Supabase error: ${supabaseResponse.status}`);
-      }
-
-      // Handle Supabase response properly to avoid JSON parsing errors
-      const responseText = await supabaseResponse.text();
-      if (responseText && responseText.trim()) {
-        try {
-          const savedMessage = JSON.parse(responseText);
-          console.log('✅ Stored message in Supabase:', savedMessage[0]?.id || 'success');
-        } catch (jsonError) {
-          console.log('✅ Stored message in Supabase (non-JSON response)');
-        }
-      } else {
-        console.log('✅ Stored message in Supabase (empty response - prefer=minimal)');
-      }
       
-    } catch (supabaseError) {
-      console.error('Supabase storage failed:', supabaseError.message);
+    } catch (storageError) {
+      console.error('[chat-response] Storage failed:', storageError.message);
       
-      // Fallback to in-memory storage if Supabase fails
+      // Fallback to in-memory storage if shared service fails
       global.demoMessages = global.demoMessages || [];
       global.demoMessages.push({
         id: Date.now().toString(),
