@@ -52,18 +52,19 @@ export class MainChatAgentService {
       const conversationType = this.determineConversationType(input.collectionResult);
       console.log(`📋 Conversation Type: ${conversationType}`);
 
-      // Generate context-aware prompt based on the situation
-      const contextPrompt = this.buildContextPrompt(input, conversationType);
+      // Build simple data prompt for the AI
+      const dataPrompt = this.buildDataPrompt(input, conversationType);
 
       // Process with Claude Sonnet using conversation memory
       const aiResponse = await ConversationContextService.processMessageWithContext(
         input.sessionId,
-        contextPrompt,
+        dataPrompt,
         {
           firstName: input.firstName,
           isReturnCustomer: false,
           projectType: this.extractProjectType(input.originalMessage),
-          urgencyLevel: 'routine'
+          urgencyLevel: 'routine',
+          systemPrompt: this.CLAUDE_SYSTEM_PROMPT  // Use new concise prompt
         }
       );
 
@@ -165,6 +166,17 @@ export class MainChatAgentService {
     }
 
     return prompt;
+  }
+
+  /**
+   * Build simple data prompt for the new concise AI system
+   */
+  private static buildDataPrompt(input: ChatAgentInput, conversationType: string): string {
+    if (conversationType === 'complete_quote' && input.pricingResult) {
+      const service = input.pricingResult.services[0];
+      return `Service: ${service.serviceName} (${service.quantity} ${service.unit})\nPrice: $${service.totalPrice.toFixed(2)}\nHours: ${service.laborHours}`;
+    }
+    return `Customer needs help with: ${input.originalMessage}`;
   }
 
   /**

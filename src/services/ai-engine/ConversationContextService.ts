@@ -43,6 +43,7 @@ export interface CustomerContext {
   isReturnCustomer?: boolean;
   projectType?: string;
   urgencyLevel?: 'routine' | 'seasonal' | 'emergency';
+  systemPrompt?: string; // Custom system prompt override
 }
 
 interface AIResponse {
@@ -464,7 +465,7 @@ Remember: You have access to previous conversation history - reference it natura
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 500,
-        system: this.TRADESPHERE_SYSTEM_PROMPT,
+        system: context.customerContext?.systemPrompt || this.TRADESPHERE_SYSTEM_PROMPT,
         messages: messages
       })
     });
