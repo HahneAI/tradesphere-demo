@@ -2,7 +2,24 @@
   "permissions": {
     "allow": [
       "Bash(claude mcp add github:*)",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "mcp__filesystem__read_multiple_files",
+      "mcp__filesystem__write_file",
+      "mcp__filesystem__edit_file",
+      "Bash(npx tsx:*)",
+      "mcp__filesystem__read_text_file",
+      "mcp__sequential__sequentialthinking",
+      "mcp__filesystem__create_directory",
+      "Bash(npm run test:real-logic:*)",
+      "Bash(npm run test:logic:verify:*)",
+      "Bash(npm run test:mock:simple:*)",
+      "Bash(npm run test:mock:pure:*)",
+      "Bash(npm run test:pipeline:mock:*)",
+      "Bash(TEST_INPUT=\"15x10 patio with wood chips and steel edging\" npx tsx src/services/ai-engine/GPTServiceSplitter.ts)",
+      "Bash(npm run test:gpt:comparison:*)",
+      "Bash(npm run test:conversation:*)",
+      "Bash(npm install:*)",
+      "Bash(TEST_INPUT=\"15 mulch, 100 patio, and an outdoor kitchen of 36 feet\" npx tsx src/services/ai-engine/GPTServiceSplitter.ts)"
     ],
     "deny": [],
     "ask": []
