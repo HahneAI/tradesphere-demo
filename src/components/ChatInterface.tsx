@@ -815,6 +815,32 @@ const ChatInterface = () => {
     }> = [];
     const processed = new Set<string>();
 
+    // ✅ SLOT FILLING FIX: Function to fill existing waiting slots
+    const findAndFillExistingSlot = (newMessage: Message) => {
+      const isNative = newMessage.metadata?.source === 'native_pricing_agent' || newMessage.source === 'native_pricing_agent';
+      const isMake = newMessage.metadata?.source === 'make_com' || newMessage.source === 'make_com' || (!isNative && !newMessage.source);
+      
+      // Look for existing dual panel with empty slot for this source
+      for (let i = grouped.length - 1; i >= 0; i--) {
+        const group = grouped[i];
+        if (group.type === 'dual' && group.dual) {
+          if (isMake && !group.dual.make && group.dual.waitingFor === 'make') {
+            console.log('✅ SLOT FILLING: Make.com response filled waiting slot');
+            group.dual.make = newMessage;
+            group.dual.waitingFor = null; // Both slots now filled
+            return true; // Successfully filled existing slot
+          }
+          if (isNative && !group.dual.native && group.dual.waitingFor === 'native') {
+            console.log('✅ SLOT FILLING: Native response filled waiting slot');
+            group.dual.native = newMessage;
+            group.dual.waitingFor = null; // Both slots now filled
+            return true; // Successfully filled existing slot
+          }
+        }
+      }
+      return false; // No existing slot found
+    };
+
     messages.forEach((msg, index) => {
       if (processed.has(msg.id)) return;
 
@@ -823,6 +849,11 @@ const ChatInterface = () => {
         grouped.push({ type: 'shared', message: msg });
         processed.add(msg.id);
       } else if (msg.sender === 'ai') {
+        // ✅ SLOT FILLING FIX: Try to fill existing waiting slot first
+        if (findAndFillExistingSlot(msg)) {
+          processed.add(msg.id);
+          return; // Skip creating new dual panel
+        }
         // ✅ DUAL COMPARISON: AI responses - always create dual slots when dual testing enabled
         const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
         const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
