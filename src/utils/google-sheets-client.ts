@@ -171,7 +171,7 @@ export class GoogleSheetsClient {
    * Get sheet name based on beta code ID for multi-user support
    */
   private getSheetName(betaCodeId?: number): string {
-    if (betaCodeId && betaCodeId >= 1 && betaCodeId <= 12) {
+    if (betaCodeId && betaCodeId >= 1) {
       return `ID ${betaCodeId} Base`;
     }
     return 'Sheet1'; // Default sheet for legacy compatibility
@@ -200,7 +200,7 @@ export class GoogleSheetsClient {
       })));
 
       // For beta codes, look for exact match first
-      if (betaCodeId && betaCodeId >= 1 && betaCodeId <= 12) {
+      if (betaCodeId && betaCodeId >= 1) {
         const expectedName = `ID ${betaCodeId} Base`;
         const matchingSheet = sheets.find(s => s.properties?.title === expectedName);
         if (matchingSheet) {
@@ -232,15 +232,18 @@ export class GoogleSheetsClient {
    */
   async writeServiceQuantity(row: number, quantity: number, betaCodeId?: number): Promise<void> {
     const initialized = await this.initialize();
-    const sheetName = this.getSheetName(betaCodeId);
     
     if (!initialized) {
-      console.log(`🧪 MOCK: Would write quantity ${quantity} to row ${row} in sheet "${sheetName}"`);
+      const mockSheetName = this.getSheetName(betaCodeId);
+      console.log(`🧪 MOCK: Would write quantity ${quantity} to row ${row} in sheet "${mockSheetName}"`);
       return;
     }
 
+    // Get actual sheet name dynamically
+    const actualSheetName = await this.getActualSheetName(betaCodeId);
+
     try {
-      const range = `'${sheetName}'!B${row}`; // Target user-specific sheet
+      const range = `${actualSheetName}!B${row}`; // Target user-specific sheet
       
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
@@ -251,10 +254,10 @@ export class GoogleSheetsClient {
         }
       });
 
-      console.log(`✅ Written quantity ${quantity} to row ${row} in sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
+      console.log(`✅ Written quantity ${quantity} to row ${row} in sheet "${actualSheetName}" (Beta Code: ${betaCodeId || 'default'})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to write quantity to row ${row} in sheet "${sheetName}":`, errorMessage);
+      console.error(`❌ Failed to write quantity to row ${row} in sheet "${actualSheetName}":`, errorMessage);
       throw new Error(`Google Sheets write failed: ${errorMessage}`);
     }
   }
@@ -264,16 +267,19 @@ export class GoogleSheetsClient {
    */
   async writeMultipleQuantities(updates: { row: number; quantity: number }[], betaCodeId?: number): Promise<void> {
     const initialized = await this.initialize();
-    const sheetName = this.getSheetName(betaCodeId);
     
     if (!initialized) {
-      console.log(`🧪 MOCK: Would write ${updates.length} quantities to sheet "${sheetName}":`, updates);
+      const mockSheetName = this.getSheetName(betaCodeId);
+      console.log(`🧪 MOCK: Would write ${updates.length} quantities to sheet "${mockSheetName}":`, updates);
       return;
     }
 
+    // Get actual sheet name dynamically
+    const actualSheetName = await this.getActualSheetName(betaCodeId);
+
     try {
       const requests = updates.map(({ row, quantity }) => ({
-        range: `'${sheetName}'!B${row}`,
+        range: `${actualSheetName}!B${row}`,
         values: [[quantity]]
       }));
 
@@ -285,10 +291,10 @@ export class GoogleSheetsClient {
         }
       });
 
-      console.log(`✅ Written ${updates.length} quantities to sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
+      console.log(`✅ Written ${updates.length} quantities to sheet "${actualSheetName}" (Beta Code: ${betaCodeId || 'default'})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to write multiple quantities to sheet "${sheetName}":`, errorMessage);
+      console.error(`❌ Failed to write multiple quantities to sheet "${actualSheetName}":`, errorMessage);
       throw new Error(`Google Sheets batch write failed: ${errorMessage}`);
     }
   }
@@ -298,16 +304,19 @@ export class GoogleSheetsClient {
    */
   async readCalculationResults(rows: number[], betaCodeId?: number): Promise<SheetCalculationResult[]> {
     const initialized = await this.initialize();
-    const sheetName = this.getSheetName(betaCodeId);
     
     if (!initialized) {
       // Return mock data
-      console.log(`🧪 MOCK: Would read calculation results from rows in sheet "${sheetName}":`, rows);
+      const mockSheetName = this.getSheetName(betaCodeId);
+      console.log(`🧪 MOCK: Would read calculation results from rows in sheet "${mockSheetName}":`, rows);
       return this.getMockCalculationResults(rows, betaCodeId);
     }
 
+    // Get actual sheet name dynamically
+    const actualSheetName = await this.getActualSheetName(betaCodeId);
+
     try {
-      const ranges = rows.map(row => `'${sheetName}'!A${row}:D${row}`); // Service name (A), Labor hours (C), Cost (D)
+      const ranges = rows.map(row => `${actualSheetName}!A${row}:D${row}`); // Service name (A), Labor hours (C), Cost (D)
       
       console.log(`🔍 DEBUG: Reading from ranges:`, ranges);
       
@@ -344,12 +353,12 @@ export class GoogleSheetsClient {
         });
       });
 
-      console.log(`✅ Read calculation results for ${results.length} services from sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
+      console.log(`✅ Read calculation results for ${results.length} services from sheet "${actualSheetName}" (Beta Code: ${betaCodeId || 'default'})`);
       return results;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to read calculation results from sheet "${sheetName}":`, errorMessage);
+      console.error(`❌ Failed to read calculation results from sheet "${actualSheetName}":`, errorMessage);
       throw new Error(`Google Sheets read failed: ${errorMessage}`);
     }
   }
@@ -359,15 +368,18 @@ export class GoogleSheetsClient {
    */
   async readProjectTotals(betaCodeId?: number): Promise<ProjectTotal> {
     const initialized = await this.initialize();
-    const sheetName = this.getSheetName(betaCodeId);
     
     if (!initialized) {
-      console.log(`🧪 MOCK: Would read project totals from ${sheetName} cells C34:D34`);
+      const mockSheetName = this.getSheetName(betaCodeId);
+      console.log(`🧪 MOCK: Would read project totals from ${mockSheetName} cells C34:D34`);
       return { totalLaborHours: 0, totalCost: 0 };
     }
 
+    // Get actual sheet name dynamically
+    const actualSheetName = await this.getActualSheetName(betaCodeId);
+
     try {
-      const range = `'${sheetName}'!C34:D34`; // Total hours (C34), Total cost (D34)
+      const range = `${actualSheetName}!C34:D34`; // Total hours (C34), Total cost (D34)
       
       console.log(`🔍 DEBUG: Reading project totals from range: ${range}`);
       
@@ -393,12 +405,12 @@ export class GoogleSheetsClient {
         totalCost
       };
 
-      console.log(`✅ Read project totals from sheet "${sheetName}": $${totalCost}, ${totalLaborHours}h (Beta Code: ${betaCodeId || 'default'})`);
+      console.log(`✅ Read project totals from sheet "${actualSheetName}": $${totalCost}, ${totalLaborHours}h (Beta Code: ${betaCodeId || 'default'})`);
       return totals;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to read project totals from sheet "${sheetName}":`, errorMessage);
+      console.error(`❌ Failed to read project totals from sheet "${actualSheetName}":`, errorMessage);
       throw new Error(`Google Sheets totals read failed: ${errorMessage}`);
     }
   }
