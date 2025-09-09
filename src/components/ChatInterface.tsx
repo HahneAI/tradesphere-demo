@@ -729,24 +729,33 @@ const ChatInterface = () => {
             
             console.log(`✅ ${debugPrefix} Added ${uniqueNewMessages.length} new messages to chat`);
             
-            // 🔄 DUAL TESTING: Check if both responses received
-            if (DUAL_TESTING_ENABLED && uniqueNewMessages.some(msg => msg.sender === 'ai')) {
+            // 🔄 DUAL TESTING: Check completion based on mode
+            if (uniqueNewMessages.some(msg => msg.sender === 'ai')) {
               const allMessages = [...prev, ...uniqueNewMessages];
               const recentAIMessages = allMessages.filter(msg => 
                 msg.sender === 'ai' && 
                 Math.abs(new Date(msg.timestamp).getTime() - Date.now()) < 60000 // Last minute
               );
               
-              const hasMakeResponse = recentAIMessages.some(msg => 
-                !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
-              );
-              const hasNativeResponse = recentAIMessages.some(msg => 
-                msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
-              );
-              
-              if (hasMakeResponse && hasNativeResponse) {
-                console.log('🎯 DUAL TESTING: Both responses received - returning to idle polling');
-                setIsLoading(false); // This will trigger slower polling
+              if (DUAL_TESTING_ENABLED) {
+                // Dual mode: Wait for both responses
+                const hasMakeResponse = recentAIMessages.some(msg => 
+                  !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
+                );
+                const hasNativeResponse = recentAIMessages.some(msg => 
+                  msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
+                );
+                
+                if (hasMakeResponse && hasNativeResponse) {
+                  console.log('🎯 DUAL TESTING: Both responses received - returning to idle');
+                  setIsLoading(false);
+                }
+              } else {
+                // Single mode: Return to idle after ANY AI response
+                if (recentAIMessages.length > 0) {
+                  console.log('📱 SINGLE MODE: Response received - returning to idle');
+                  setIsLoading(false);
+                }
               }
             }
             
