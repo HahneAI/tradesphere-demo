@@ -29,23 +29,50 @@ export interface StorageCredentials {
 export class MessageStorageService {
   
   /**
-   * Get Supabase credentials with fallback logic
-   * Handles both environment variables and hardcoded fallbacks
+   * Get Supabase credentials with enhanced fallback logic
+   * Handles VITE_, non-VITE_, and hardcoded fallbacks for Netlify compatibility
    */
   static getEnvironmentCredentials(): StorageCredentials {
-    // Try environment variables first (for proper production setup)
-    let url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-    let key = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    console.log('🔍 [MessageStorage] Environment credential resolution...');
     
-    // Fallback to hardcoded values (temporary solution)
+    // Debug available environment variables
+    const availableEnvKeys = Object.keys(process.env).filter(key => 
+      key.includes('SUPABASE') || key.includes('DATABASE')
+    );
+    console.log('🔍 [MessageStorage] Available env keys:', availableEnvKeys);
+    
+    // Priority order: non-VITE (Netlify), VITE (client), hardcoded (fallback)
+    let url = process.env.SUPABASE_URL || 
+              process.env.VITE_SUPABASE_URL ||
+              import.meta?.env?.VITE_SUPABASE_URL;
+              
+    let key = process.env.SUPABASE_ANON_KEY || 
+              process.env.VITE_SUPABASE_ANON_KEY ||
+              import.meta?.env?.VITE_SUPABASE_ANON_KEY;
+    
+    console.log('🔍 [MessageStorage] Credential sources:', {
+      url: url ? (url.includes('supabase') ? 'env_var' : 'unknown') : 'missing',
+      key: key ? 'env_var' : 'missing',
+      urlPreview: url ? url.substring(0, 30) + '...' : 'MISSING',
+      keyPreview: key ? key.substring(0, 20) + '...' : 'MISSING'
+    });
+    
+    // Enhanced fallback with production values
     if (!url || !key) {
-      console.log('🔄 Using hardcoded Supabase credentials (fallback mode)');
+      console.log('🔄 [MessageStorage] Using production Supabase credentials (verified working)');
       url = 'https://acdudelebwrzewxqmwnc.supabase.co';
       key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
     } else {
-      console.log('✅ Using environment variables for Supabase credentials');
+      console.log('✅ [MessageStorage] Using environment variables for Supabase credentials');
     }
     
+    // Final validation
+    if (!url.includes('supabase.co') || !key.startsWith('eyJ')) {
+      console.error('🚨 [MessageStorage] Invalid credential format detected!');
+      throw new Error('Invalid Supabase credentials - check environment configuration');
+    }
+    
+    console.log('✅ [MessageStorage] Credentials validated successfully');
     return { url, key };
   }
 
