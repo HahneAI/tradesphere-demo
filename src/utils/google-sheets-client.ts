@@ -178,6 +178,56 @@ export class GoogleSheetsClient {
   }
 
   /**
+   * Get actual sheet name from Google Sheets API (dynamic detection)
+   */
+  private async getActualSheetName(betaCodeId?: number): Promise<string> {
+    const initialized = await this.initialize();
+    
+    if (!initialized) {
+      // Return mock name for testing
+      return this.getSheetName(betaCodeId);
+    }
+
+    try {
+      const response = await this.sheets.spreadsheets.get({
+        spreadsheetId: this.spreadsheetId
+      });
+
+      const sheets = response.data.sheets || [];
+      console.log('📊 Available sheets:', sheets.map(s => ({
+        title: s.properties?.title,
+        sheetId: s.properties?.sheetId
+      })));
+
+      // For beta codes, look for exact match first
+      if (betaCodeId && betaCodeId >= 1 && betaCodeId <= 12) {
+        const expectedName = `ID ${betaCodeId} Base`;
+        const matchingSheet = sheets.find(s => s.properties?.title === expectedName);
+        if (matchingSheet) {
+          console.log(`✅ Found exact beta sheet: "${expectedName}"`);
+          return expectedName;
+        }
+      }
+
+      // Fallback to first sheet
+      const firstSheet = sheets[0];
+      if (firstSheet?.properties?.title) {
+        const actualName = firstSheet.properties.title;
+        console.log(`📋 Using first sheet: "${actualName}"`);
+        return actualName;
+      }
+
+      // Last resort fallback
+      console.warn('⚠️ No sheets found, using fallback name');
+      return this.getSheetName(betaCodeId);
+
+    } catch (error) {
+      console.error('❌ Failed to get actual sheet name:', error);
+      return this.getSheetName(betaCodeId);
+    }
+  }
+
+  /**
    * Write quantity to specific service row in Google Sheets with beta code ID support
    */
   async writeServiceQuantity(row: number, quantity: number, betaCodeId?: number): Promise<void> {
@@ -415,32 +465,53 @@ export class GoogleSheetsClient {
    */
   async clearQuantities(betaCodeId?: number): Promise<void> {
     const initialized = await this.initialize();
-    const sheetName = this.getSheetName(betaCodeId);
     
     if (!initialized) {
-      console.log(`🧪 MOCK: Would clear all quantities in sheet "${sheetName}"`);
+      const mockSheetName = this.getSheetName(betaCodeId);
+      console.log(`🧪 MOCK: Would clear all quantities in sheet "${mockSheetName}"`);
       return;
     }
 
-    // Define range BEFORE try block so it's accessible in catch
-    const range = `'${sheetName}'!B2:B33`; // Add quotes back for sheet names with spaces
+    // Get actual sheet name dynamically
+    const actualSheetName = await this.getActualSheetName(betaCodeId);
+    
+    // Try multiple range formats for maximum compatibility
+    const rangeFormats = [
+      `${actualSheetName}!B2:B33`,      // Simple format (preferred)
+      `'${actualSheetName}'!B2:B33`,    // Quoted format
+      'B2:B33'                          // No sheet reference (fallback)
+    ];
 
-    try {
-      console.log(`🧹 Clearing quantities in range: ${range}`);
-      
-      await this.sheets.spreadsheets.values.clear({
-        spreadsheetId: this.spreadsheetId,
-        range: range
-      });
+    let lastError: Error | null = null;
+    
+    for (const range of rangeFormats) {
+      try {
+        console.log(`🧹 Attempting to clear quantities in range: ${range}`);
+        
+        await this.sheets.spreadsheets.values.clear({
+          spreadsheetId: this.spreadsheetId,
+          range: range
+        });
 
-      console.log(`✅ Cleared all quantities in sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to clear quantities in sheet "${sheetName}":`, errorMessage);
-      console.error(`❌ Failed range: ${range}`);
-      console.error(`❌ Spreadsheet ID: ${this.spreadsheetId}`);
-      throw new Error(`Google Sheets clear failed: ${errorMessage}`);
+        console.log(`✅ Successfully cleared quantities using range: ${range} (Beta Code: ${betaCodeId || 'default'})`);
+        return; // Success! Exit early
+        
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(`⚠️ Range format "${range}" failed: ${errorMessage}`);
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // Continue to next format
+        continue;
+      }
     }
+
+    // If all formats failed, throw comprehensive error
+    console.error(`❌ All range formats failed for sheet "${actualSheetName}"`);
+    console.error(`❌ Spreadsheet ID: ${this.spreadsheetId}`);
+    console.error(`❌ Attempted ranges:`, rangeFormats);
+    
+    throw new Error(`Google Sheets clear failed: ${lastError?.message || 'All range formats rejected'}`);
   }
 }
 
