@@ -146,39 +146,36 @@ export const handler = async (event, context) => {
       }
     };
 
-    // Store in Supabase for frontend retrieval using shared storage service
-    if (pricingResult) {
-      const storageMetadata = {
-        processing_time: response.processingTime,
-        services_count: response.debug?.servicesFound || 0,
-        total_cost: pricingResult.totals.totalCost,
-        confidence: response.debug?.confidence || 0,
-        source: 'native_pricing_agent'
-      };
+    // Store ALL responses in Supabase (clarifications AND pricing)
+    const storageMetadata = {
+      processing_time: response.processingTime,
+      services_count: response.debug?.servicesFound || 0,
+      total_cost: pricingResult?.totals?.totalCost || null,
+      confidence: response.debug?.confidence || 0,
+      source: 'native_pricing_agent'
+    };
 
-      console.log('💾 ABOUT TO STORE RESPONSE:', {
-        sessionId: payload.sessionId,
-        responseLength: response.response.length,
-        hasMetadata: !!storageMetadata,
-        metadataKeys: Object.keys(storageMetadata),
-        pricingResultExists: !!pricingResult
-      });
+    console.log('💾 ABOUT TO STORE RESPONSE (ALL RESPONSES):', {
+      sessionId: payload.sessionId,
+      responseLength: response.response.length,
+      hasMetadata: !!storageMetadata,
+      metadataKeys: Object.keys(storageMetadata),
+      pricingResultExists: !!pricingResult,
+      responseType: pricingResult ? 'pricing' : 'clarification'
+    });
 
-      try {
-        await MessageStorageService.storeAIResponse(payload, response.response, storageMetadata);
-        console.log('✅ STORAGE CONFIRMED: Record written to database');
-      } catch (storageError) {
-        console.error('❌ STORAGE FAILED:', storageError.message);
-        console.error('🔍 STORAGE ERROR DETAILS:', storageError);
-        console.error('🔍 STORAGE ERROR STACK:', storageError.stack);
-        
-        // Try manual database test to isolate the issue
-        console.log('🧪 RUNNING MANUAL DATABASE TEST...');
-        const manualTestResult = await testManualDatabaseWrite(payload.sessionId);
-        console.log('🧪 MANUAL TEST RESULT:', manualTestResult ? 'PASSED' : 'FAILED');
-      }
-    } else {
-      console.warn('⚠️ SKIPPING STORAGE: No pricingResult available');
+    try {
+      await MessageStorageService.storeAIResponse(payload, response.response, storageMetadata);
+      console.log('✅ STORAGE CONFIRMED: Record written to database');
+    } catch (storageError) {
+      console.error('❌ STORAGE FAILED:', storageError.message);
+      console.error('🔍 STORAGE ERROR DETAILS:', storageError);
+      console.error('🔍 STORAGE ERROR STACK:', storageError.stack);
+      
+      // Try exact chat-response.js format as fallback
+      console.log('🔄 TRYING EXACT CHAT-RESPONSE.JS FORMAT...');
+      const fallbackResult = await storeExactChatResponseFormat(payload.sessionId, response.response, payload.techId);
+      console.log('🔄 FALLBACK RESULT:', fallbackResult ? 'SUCCESS' : 'FAILED');
     }
 
     console.log(`💬 Conversation context updated for session ${payload.sessionId}`);
@@ -276,6 +273,82 @@ function extractSessionId(body) {
  */
 function debugEnvironmentVariables() {
   MessageStorageService.debugEnvironment();
+}
+
+/**
+ * Store using EXACT chat-response.js format and code
+ * Copied directly from working chat-response.js implementation
+ */
+async function storeExactChatResponseFormat(sessionId, responseText, techId) {
+  console.log('🔄 EXACT CHAT-RESPONSE FORMAT: Starting...');
+  
+  try {
+    // Clean the response exactly like chat-response.js does
+    let decodedResponse = responseText;
+    
+    // Limit response size to prevent errors
+    if (decodedResponse && decodedResponse.length > 2000) {
+      decodedResponse = decodedResponse.substring(0, 1997) + '...';
+      console.log('⚠️ Response truncated due to length:', decodedResponse.length);
+    }
+    
+    // Clean any problematic characters
+    if (decodedResponse) {
+      decodedResponse = decodedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+    }
+
+    const supabaseResponse = await fetch(
+      'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          message_text: decodedResponse,
+          sender: 'ai',
+          tech_id: techId,
+          created_at: new Date().toISOString()
+        })
+      }
+    );
+
+    console.log('🔄 EXACT FORMAT RESPONSE:', {
+      status: supabaseResponse.status,
+      statusText: supabaseResponse.statusText,
+      ok: supabaseResponse.ok
+    });
+
+    if (!supabaseResponse.ok) {
+      const errorText = await supabaseResponse.text();
+      console.error('🔄 EXACT FORMAT FAILED:', supabaseResponse.status, errorText);
+      return false;
+    }
+
+    // Handle Supabase response properly to avoid JSON parsing errors
+    const responseText = await supabaseResponse.text();
+    if (responseText && responseText.trim()) {
+      try {
+        const savedMessage = JSON.parse(responseText);
+        console.log('✅ EXACT FORMAT SUCCESS: Stored with ID:', savedMessage[0]?.id || 'success');
+      } catch (jsonError) {
+        console.log('✅ EXACT FORMAT SUCCESS: Stored (non-JSON response)');
+      }
+    } else {
+      console.log('✅ EXACT FORMAT SUCCESS: Stored (minimal response)');
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error('🔄 EXACT FORMAT ERROR:', error.message);
+    console.error('🔄 EXACT FORMAT STACK:', error.stack);
+    return false;
+  }
 }
 
 /**

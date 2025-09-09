@@ -88,30 +88,24 @@ export class MessageStorageService {
       // Clean problematic characters
       cleanedResponse = cleanedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
       
-      // Prepare message data with consistent structure
-      // ORIGINAL chat-response.js structure:
-      // { session_id, message_text, sender: 'ai', tech_id, created_at }
+      // Prepare message data EXACTLY matching chat-response.js structure
+      // ORIGINAL working format: { session_id, message_text, sender: 'ai', tech_id, created_at }
       const messageData = {
         session_id: payload.sessionId,
         message_text: cleanedResponse,
         sender: 'ai',
-        tech_id: payload.techId,
-        created_at: new Date().toISOString(),
-        metadata: {
-          processing_time: metadata.processing_time,
-          services_count: metadata.services_count || 0,
-          total_cost: metadata.total_cost,
-          confidence: metadata.confidence || 0,
-          source: metadata.source || 'shared_storage_service'
-        }
+        tech_id: payload.techId || null,
+        created_at: new Date().toISOString()
       };
+
+      // Note: Removing metadata for now to match exact working structure
 
       // Compare with original working structure
       console.log('🔍 [MessageStorage] STRUCTURE COMPARISON:');
-      console.log('  Original working (chat-response.js): { session_id, message_text, sender, tech_id, created_at }');
+      console.log('  Target structure: { session_id, message_text, sender, tech_id, created_at }');
       console.log('  Our structure keys:', Object.keys(messageData));
-      console.log('  Extra field (metadata):', !!messageData.metadata);
-      console.log('  Core fields match:', ['session_id', 'message_text', 'sender', 'tech_id', 'created_at']
+      console.log('  Exact match:', Object.keys(messageData).length === 5 && 
+        ['session_id', 'message_text', 'sender', 'tech_id', 'created_at']
         .every(field => messageData.hasOwnProperty(field)));
 
       console.log('🗄️ DATA TO WRITE:', { 
@@ -119,8 +113,7 @@ export class MessageStorageService {
         messageLength: messageData.message_text.length,
         sender: messageData.sender,
         techId: messageData.tech_id,
-        hasMetadata: !!messageData.metadata,
-        metadataKeys: Object.keys(messageData.metadata)
+        createdAt: messageData.created_at
       });
       console.log('🔍 [MessageStorage] Complete data structure:', messageData);
 
