@@ -1630,30 +1630,32 @@ const ChatInterface = () => {
                     disabled={isLoading}
                   />
                   
-                  {/* 🎤 VOICE INPUT: Microphone button inside input field */}
-                  <button
-                    onClick={handleVoiceToggle}
-                    disabled={isLoading || !browserSupportsSpeechRecognition}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-200 ${getMicrophoneButtonConfig().className} ${isRecording ? 'animate-recording-glow' : ''}`}
-                    title={getMicrophoneButtonConfig().title}
-                    aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording'}
-                  >
-                    <DynamicIcon 
-                      name={getMicrophoneButtonConfig().icon as keyof typeof Icons} 
-                      className={`h-4 w-4 ${isRecording ? 'animate-voice-pulse' : ''}`}
-                    />
-                  </button>
+                  {/* 🎤 VOICE INPUT: Microphone button - TEMPORARILY HIDDEN */}
+                  {false && (
+                    <button
+                      onClick={handleVoiceToggle}
+                      disabled={isLoading || !browserSupportsSpeechRecognition}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-200 ${getMicrophoneButtonConfig().className} ${isRecording ? 'animate-recording-glow' : ''}`}
+                      title={getMicrophoneButtonConfig().title}
+                      aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording'}
+                    >
+                      <DynamicIcon 
+                        name={getMicrophoneButtonConfig().icon as keyof typeof Icons} 
+                        className={`h-4 w-4 ${isRecording ? 'animate-voice-pulse' : ''}`}
+                      />
+                    </button>
+                  )}
                   
-                  {/* 🎤 VOICE INPUT: Recording indicator */}
-                  {isRecording && (
+                  {/* 🎤 VOICE INPUT: Recording indicator - TEMPORARILY HIDDEN */}
+                  {false && isRecording && (
                     <div className="absolute -top-8 right-0 flex items-center space-x-2 px-2 py-1 bg-red-500 text-white text-xs rounded-md animate-fade-in">
                       <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                       <span>Recording...</span>
                     </div>
                   )}
                   
-                  {/* 🎤 VOICE INPUT: Error message */}
-                  {voiceError && (
+                  {/* 🎤 VOICE INPUT: Error message - TEMPORARILY HIDDEN */}
+                  {false && voiceError && (
                     <div className="absolute -top-8 right-0 px-2 py-1 bg-red-500 text-white text-xs rounded-md max-w-xs">
                       {voiceError}
                     </div>
@@ -1747,8 +1749,8 @@ const ChatInterface = () => {
         userName={user?.first_name || 'Anonymous'}
       />
 
-      {/* iOS Voice Guidance Modal */}
-      {showIOSGuidance && (
+      {/* iOS Voice Guidance Modal - TEMPORARILY HIDDEN */}
+      {false && showIOSGuidance && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
           <div
             className="rounded-xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in"
