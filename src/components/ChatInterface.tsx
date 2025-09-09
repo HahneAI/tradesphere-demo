@@ -813,7 +813,7 @@ const ChatInterface = () => {
 
   // 🔄 DUAL TESTING: Group messages for dual display
   const groupMessagesForDualDisplay = (messages: Message[]) => {
-    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ type: 'single', message: msg }));
+    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ type: 'shared', message: msg }));
 
     const grouped: Array<{ 
       type: 'shared' | 'dual' | 'single';
