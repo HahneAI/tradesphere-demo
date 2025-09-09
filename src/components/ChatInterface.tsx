@@ -768,19 +768,24 @@ const ChatInterface = () => {
 
   // 🔄 DUAL TESTING: Group messages for dual display
   const groupMessagesForDualDisplay = (messages: Message[]) => {
-    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ single: msg }));
+    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ type: 'single', message: msg }));
 
-    const grouped: Array<{ single?: Message; dual?: { make: Message; native: Message } }> = [];
+    const grouped: Array<{ 
+      type: 'shared' | 'dual' | 'single';
+      message?: Message;
+      dual?: { make: Message; native: Message };
+    }> = [];
     const processed = new Set<string>();
 
-    messages.forEach((msg) => {
+    messages.forEach((msg, index) => {
       if (processed.has(msg.id)) return;
 
-      if (msg.sender === 'user') {
-        grouped.push({ single: msg });
+      // ✅ LOGICAL GROUPING: Shared messages (welcome + user inputs)
+      if (msg.sender === 'user' || (msg.sender === 'ai' && index === 0 && msg.text.includes('what\'s the customer scoop'))) {
+        grouped.push({ type: 'shared', message: msg });
         processed.add(msg.id);
       } else if (msg.sender === 'ai') {
-        // Look for corresponding response from other source
+        // ✅ DUAL COMPARISON: AI responses only
         const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
         const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
         
@@ -795,19 +800,20 @@ const ChatInterface = () => {
         );
 
         if (correspondingMsg) {
-          // We have a dual response
+          // ✅ DUAL DISPLAY: Paired AI responses
           const makeMsg = isMake ? msg : correspondingMsg;
           const nativeMsg = isNative ? msg : correspondingMsg;
           
           grouped.push({
+            type: 'dual',
             dual: { make: makeMsg, native: nativeMsg }
           });
           
           processed.add(msg.id);
           processed.add(correspondingMsg.id);
         } else {
-          // Single response
-          grouped.push({ single: msg });
+          // ✅ ORPHANED RESPONSE: Single AI response (waiting for pair or error)
+          grouped.push({ type: 'single', message: msg });
           processed.add(msg.id);
         }
       }
@@ -1220,25 +1226,55 @@ const ChatInterface = () => {
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {groupMessagesForDualDisplay(messages).map((messageGroup, index) => (
               <div
-                key={messageGroup.single?.id || `dual-${messageGroup.dual?.make.id}-${messageGroup.dual?.native.id}`}
+                key={
+                  messageGroup.message?.id || 
+                  `dual-${messageGroup.dual?.make.id}-${messageGroup.dual?.native.id}` ||
+                  `group-${index}`
+                }
                 className={`
                   ${isRefreshing ? 'animate-fade-up-out' : ''}
                   ${!isRefreshing && index === messages.length - 1 ? 'animate-fade-up-in-delay' : ''}
                 `}
               >
-                {messageGroup.single ? (
+                {/* ✅ SHARED MESSAGES: Welcome + User inputs (no source styling) */}
+                {messageGroup.type === 'shared' && messageGroup.message ? (
                   <ThemeAwareMessageBubble
-                    message={messageGroup.single}
+                    message={messageGroup.message}
                     visualConfig={visualConfig}
                     theme={theme}
+                    removeSourceStyling={true}
                   />
-                ) : messageGroup.dual ? (
+                ) : messageGroup.type === 'dual' && messageGroup.dual ? (
+                  /* ✅ DUAL COMPARISON: Side-by-side AI responses with performance metrics */
                   <DualResponseDisplay
                     makeMsg={messageGroup.dual.make}
                     nativeMsg={messageGroup.dual.native}
                     visualConfig={visualConfig}
                     theme={theme}
                   />
+                ) : messageGroup.type === 'single' && messageGroup.message ? (
+                  /* ✅ ORPHANED RESPONSE: Single AI response with context */
+                  <div className="space-y-2">
+                    <div className="flex justify-center">
+                      <div 
+                        className="text-xs px-3 py-1 rounded-full"
+                        style={{
+                          backgroundColor: visualConfig.colors.primary + '20',
+                          color: visualConfig.colors.primary
+                        }}
+                      >
+                        {messageGroup.message.source === 'native_pricing_agent' 
+                          ? '⚡ Native Only - Make.com Unavailable' 
+                          : '🔗 Make.com Only - Native Unavailable'}
+                      </div>
+                    </div>
+                    
+                    <ThemeAwareMessageBubble
+                      message={messageGroup.message}
+                      visualConfig={visualConfig}
+                      theme={theme}
+                    />
+                  </div>
                 ) : null}
               </div>
             ))}

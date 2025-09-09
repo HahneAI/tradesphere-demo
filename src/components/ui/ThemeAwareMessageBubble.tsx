@@ -96,16 +96,17 @@ const StatusIcon = ({ status }: { status: Message['status'] }) => {
     }
 };
 
-export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact = false }: { 
+export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact = false, removeSourceStyling = false }: { 
   message: Message, 
   visualConfig: SmartVisualThemeConfig,
   theme?: string,
-  compact?: boolean 
+  compact?: boolean,
+  removeSourceStyling?: boolean
 }) => {
   const animationClass = visualConfig.animations.messageEntry === 'grow' ? 'landscaping-grow' : 'tech-slide';
 
-  // 🔄 DUAL TESTING: Merge default bubble styles with source-based styling
-  const sourceStyle = getMessageSourceStyle(message);
+  // ✅ LOGICAL STYLING: Apply source styling only for AI responses in dual testing
+  const sourceStyle = (!removeSourceStyling && message.sender === 'ai') ? getMessageSourceStyle(message) : {};
   const bubbleStyles = {
     backgroundColor: message.sender === 'user'
       ? visualConfig.colors.primary
@@ -124,8 +125,8 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
         className={`${compact ? 'max-w-full px-3 py-2' : 'max-w-md lg:max-w-2xl px-5 py-3'} shadow-md message-bubble-animate ${animationClass} transition-all duration-300`}
         style={bubbleStyles}
       >
-        {/* 🔄 DUAL TESTING: Add source badge for AI messages */}
-        {message.sender === 'ai' && getSourceBadge(message) && (
+        {/* ✅ LOGICAL BADGES: Show source badge only for AI responses in dual testing */}
+        {message.sender === 'ai' && !removeSourceStyling && getSourceBadge(message) && (
           <div className="mb-2">
             {getSourceBadge(message)}
           </div>
