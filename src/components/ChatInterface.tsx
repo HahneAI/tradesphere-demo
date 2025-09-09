@@ -277,6 +277,7 @@ const ChatInterface = () => {
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [micPermissionState, setMicPermissionState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [voiceTimeout, setVoiceTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [pauseTimeout, setPauseTimeout] = useState<NodeJS.Timeout | null>(null);
   const [showIOSGuidance, setShowIOSGuidance] = useState(false);
 
   const generateSessionId = () => {
@@ -1068,21 +1069,138 @@ const ChatInterface = () => {
     checkMicrophonePermission();
   }, []);
 
-  // 🎤 VOICE INPUT: Cleanup voice timeout on unmount
+  // 🎤 VOICE INPUT: Cleanup voice timeouts on unmount
   useEffect(() => {
     return () => {
       if (voiceTimeout) {
         clearTimeout(voiceTimeout);
       }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+      }
     };
-  }, [voiceTimeout]);
+  }, [voiceTimeout, pauseTimeout]);
 
-  // 🎤 VOICE INPUT: Update input text with transcript
+  // 🎤 VOICE INPUT: Enhanced speech recognition event handlers for state cleanup
+  useEffect(() => {
+    if (!browserSupportsSpeechRecognition) return;
+
+    const cleanupVoiceState = () => {
+      setIsRecording(false);
+      setVoiceError(null);
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+        setVoiceTimeout(null);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        setPauseTimeout(null);
+      }
+    };
+
+    // Set up comprehensive event handlers for all end conditions
+    const speechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (speechRecognition && speechRecognition.prototype) {
+      const originalOnEnd = speechRecognition.prototype.onend;
+      const originalOnError = speechRecognition.prototype.onerror;
+      const originalOnSpeechEnd = speechRecognition.prototype.onspeechend;
+      const originalOnAudioEnd = speechRecognition.prototype.onaudioend;
+
+      // Override onend to ensure cleanup
+      speechRecognition.prototype.onend = function(event) {
+        console.log('🎤 Speech recognition ended - cleaning up state');
+        cleanupVoiceState();
+        if (originalOnEnd) originalOnEnd.call(this, event);
+      };
+
+      // Override onerror to ensure cleanup
+      speechRecognition.prototype.onerror = function(event) {
+        console.log('🎤 Speech recognition error - cleaning up state:', event.error);
+        cleanupVoiceState();
+        if (originalOnError) originalOnError.call(this, event);
+      };
+
+      // Override onspeechend to ensure cleanup
+      speechRecognition.prototype.onspeechend = function(event) {
+        console.log('🎤 Speech ended - cleaning up state');
+        cleanupVoiceState();
+        if (originalOnSpeechEnd) originalOnSpeechEnd.call(this, event);
+      };
+
+      // Override onaudioend to ensure cleanup
+      speechRecognition.prototype.onaudioend = function(event) {
+        console.log('🎤 Audio ended - cleaning up state');
+        cleanupVoiceState();
+        if (originalOnAudioEnd) originalOnAudioEnd.call(this, event);
+      };
+
+      // Cleanup on unmount
+      return () => {
+        speechRecognition.prototype.onend = originalOnEnd;
+        speechRecognition.prototype.onerror = originalOnError;
+        speechRecognition.prototype.onspeechend = originalOnSpeechEnd;
+        speechRecognition.prototype.onaudioend = originalOnAudioEnd;
+      };
+    }
+  }, [browserSupportsSpeechRecognition, voiceTimeout, pauseTimeout]);
+
+  // 🎤 VOICE INPUT: Smart text appending with transcript
+  const [voiceStartText, setVoiceStartText] = useState('');
+
+  // Helper function for smart text appending
+  const appendTranscript = (newText: string) => {
+    const current = voiceStartText.trim();
+    const newTextTrimmed = newText.trim();
+    
+    if (!newTextTrimmed) return voiceStartText;
+    
+    if (current && newTextTrimmed) {
+      // Smart punctuation handling
+      const separator = current.endsWith('.') || current.endsWith('!') || current.endsWith('?') 
+        ? ' ' 
+        : '. ';
+      setInputText(current + separator + newTextTrimmed);
+    } else if (current) {
+      setInputText(current + ' ' + newTextTrimmed);
+    } else {
+      setInputText(newTextTrimmed);
+    }
+  };
+
   useEffect(() => {
     if (transcript && isRecording) {
-      setInputText(transcript);
+      // During recording, append transcript to the text that was there when recording started
+      const current = voiceStartText.trim();
+      const newTextTrimmed = transcript.trim();
+      
+      if (current && newTextTrimmed) {
+        const separator = current.endsWith('.') || current.endsWith('!') || current.endsWith('?') 
+          ? ' ' 
+          : '. ';
+        setInputText(current + separator + newTextTrimmed);
+      } else if (current) {
+        setInputText(current + ' ' + newTextTrimmed);
+      } else {
+        setInputText(newTextTrimmed);
+      }
+      
+      // Reset pause detection when new speech is detected
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        
+        // Restart pause detection
+        const pauseTimer = setTimeout(() => {
+          console.log('🎤 Auto-stopping voice input after 8s pause');
+          SpeechRecognition.stopListening();
+          setIsRecording(false);
+          setVoiceTimeout(null);
+          setPauseTimeout(null);
+        }, voiceConfig.pauseDetection);
+        
+        setPauseTimeout(pauseTimer);
+      }
     }
-  }, [transcript, isRecording]);
+  }, [transcript, isRecording, voiceStartText, pauseTimeout, voiceConfig.pauseDetection]);
 
   // 🎤 VOICE INPUT: Handle voice recording toggle (Mobile-optimized)
   const handleVoiceToggle = async () => {
@@ -1105,10 +1223,14 @@ const ChatInterface = () => {
     }
     
     if (isRecording) {
-      // Stop recording and clear timeout
+      // Stop recording and clear all timeouts
       if (voiceTimeout) {
         clearTimeout(voiceTimeout);
         setVoiceTimeout(null);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        setPauseTimeout(null);
       }
       
       SpeechRecognition.stopListening();
@@ -1121,8 +1243,10 @@ const ChatInterface = () => {
         console.log('🎤 Transcript available for editing:', transcript.length, 'characters');
       }
     } else {
-      // Start recording with mobile-optimized settings
+      // Start recording with enhanced pause detection
       try {
+        // Store current text for appending later
+        setVoiceStartText(inputText);
         resetTranscript();
         setIsRecording(true);
         
@@ -1134,17 +1258,36 @@ const ChatInterface = () => {
           maxAlternatives: voiceConfig.maxAlternatives
         });
         
-        // Set up auto-stop timeout for mobile devices
-        if (deviceInfo.isMobile && voiceConfig.timeout) {
-          const timeout = setTimeout(() => {
-            console.log('🎤 Auto-stopping voice input after timeout');
+        // Set up fallback timeout (30 seconds)
+        const fallbackTimeout = setTimeout(() => {
+          console.log('🎤 Auto-stopping voice input after 30s fallback timeout');
+          SpeechRecognition.stopListening();
+          setIsRecording(false);
+          setVoiceTimeout(null);
+          setPauseTimeout(null);
+        }, voiceConfig.timeout);
+        
+        setVoiceTimeout(fallbackTimeout);
+        
+        // Set up pause detection timeout (8 seconds of silence)
+        const startPauseDetection = () => {
+          if (pauseTimeout) {
+            clearTimeout(pauseTimeout);
+          }
+          
+          const pauseTimer = setTimeout(() => {
+            console.log('🎤 Auto-stopping voice input after 8s pause');
             SpeechRecognition.stopListening();
             setIsRecording(false);
             setVoiceTimeout(null);
-          }, voiceConfig.timeout);
+            setPauseTimeout(null);
+          }, voiceConfig.pauseDetection);
           
-          setVoiceTimeout(timeout);
-        }
+          setPauseTimeout(pauseTimer);
+        };
+        
+        // Start initial pause detection
+        startPauseDetection();
         
         setMicPermissionState('granted');
         console.log('🎤 Voice recording started', {
@@ -1171,11 +1314,14 @@ const ChatInterface = () => {
 
   // 🎤 VOICE INPUT: Get microphone button icon and style based on state (Mobile-aware)
   const getMicrophoneButtonConfig = () => {
+    // Base transition classes for smooth state changes
+    const baseTransition = 'mic-button-transition transition-all duration-300 ease-in-out';
+    
     // iOS fallback - show keyboard icon instead
     if (needsIOSFallback(deviceInfo)) {
       return {
         icon: voiceGuidance.icon,
-        className: 'text-blue-500 hover:text-blue-700 transition-colors',
+        className: `${baseTransition} text-blue-500 hover:text-blue-700`,
         title: voiceGuidance.message
       };
     }
@@ -1183,7 +1329,7 @@ const ChatInterface = () => {
     if (!browserSupportsSpeechRecognition) {
       return {
         icon: 'MicOff',
-        className: 'opacity-50 cursor-not-allowed',
+        className: `${baseTransition} opacity-50 cursor-not-allowed`,
         title: getVoiceErrorMessage('Not supported', deviceInfo)
       };
     }
@@ -1191,7 +1337,7 @@ const ChatInterface = () => {
     if (voiceError) {
       return {
         icon: 'MicOff',
-        className: 'text-red-500',
+        className: `${baseTransition} text-red-500 hover:text-red-600`,
         title: voiceError
       };
     }
@@ -1200,7 +1346,7 @@ const ChatInterface = () => {
       const timeoutText = deviceInfo.isMobile ? ` (auto-stop in ${Math.round(voiceConfig.timeout / 1000)}s)` : '';
       return {
         icon: 'MicIcon',
-        className: 'text-red-500 animate-pulse',
+        className: `${baseTransition} text-red-500 animate-pulse hover:text-red-600 transform scale-110`,
         title: `${voiceGuidance.buttonText.replace('Start', 'Stop')}${timeoutText}`
       };
     }
@@ -1208,14 +1354,14 @@ const ChatInterface = () => {
     if (micPermissionState === 'denied') {
       return {
         icon: 'MicOff',
-        className: 'text-orange-500',
+        className: `${baseTransition} text-orange-500 hover:text-orange-600`,
         title: 'Microphone permission denied. Please enable in browser settings.'
       };
     }
     
     return {
       icon: 'MicIcon',
-      className: 'text-gray-500 hover:text-blue-500 transition-colors',
+      className: `${baseTransition} text-gray-500 hover:text-blue-500 hover:scale-105`,
       title: voiceGuidance.message
     };
   };

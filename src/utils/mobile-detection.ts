@@ -19,6 +19,7 @@ export interface VoiceConfig {
   maxAlternatives: number;
   language: string;
   timeout: number;
+  pauseDetection: number;
   useManualStop: boolean;
 }
 
@@ -63,15 +64,16 @@ export const getDeviceInfo = (): DeviceInfo => {
 export const getVoiceConfig = (deviceInfo?: DeviceInfo): VoiceConfig => {
   const device = deviceInfo || getDeviceInfo();
   
-  // Mobile-optimized settings
+  // Updated settings for continuous mode with smart pause detection
   if (device.isMobile) {
     return {
-      continuous: false, // Critical: prevents iOS sound loops
+      continuous: true, // Enable continuous mode for better UX
       interimResults: true,
       maxAlternatives: 1, // Reduce processing on mobile
       language: 'en-US',
-      timeout: 30000, // 30 second limit on mobile
-      useManualStop: true // Require manual stop on mobile
+      timeout: 30000, // 30 second fallback timeout
+      pauseDetection: 8000, // 8 seconds of silence triggers stop
+      useManualStop: false // Auto-stop on pause detection
     };
   }
   
@@ -81,7 +83,8 @@ export const getVoiceConfig = (deviceInfo?: DeviceInfo): VoiceConfig => {
     interimResults: true,
     maxAlternatives: 3,
     language: 'en-US',
-    timeout: 60000, // 1 minute on desktop
+    timeout: 30000, // Standardized 30 second timeout
+    pauseDetection: 8000, // 8 seconds of silence triggers stop
     useManualStop: false
   };
 };
