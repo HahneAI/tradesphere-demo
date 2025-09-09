@@ -42,13 +42,12 @@ export class MessageStorageService {
     console.log('🔍 [MessageStorage] Available env keys:', availableEnvKeys);
     
     // Priority order: non-VITE (Netlify), VITE (client), hardcoded (fallback)
+    // Note: import.meta is not available in Node.js/Netlify Functions
     let url = process.env.SUPABASE_URL || 
-              process.env.VITE_SUPABASE_URL ||
-              import.meta?.env?.VITE_SUPABASE_URL;
+              process.env.VITE_SUPABASE_URL;
               
     let key = process.env.SUPABASE_ANON_KEY || 
-              process.env.VITE_SUPABASE_ANON_KEY ||
-              import.meta?.env?.VITE_SUPABASE_ANON_KEY;
+              process.env.VITE_SUPABASE_ANON_KEY;
     
     console.log('🔍 [MessageStorage] Credential sources:', {
       url: url ? (url.includes('supabase') ? 'env_var' : 'unknown') : 'missing',
