@@ -190,7 +190,7 @@ export class GoogleSheetsClient {
     }
 
     try {
-      const range = `'${sheetName}'!B${row}`; // Target user-specific sheet
+      const range = `${sheetName}!B${row}`; // Target user-specific sheet
       
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
@@ -223,7 +223,7 @@ export class GoogleSheetsClient {
 
     try {
       const requests = updates.map(({ row, quantity }) => ({
-        range: `'${sheetName}'!B${row}`,
+        range: `${sheetName}!B${row}`,
         values: [[quantity]]
       }));
 
@@ -257,7 +257,7 @@ export class GoogleSheetsClient {
     }
 
     try {
-      const ranges = rows.map(row => `'${sheetName}'!C${row}:E${row}`); // Labor hours (C), Cost (D), Service name (E)
+      const ranges = rows.map(row => `${sheetName}!A${row}:D${row}`); // Service name (A), Labor hours (C), Cost (D)
       
       console.log(`🔍 DEBUG: Reading from ranges:`, ranges);
       
@@ -276,20 +276,21 @@ export class GoogleSheetsClient {
         
         console.log(`🔍 DEBUG: Row ${row} raw values:`, values);
         
-        const laborHours = parseFloat(values[0]) || 0;
+        const serviceName = (values[0] || '').toString().trim();
+        const laborHours = parseFloat(values[2]) || 0; // Column C is index 2 (A=0, B=1, C=2, D=3)
         // Parse cost string by removing $ and commas
-        const costString = (values[1] || '').toString();
+        const costString = (values[3] || '').toString();
         const cost = parseFloat(costString.replace(/[\$,]/g, '')) || 0;
         
-        console.log(`  - Column C (Labor Hours): "${values[0]}" -> ${laborHours}`);
-        console.log(`  - Column D (Cost): "${values[1]}" -> ${cost} (cleaned from "${costString}")`);
-        console.log(`  - Column E (Service): "${values[2]}"`);
+        console.log(`  - Column A (Service Name): "${values[0]}" -> "${serviceName}"`);
+        console.log(`  - Column C (Labor Hours): "${values[2]}" -> ${laborHours}`);
+        console.log(`  - Column D (Cost): "${values[3]}" -> ${cost} (cleaned from "${costString}")`);
         
         results.push({
           row,
           laborHours,
           cost,
-          service: values[2] || `Service ${row}`
+          service: serviceName || `Service ${row}`
         });
       });
 
@@ -316,7 +317,7 @@ export class GoogleSheetsClient {
     }
 
     try {
-      const range = `'${sheetName}'!C34:D34`; // Total hours (C34), Total cost (D34)
+      const range = `${sheetName}!C34:D34`; // Total hours (C34), Total cost (D34)
       
       console.log(`🔍 DEBUG: Reading project totals from range: ${range}`);
       
@@ -422,16 +423,22 @@ export class GoogleSheetsClient {
     }
 
     try {
-      // Clear quantity column B (rows 2-100 to cover all services) in the specific sheet
+      // Clear quantity column B (rows 2-33 to cover typical services range)
+      const range = `${sheetName}!B2:B33`; // Removed unnecessary quotes and reduced range
+      
+      console.log(`🧹 Clearing quantities in range: ${range}`);
+      
       await this.sheets.spreadsheets.values.clear({
         spreadsheetId: this.spreadsheetId,
-        range: `'${sheetName}'!B2:B100`
+        range: range
       });
 
       console.log(`✅ Cleared all quantities in sheet "${sheetName}" (Beta Code: ${betaCodeId || 'default'})`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`❌ Failed to clear quantities in sheet "${sheetName}":`, errorMessage);
+      console.error(`❌ Failed range: ${range || 'undefined'}`);
+      console.error(`❌ Spreadsheet ID: ${this.spreadsheetId}`);
       throw new Error(`Google Sheets clear failed: ${errorMessage}`);
     }
   }
