@@ -194,7 +194,7 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, waitingFor, visualConfig, the
             {makeMsg?.metadata?.total_cost && (
               <div>Cost: ${makeMsg.metadata.total_cost}</div>
             )}
-            {makeMsg.metadata?.confidence && (
+            {makeMsg?.metadata?.confidence && (
               <div>Confidence: {(makeMsg.metadata.confidence * 100).toFixed(0)}%</div>
             )}
           </div>
@@ -1278,7 +1278,7 @@ const ChatInterface = () => {
               <div
                 key={
                   messageGroup.message?.id || 
-                  `dual-${messageGroup.dual?.make.id}-${messageGroup.dual?.native.id}` ||
+                  `dual-${messageGroup.dual?.make?.id || 'waiting'}-${messageGroup.dual?.native?.id || 'waiting'}` ||
                   `group-${index}`
                 }
                 className={`
