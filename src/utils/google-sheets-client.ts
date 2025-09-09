@@ -190,7 +190,7 @@ export class GoogleSheetsClient {
     }
 
     try {
-      const range = `${sheetName}!B${row}`; // Target user-specific sheet
+      const range = `'${sheetName}'!B${row}`; // Target user-specific sheet
       
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
@@ -223,7 +223,7 @@ export class GoogleSheetsClient {
 
     try {
       const requests = updates.map(({ row, quantity }) => ({
-        range: `${sheetName}!B${row}`,
+        range: `'${sheetName}'!B${row}`,
         values: [[quantity]]
       }));
 
@@ -257,7 +257,7 @@ export class GoogleSheetsClient {
     }
 
     try {
-      const ranges = rows.map(row => `${sheetName}!A${row}:D${row}`); // Service name (A), Labor hours (C), Cost (D)
+      const ranges = rows.map(row => `'${sheetName}'!A${row}:D${row}`); // Service name (A), Labor hours (C), Cost (D)
       
       console.log(`🔍 DEBUG: Reading from ranges:`, ranges);
       
@@ -317,7 +317,7 @@ export class GoogleSheetsClient {
     }
 
     try {
-      const range = `${sheetName}!C34:D34`; // Total hours (C34), Total cost (D34)
+      const range = `'${sheetName}'!C34:D34`; // Total hours (C34), Total cost (D34)
       
       console.log(`🔍 DEBUG: Reading project totals from range: ${range}`);
       
@@ -422,10 +422,10 @@ export class GoogleSheetsClient {
       return;
     }
 
+    // Define range BEFORE try block so it's accessible in catch
+    const range = `'${sheetName}'!B2:B33`; // Add quotes back for sheet names with spaces
+
     try {
-      // Clear quantity column B (rows 2-33 to cover typical services range)
-      const range = `${sheetName}!B2:B33`; // Removed unnecessary quotes and reduced range
-      
       console.log(`🧹 Clearing quantities in range: ${range}`);
       
       await this.sheets.spreadsheets.values.clear({
@@ -437,7 +437,7 @@ export class GoogleSheetsClient {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       console.error(`❌ Failed to clear quantities in sheet "${sheetName}":`, errorMessage);
-      console.error(`❌ Failed range: ${range || 'undefined'}`);
+      console.error(`❌ Failed range: ${range}`);
       console.error(`❌ Spreadsheet ID: ${this.spreadsheetId}`);
       throw new Error(`Google Sheets clear failed: ${errorMessage}`);
     }
