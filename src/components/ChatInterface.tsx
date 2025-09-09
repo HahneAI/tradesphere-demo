@@ -6,6 +6,7 @@ import * as Icons from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { flushSync } from 'react-dom';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { getDeviceInfo, getVoiceConfig, getVoiceGuidance, needsIOSFallback, getVoiceErrorMessage } from '../utils/mobile-detection';
 import { AvatarSelectionPopup } from './ui/AvatarSelectionPopup';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -267,9 +268,16 @@ const ChatInterface = () => {
     browserSupportsSpeechRecognition
   } = useSpeechRecognition();
   
+  // Mobile-aware voice input state
+  const deviceInfo = getDeviceInfo();
+  const voiceConfig = getVoiceConfig(deviceInfo);
+  const voiceGuidance = getVoiceGuidance(deviceInfo);
+  
   const [isRecording, setIsRecording] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [micPermissionState, setMicPermissionState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [voiceTimeout, setVoiceTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showIOSGuidance, setShowIOSGuidance] = useState(false);
 
   const generateSessionId = () => {
     if (!user) {
@@ -289,6 +297,7 @@ const ChatInterface = () => {
   const lastPollTimeRef = useRef<Date>(new Date());
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const refreshButtonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const welcomeMessage = EnvironmentManager.getWelcomeMessage();
@@ -1059,6 +1068,15 @@ const ChatInterface = () => {
     checkMicrophonePermission();
   }, []);
 
+  // 🎤 VOICE INPUT: Cleanup voice timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+      }
+    };
+  }, [voiceTimeout]);
+
   // 🎤 VOICE INPUT: Update input text with transcript
   useEffect(() => {
     if (transcript && isRecording) {
@@ -1066,55 +1084,107 @@ const ChatInterface = () => {
     }
   }, [transcript, isRecording]);
 
-  // 🎤 VOICE INPUT: Handle voice recording toggle
+  // 🎤 VOICE INPUT: Handle voice recording toggle (Mobile-optimized)
   const handleVoiceToggle = async () => {
     setVoiceError(null);
     
+    // iOS fallback - show keyboard dictation guidance
+    if (needsIOSFallback(deviceInfo)) {
+      setShowIOSGuidance(true);
+      // Focus input field for keyboard dictation
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      return;
+    }
+    
     if (!browserSupportsSpeechRecognition) {
-      setVoiceError('Your browser does not support speech recognition. Please use Chrome, Edge, or Safari.');
+      const errorMsg = getVoiceErrorMessage('Browser not supported', deviceInfo);
+      setVoiceError(errorMsg);
       return;
     }
     
     if (isRecording) {
-      // Stop recording
+      // Stop recording and clear timeout
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+        setVoiceTimeout(null);
+      }
+      
       SpeechRecognition.stopListening();
       setIsRecording(false);
       
-      // If we have transcript text and user wants to send it
+      console.log('🎤 Voice recording stopped manually');
+      
+      // If we have transcript text, let user edit it
       if (transcript.trim()) {
-        // Let user edit the transcript if needed, don't auto-send
-        console.log('🎤 Voice recording stopped. Transcript available for editing.');
+        console.log('🎤 Transcript available for editing:', transcript.length, 'characters');
       }
     } else {
-      // Start recording
+      // Start recording with mobile-optimized settings
       try {
         resetTranscript();
         setIsRecording(true);
         
+        // Use mobile-aware configuration
         await SpeechRecognition.startListening({ 
-          continuous: true, 
-          language: 'en-US',
-          interimResults: true
+          continuous: voiceConfig.continuous,
+          language: voiceConfig.language,
+          interimResults: voiceConfig.interimResults,
+          maxAlternatives: voiceConfig.maxAlternatives
         });
         
+        // Set up auto-stop timeout for mobile devices
+        if (deviceInfo.isMobile && voiceConfig.timeout) {
+          const timeout = setTimeout(() => {
+            console.log('🎤 Auto-stopping voice input after timeout');
+            SpeechRecognition.stopListening();
+            setIsRecording(false);
+            setVoiceTimeout(null);
+          }, voiceConfig.timeout);
+          
+          setVoiceTimeout(timeout);
+        }
+        
         setMicPermissionState('granted');
-        console.log('🎤 Voice recording started');
+        console.log('🎤 Voice recording started', {
+          device: deviceInfo.isMobile ? 'mobile' : 'desktop',
+          continuous: voiceConfig.continuous,
+          timeout: voiceConfig.timeout
+        });
+        
       } catch (error) {
         console.error('Failed to start voice recognition:', error);
-        setVoiceError('Failed to access microphone. Please check your browser permissions.');
+        const errorMsg = getVoiceErrorMessage(error.message, deviceInfo);
+        setVoiceError(errorMsg);
         setIsRecording(false);
         setMicPermissionState('denied');
+        
+        // Clear timeout if it was set
+        if (voiceTimeout) {
+          clearTimeout(voiceTimeout);
+          setVoiceTimeout(null);
+        }
       }
     }
   };
 
-  // 🎤 VOICE INPUT: Get microphone button icon and style based on state
+  // 🎤 VOICE INPUT: Get microphone button icon and style based on state (Mobile-aware)
   const getMicrophoneButtonConfig = () => {
+    // iOS fallback - show keyboard icon instead
+    if (needsIOSFallback(deviceInfo)) {
+      return {
+        icon: voiceGuidance.icon,
+        className: 'text-blue-500 hover:text-blue-700 transition-colors',
+        title: voiceGuidance.message
+      };
+    }
+    
     if (!browserSupportsSpeechRecognition) {
       return {
         icon: 'MicOff',
         className: 'opacity-50 cursor-not-allowed',
-        title: 'Voice input not supported in this browser'
+        title: getVoiceErrorMessage('Not supported', deviceInfo)
       };
     }
     
@@ -1127,10 +1197,11 @@ const ChatInterface = () => {
     }
     
     if (isRecording) {
+      const timeoutText = deviceInfo.isMobile ? ` (auto-stop in ${Math.round(voiceConfig.timeout / 1000)}s)` : '';
       return {
         icon: 'MicIcon',
         className: 'text-red-500 animate-pulse',
-        title: 'Click to stop recording'
+        title: `${voiceGuidance.buttonText.replace('Start', 'Stop')}${timeoutText}`
       };
     }
     
@@ -1145,7 +1216,7 @@ const ChatInterface = () => {
     return {
       icon: 'MicIcon',
       className: 'text-gray-500 hover:text-blue-500 transition-colors',
-      title: 'Click to start voice input'
+      title: voiceGuidance.message
     };
   };
 
@@ -1410,6 +1481,7 @@ const ChatInterface = () => {
               <div className="flex items-center space-x-4 max-w-4xl mx-auto">
                 <div className="flex-1 relative">
                   <textarea
+                    ref={inputRef}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -1542,6 +1614,63 @@ const ChatInterface = () => {
         onSubmit={handleFeedbackSubmit}
         userName={user?.first_name || 'Anonymous'}
       />
+
+      {/* iOS Voice Guidance Modal */}
+      {showIOSGuidance && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
+          <div
+            className="rounded-xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4"
+                   style={{ backgroundColor: visualConfig.colors.primary + '20' }}>
+                <DynamicIcon 
+                  name={voiceGuidance.icon as keyof typeof Icons}
+                  className="h-6 w-6"
+                  style={{ color: visualConfig.colors.primary }}
+                />
+              </div>
+              
+              <h3 className="text-lg font-medium mb-2" 
+                  style={{ color: visualConfig.colors.text.primary }}>
+                {voiceGuidance.title}
+              </h3>
+              
+              <p className="text-sm mb-6"
+                 style={{ color: visualConfig.colors.text.secondary }}>
+                {voiceGuidance.message}
+              </p>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowIOSGuidance(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                  style={{
+                    borderColor: visualConfig.colors.secondary,
+                    color: visualConfig.colors.text.secondary,
+                    backgroundColor: 'transparent'
+                  }}
+                >
+                  Got it
+                </button>
+                <button
+                  onClick={() => {
+                    setShowIOSGuidance(false);
+                    if (inputRef.current) {
+                      inputRef.current.focus();
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white"
+                  style={{ backgroundColor: visualConfig.colors.primary }}
+                >
+                  {voiceGuidance.buttonText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
