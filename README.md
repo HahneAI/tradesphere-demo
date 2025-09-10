@@ -1,46 +1,46 @@
-# Aspire-Competitor: The Ultimate AI-Powered Pricing & Branding Tool
+# TradeSphere - AI-Powered Pricing Tool
 
-![Project Banner](httpsp://example.com/placeholder-banner.png)
+TradeSphere is a work-in-progress application that uses artificial intelligence to power pricing quotes for various small trade companies. The platform provides intelligent, conversational project estimates while adapting to different industry needs.
 
-Welcome to **Aspire-Competitor**, a sophisticated, AI-driven pricing and client interaction tool designed for service-based businesses. This platform empowers you to deliver instant, accurate, and highly personalized project estimates while dynamically adapting its interface to match your company's unique brand identity.
+## Overview
 
-Whether you're a landscaping artist, an HVAC technician, or a tech consultant, our tool provides an unparalleled level of customization to create a seamless and professional client experience.
+This tool helps trade businesses deliver instant, accurate pricing estimates through an AI-powered chat interface. Whether you're a landscaping contractor, HVAC technician, or other service-based business, TradeSphere can be customized to match your specific industry requirements and pricing models.
 
 ## Key Features
 
-- **AI-Powered Quoting**: Leverages a powerful AI agent (via Make.com) to provide intelligent, conversational project estimates.
-- **Dynamic Brand Theming**: Instantly customize colors, logos, and messaging to match your company's brand identity using a simple set of environment variables.
-- **Industry-Specific Templates**: Pre-built configurations for Landscaping, HVAC, and Tech industries, with the ability to create your own.
-- **Advanced Visual Customization**: Tailor the user experience with custom icons, animations, message styles, and background patterns.
-- **Seasonal & Regional Adaptations**: Automatically adjust themes and messaging based on the season, climate, and geographic region.
-- **Flexible Business Terminology**: Customize in-app language to match your industry's specific terminology (e.g., "estimate" vs. "investment," "project" vs. "engagement").
-- **Seamless Deployment**: Deploy your customized pricing tool to Netlify or Vercel with just a few clicks.
+- **AI-Powered Conversations**: Natural language processing for understanding customer project requests
+- **Industry-Specific Customization**: Configurable for different trade industries (landscaping, HVAC, etc.)
+- **Dynamic Pricing Calculation**: Integration with Google Sheets for real-time pricing calculations
+- **Client Branding**: Customizable visual themes and terminology for different businesses
+- **Progressive Web App**: Installable mobile-friendly interface
+
+## Technology Stack
+
+- **Frontend**: React with TypeScript
+- **AI Integration**: Claude/OpenAI APIs for conversation and service analysis
+- **Backend**: Netlify Functions with Make.com webhook integration
+- **Database**: Supabase for data persistence
+- **Pricing Engine**: Google Sheets API integration
+- **Build System**: Vite with PWA support
 
 ## Getting Started
 
-Ready to create your own branded pricing tool? Follow our step-by-step guides to get up and running in minutes.
-
-1.  **[Client Demo Setup Guide](./docs/client-demo-setup.md)**: A comprehensive guide to setting up your first client demo, from a quick 5-minute setup to a fully customized industry-specific experience.
-2.  **[Deployment Guide](./docs/client-demo-setup.md#netlifyvercel-deployment)**: Instructions for deploying your application to Netlify or Vercel.
+1. **Configuration**: See `docs/client-configuration-guide.md` for complete setup instructions
+2. **API Keys**: Configure environment variables in `.env` file
+3. **Development**: Run `npm run dev` to start local development server
+4. **Testing**: Use `npm run test:mock:pure` for quick validation testing
 
 ## Documentation
 
-Explore our detailed documentation to unlock the full potential of the platform.
+- **Client Setup**: `docs/client-configuration-guide.md` - Complete client customization guide
+- **API Reference**: `API-KEY-REFERENCE.md` - AI API key configuration
+- **Testing Guide**: `README-Testing.md` - Testing framework documentation
+- **Build Configuration**: `NETLIFY-BUILD-FIX.md` - Production deployment setup
 
-- **[Environment Variable Reference](./docs/environment-variables.md)**: A complete reference for all 30+ environment variables that control the application's branding, features, and integrations.
-- **[Industry Templates Guide](./docs/industry-templates.md)**: Learn how to use and customize the pre-built industry templates (Landscaping, HVAC, Tech) or create your own from scratch.
-- **[Advanced Configuration Guide](./docs/advanced-configuration.md)**: Dive deep into advanced customization options, including the color system, visual effects, seasonal theming, and more.
+## Project Status
 
-## Quick Look
+This is an active work-in-progress project focused on replacing complex automation workflows with direct AI-powered pricing solutions. The application is designed to be lightweight, fast, and easily deployable for individual trade businesses.
 
-Below are a few examples of how the tool can be customized to fit different brand identities.
+## Support
 
-***Note**: These are placeholder images. They will be replaced with actual screenshots of the application in various configurations.*
-
-| Landscaping ("GreenThumb Pro")                               | HVAC ("Climate Control Experts")                              | Tech ("Innovate Solutions")                                 |
-| ------------------------------------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| ![Landscaping Example](https://example.com/placeholder-landscaping.png) | ![HVAC Example](https://example.com/placeholder-hvac.png) | ![Tech Example](https://example.com/placeholder-tech.png) |
-
----
-
-We are excited to see what you build with Aspire-Competitor! If you have any questions, please refer to the documentation or open an issue in this repository.
+For configuration and setup questions, refer to the documentation files in the `docs/` directory or review the test files for implementation examples.

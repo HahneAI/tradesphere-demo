@@ -20,7 +20,8 @@
       "Bash(npm run test:conversation:*)",
       "Bash(npm install:*)",
       "Bash(TEST_INPUT=\"15 mulch, 100 patio, and an outdoor kitchen of 36 feet\" npx tsx src/services/ai-engine/GPTServiceSplitter.ts)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "mcp__filesystem__list_directory"
     ],
     "deny": [],
     "ask": []
