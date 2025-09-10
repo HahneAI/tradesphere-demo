@@ -319,10 +319,23 @@ const ChatInterface = () => {
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // 🏢 PHASE 3: Customer Details State
+  const [customerDetails, setCustomerDetails] = useState<{
+    name: string;
+    address: string;
+    email: string;
+    phone: string;
+  } | null>(null);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+
   const MAKE_WEBHOOK_URL = coreConfig.makeWebhookUrl;
   const NETLIFY_API_URL = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
   const NATIVE_PRICING_AGENT_URL = '/.netlify/functions/pricing-agent';
   const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  const USE_NATIVE_PRIMARY = import.meta.env.VITE_USE_NATIVE_PRIMARY === 'true';
+  const CUSTOMER_DETAILS_ENABLED = import.meta.env.VITE_ENABLE_CUSTOMER_DETAILS === 'true';
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -575,6 +588,16 @@ const ChatInterface = () => {
     console.group(`${debugPrefix} Starting native pipeline request`);
     console.log('📤 Message:', userMessageText.substring(0, 100) + (userMessageText.length > 100 ? '...' : ''));
     
+    // 🏢 PHASE 4: Log customer context when present
+    if (customerDetails) {
+      console.log('👤 Customer Context:', {
+        name: customerDetails.name,
+        hasAddress: !!customerDetails.address,
+        hasEmail: !!customerDetails.email,
+        hasPhone: !!customerDetails.phone
+      });
+    }
+    
     // Validate user authentication
     if (!user) {
       console.error('❌ No user data available for native pipeline');
@@ -590,7 +613,12 @@ const ChatInterface = () => {
       techId: user.tech_uuid,
       firstName: user.first_name,
       jobTitle: user.job_title,
-      betaCodeId: user.beta_code_id
+      betaCodeId: user.beta_code_id,
+      // 🏢 PHASE 4: Include customer details when available
+      customerName: customerDetails?.name || null,
+      customerAddress: customerDetails?.address || null,
+      customerEmail: customerDetails?.email || null,
+      customerPhone: customerDetails?.phone || null
     };
 
     const startTime = performance.now();
@@ -1034,8 +1062,13 @@ const ChatInterface = () => {
           throw new Error('Both Make.com and Native pipeline failed');
         }
         
+      } else if (USE_NATIVE_PRIMARY) {
+        // 🚀 PHASE 1: Native-first pipeline (new default)
+        console.log('🚀 NATIVE PRIMARY: Using native pipeline as primary');
+        await sendUserMessageToNative(userMessageText);
       } else {
-        // Original single webhook behavior
+        // Fallback to Make.com for backward compatibility
+        console.log('🔗 MAKE.COM FALLBACK: Using Make.com pipeline');
         await sendUserMessageToMake(userMessageText);
       }
     } catch (error) {
@@ -1361,6 +1394,60 @@ const ChatInterface = () => {
     }
   };
 
+  // 🏢 PHASE 5: Load recent customer sessions using existing infrastructure
+  const loadRecentCustomers = async () => {
+    if (!user?.tech_uuid || isLoadingCustomers) return;
+    
+    setIsLoadingCustomers(true);
+    console.log('👤 Loading recent customers for tech:', user.tech_uuid);
+    
+    try {
+      // Use existing chat-messages endpoint with customer lookup flag
+      const response = await fetch(
+        `/.netlify/functions/chat-messages/dummy?recent_customers=true&tech_id=${user.tech_uuid}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Customer lookup failed: ${response.status}`);
+      }
+      
+      const customers = await response.json();
+      console.log('👤 Recent customers loaded:', customers.length);
+      
+      setRecentCustomerSessions(customers);
+      
+    } catch (error) {
+      console.error('❌ Failed to load recent customers:', error);
+      setRecentCustomerSessions([]);
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
+
+  // 🏢 PHASE 5: Handle customer selection from recent customers
+  const handleCustomerSelect = (customer: any) => {
+    console.log('👤 Selected customer:', customer.customerName);
+    
+    setCustomerDetails({
+      name: customer.customerName || '',
+      address: customer.customerAddress || '',
+      email: customer.customerEmail || '',
+      phone: customer.customerPhone || ''
+    });
+    
+    setShowCustomerDropdown(false);
+    
+    // TODO: Load session context from customer.sessionId if needed
+    console.log('📋 Customer session context available:', customer.summary);
+  };
+
   // 🔧 ADMIN DIAGNOSTICS: Run comprehensive backend tests
   const runSystemDiagnostics = async () => {
     if (!isAdmin) return;
@@ -1401,9 +1488,9 @@ const ChatInterface = () => {
       />
       <header className="flex-shrink-0 border-b transition-colors duration-300" style={{ borderBottomColor: theme === 'light' ? '#e5e7eb' : '#374151', backgroundColor: visualConfig.colors.surface }}>
         <div className="px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between w-full">
             {/* Left side: Hamburger, Logo */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-1">
               <button
                 onClick={() => setIsMenuOpen(true)}
                 className="p-2 rounded-md transition-colors"
@@ -1432,8 +1519,212 @@ const ChatInterface = () => {
               </div>
             </div>
 
+            {/* 🏢 PHASE 3: Center - Customer Details Button */}
+            {CUSTOMER_DETAILS_ENABLED && (
+              <div className="flex-1 flex justify-center relative">
+                <button
+                  onClick={() => {
+                    const newState = !showCustomerDropdown;
+                    setShowCustomerDropdown(newState);
+                    // 🏢 PHASE 5: Load recent customers when dropdown opens
+                    if (newState && recentCustomerSessions.length === 0) {
+                      loadRecentCustomers();
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  style={{
+                    backgroundColor: customerDetails ? visualConfig.colors.secondary : visualConfig.colors.surface,
+                    color: customerDetails ? visualConfig.colors.text.onPrimary : visualConfig.colors.text.primary,
+                    border: `1px solid ${visualConfig.colors.secondary}`,
+                    '--tw-ring-color': visualConfig.colors.secondary,
+                  }}
+                  title={customerDetails ? `Customer: ${customerDetails.name}` : "Add Customer Details"}
+                >
+                  <DynamicIcon name="User" className="h-4 w-4" />
+                  <span className="hidden sm:inline text-sm font-medium">
+                    {customerDetails ? `Customer: ${customerDetails.name}` : "Add Customer Details"}
+                  </span>
+                  <DynamicIcon 
+                    name={showCustomerDropdown ? "ChevronUp" : "ChevronDown"} 
+                    className="h-4 w-4" 
+                  />
+                </button>
+
+                {/* Customer Dropdown */}
+                {showCustomerDropdown && (
+                  <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 z-50">
+                    <div 
+                      className="w-96 rounded-lg shadow-xl border"
+                      style={{ 
+                        backgroundColor: visualConfig.colors.surface,
+                        borderColor: visualConfig.colors.secondary
+                      }}
+                    >
+                      {/* Recent Customers Section */}
+                      {recentCustomerSessions.length > 0 && (
+                        <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                          <h4 className="text-sm font-semibold mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                            Recent Customers
+                          </h4>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {recentCustomerSessions.map((customer, index) => (
+                              <button
+                                key={customer.id || index}
+                                onClick={() => handleCustomerSelect(customer)}
+                                className="w-full text-left p-2 rounded hover:bg-opacity-80 transition-colors"
+                                style={{ backgroundColor: visualConfig.colors.elevated }}
+                              >
+                                <div className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                                  {customer.customerName}
+                                </div>
+                                {customer.customerEmail && (
+                                  <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                                    {customer.customerEmail}
+                                  </div>
+                                )}
+                                {customer.summary && (
+                                  <div className="text-xs mt-1" style={{ color: visualConfig.colors.text.secondary }}>
+                                    {customer.summary.substring(0, 50)}...
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Loading State */}
+                      {isLoadingCustomers && (
+                        <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2" 
+                                 style={{ borderColor: visualConfig.colors.primary }}></div>
+                            <span className="ml-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                              Loading recent customers...
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Customer Form */}
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
+                          {recentCustomerSessions.length > 0 ? 'New Customer Details' : 'Customer Details'}
+                        </h3>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={customerDetails?.name || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, name: e.target.value, address: prev?.address || '', email: prev?.email || '', phone: prev?.phone || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="Customer name"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Address
+                            </label>
+                            <input
+                              type="text"
+                              value={customerDetails?.address || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value, name: prev?.name || '', email: prev?.email || '', phone: prev?.phone || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="Customer address"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Email
+                            </label>
+                            <input
+                              type="email"
+                              value={customerDetails?.email || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, email: e.target.value, name: prev?.name || '', address: prev?.address || '', phone: prev?.phone || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="customer@email.com"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Phone
+                            </label>
+                            <input
+                              type="tel"
+                              value={customerDetails?.phone || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, phone: e.target.value, name: prev?.name || '', address: prev?.address || '', email: prev?.email || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="(555) 123-4567"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-3 mt-4">
+                          <button
+                            onClick={() => setShowCustomerDropdown(false)}
+                            className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                            style={{
+                              borderColor: visualConfig.colors.secondary,
+                              color: visualConfig.colors.text.secondary,
+                              backgroundColor: 'transparent'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (customerDetails?.name) {
+                                setShowCustomerDropdown(false);
+                                console.log('✅ Customer details saved:', customerDetails);
+                              }
+                            }}
+                            disabled={!customerDetails?.name}
+                            className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white disabled:opacity-50"
+                            style={{ backgroundColor: visualConfig.colors.primary }}
+                          >
+                            Save Customer
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Right side: Controls */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-1 justify-end">
               {/* User info in header - Desktop only */}
               <div className="hidden md:flex items-center space-x-3 mr-4 px-3 py-2 rounded-lg" style={{ backgroundColor: visualConfig.colors.surface }}>
                 <div

@@ -44,9 +44,16 @@ export const handler = async (event, context) => {
   
     // EXISTING: Since parameter extraction with ENHANCED validation
     let since;
+    let customerLookup = false;
+    let techId = null;
+    
     try {
       const url = new URL(`https://example.com${event.path}${event.rawQuery ? '?' + event.rawQuery : ''}`);
       since = url.searchParams.get('since') || '1970-01-01T00:00:00.000Z';
+      
+      // 🏢 PHASE 5: Customer lookup parameters
+      customerLookup = url.searchParams.get('recent_customers') === 'true';
+      techId = url.searchParams.get('tech_id');
       
       const sinceDate = new Date(since);
       if (isNaN(sinceDate.getTime())) {
@@ -54,7 +61,7 @@ export const handler = async (event, context) => {
         console.warn('⚠️ Invalid since timestamp, using fallback');
       }
       
-      console.log('📥 CONCURRENCY DEBUG - Since parameter:', since);
+      console.log('📥 CONCURRENCY DEBUG - Query parameters:', { since, customerLookup, techId });
       
     } catch (urlError) {
       console.error('❌ URL parsing failed:', urlError);
@@ -72,23 +79,46 @@ export const handler = async (event, context) => {
     const timeoutId = setTimeout(() => controller.abort(), 5000); // ⚡ ENTERPRISE: Reduced to 5s
     
     try {
-      // 🔍 DEBUG: Enhanced Supabase URL construction with error prevention
-      const supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages';
-      const queryParams = new URLSearchParams({
-        'session_id': `eq.${sessionId}`,
-        'sender': 'eq.ai',
-        'created_at': `gte.${since}`,
-        'order': 'created_at.asc',
-        'limit': '10', // ⚡ ENTERPRISE: Limit for performance
-        'select': 'id,message_text,sender,created_at,session_id,message_source' // ✅ RESTORED: Include source for visual differentiation
-      });
+      let supabaseUrl, queryParams;
       
-      console.log('🔍 DEBUG - Query URL:', `${supabaseUrl}?${queryParams}`);
-      console.log('🔍 DEBUG - Query params:', {
-        sessionId,
-        since,
-        selectFields: 'id,message_text,sender,created_at,session_id,message_source'
-      });
+      if (customerLookup && techId) {
+        // 🏢 PHASE 5: Customer lookup from VC Usage table
+        console.log('👤 CUSTOMER LOOKUP: Querying recent customer sessions');
+        
+        supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/VC Usage';
+        queryParams = new URLSearchParams({
+          'user_tech_id': `eq.${techId}`,
+          'customer_name': 'not.is.null',
+          'order': 'created_at.desc',
+          'limit': '5', // Recent customer sessions
+          'select': 'session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary'
+        });
+        
+        console.log('👤 CUSTOMER LOOKUP - Query URL:', `${supabaseUrl}?${queryParams}`);
+        console.log('👤 CUSTOMER LOOKUP - Query params:', {
+          techId,
+          selectFields: 'session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary'
+        });
+        
+      } else {
+        // 🔍 EXISTING: Regular message polling from demo_messages
+        supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages';
+        queryParams = new URLSearchParams({
+          'session_id': `eq.${sessionId}`,
+          'sender': 'eq.ai',
+          'created_at': `gte.${since}`,
+          'order': 'created_at.asc',
+          'limit': '10', // ⚡ ENTERPRISE: Limit for performance
+          'select': 'id,message_text,sender,created_at,session_id,message_source' // ✅ RESTORED: Include source for visual differentiation
+        });
+        
+        console.log('🔍 DEBUG - Query URL:', `${supabaseUrl}?${queryParams}`);
+        console.log('🔍 DEBUG - Query params:', {
+          sessionId,
+          since,
+          selectFields: 'id,message_text,sender,created_at,session_id,message_source'
+        });
+      }
 
       const supabaseResponse = await fetch(`${supabaseUrl}?${queryParams}`, {
         headers: {
@@ -143,51 +173,88 @@ export const handler = async (event, context) => {
         };
       }
 
-      const sessionMessages = await supabaseResponse.json();
-      console.log('📥 CONCURRENCY DEBUG - Raw messages from DB:', sessionMessages.length);
+      const responseData = await supabaseResponse.json();
       
-      // 🔍 DEBUG: Basic message formatting (rollback to working version)
-      const formattedMessages = sessionMessages.map(msg => {
-        try {
-          return {
-            // EXISTING: Proper ID handling
-            id: msg.id ? msg.id.toString() : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            text: msg.message_text || '',
-            sender: msg.sender || 'ai',
-            timestamp: msg.created_at || new Date().toISOString(),
-            sessionId: msg.session_id || sessionId,
-            // ✅ RESTORED: Include source for visual differentiation
-            source: msg.message_source || 'make_com'
-          };
-        } catch (formatError) {
-          console.error('❌ Message formatting error:', formatError, msg);
-          return null;
-        }
-      }).filter(msg => msg !== null);
-      
-      console.log(`📤 CONCURRENCY DEBUG - Returning ${formattedMessages.length} formatted messages for session: ${sessionId}`);
-      
-      // ⚡ ENTERPRISE: Comprehensive performance logging
-      const totalDuration = Date.now() - startTime;
-      console.log(`✅ ENTERPRISE SUCCESS [${sessionId.slice(-8)}]: ${totalDuration}ms total, ${queryDuration}ms query, ${formattedMessages.length} messages`);
-      
-      return {
-        statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          // EXISTING: Cache control
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
-          // ⚡ ENTERPRISE: Performance headers
-          'X-Function-Duration': totalDuration.toString(),
-          'X-Query-Duration': queryDuration.toString(),
-          'X-Message-Count': formattedMessages.length.toString(),
-          'X-Performance-Grade': totalDuration < 50 ? 'A' : totalDuration < 100 ? 'B' : 'C'
-        },
-        body: JSON.stringify(formattedMessages)
-      };
+      if (customerLookup) {
+        // 🏢 PHASE 5: Format customer lookup response
+        console.log('👤 CUSTOMER LOOKUP - Raw customer data from DB:', responseData.length);
+        
+        // Group by customer and get most recent session per customer
+        const customerMap = new Map();
+        responseData.forEach(record => {
+          const customerKey = record.customer_name;
+          if (!customerMap.has(customerKey) || 
+              new Date(record.created_at) > new Date(customerMap.get(customerKey).created_at)) {
+            customerMap.set(customerKey, record);
+          }
+        });
+        
+        const formattedCustomers = Array.from(customerMap.values()).map(customer => ({
+          id: `customer_${customer.customer_name.replace(/\s+/g, '_')}_${Date.now()}`,
+          customerName: customer.customer_name,
+          customerEmail: customer.customer_email,
+          customerPhone: customer.customer_phone,
+          customerAddress: customer.customer_address,
+          sessionId: customer.session_id,
+          lastInteraction: customer.created_at,
+          summary: customer.interaction_summary
+        }));
+        
+        console.log(`👤 CUSTOMER LOOKUP - Returning ${formattedCustomers.length} recent customers`);
+        
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'X-Function-Duration': (Date.now() - startTime).toString(),
+            'X-Query-Duration': (Date.now() - queryStart).toString(),
+            'X-Customer-Count': formattedCustomers.length.toString()
+          },
+          body: JSON.stringify(formattedCustomers)
+        };
+        
+      } else {
+        // 🔍 EXISTING: Regular message polling response
+        console.log('📥 CONCURRENCY DEBUG - Raw messages from DB:', responseData.length);
+        
+        const formattedMessages = responseData.map(msg => {
+          try {
+            return {
+              // EXISTING: Proper ID handling
+              id: msg.id ? msg.id.toString() : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+              text: msg.message_text || '',
+              sender: msg.sender || 'ai',
+              timestamp: msg.created_at || new Date().toISOString(),
+              sessionId: msg.session_id || sessionId,
+              // ✅ RESTORED: Include source for visual differentiation
+              source: msg.message_source || 'make_com'
+            };
+          } catch (formatError) {
+            console.error('❌ Message formatting error:', formatError, msg);
+            return null;
+          }
+        }).filter(msg => msg !== null);
+        
+        console.log(`📤 CONCURRENCY DEBUG - Returning ${formattedMessages.length} formatted messages for session: ${sessionId}`);
+        
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'X-Function-Duration': (Date.now() - startTime).toString(),
+            'X-Query-Duration': (Date.now() - queryStart).toString(),
+            'X-Message-Count': formattedMessages.length.toString(),
+            'X-Performance-Grade': (Date.now() - startTime) < 50 ? 'A' : (Date.now() - startTime) < 100 ? 'B' : 'C'
+          },
+          body: JSON.stringify(formattedMessages)
+        };
+      }
       
     } catch (fetchError) {
       clearTimeout(timeoutId);

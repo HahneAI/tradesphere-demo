@@ -10,6 +10,11 @@ export interface WebhookPayload {
   firstName?: string;
   techId?: string;
   betaCodeId?: number;
+  // 🏢 PHASE 2: Customer details fields (optional)
+  customerName?: string;
+  customerAddress?: string;
+  customerEmail?: string;
+  customerPhone?: string;
 }
 
 export interface StorageMetadata {
@@ -210,6 +215,111 @@ export class MessageStorageService {
       
       // Re-throw the error so the calling function can handle it
       throw error;
+    }
+  }
+
+  /**
+   * Store permanent record in VC Usage table with customer data
+   * This is separate from demo_messages which is just for polling
+   */
+  static async storeVCUsageRecord(
+    payload: WebhookPayload,
+    userInput: string,
+    aiResponse: string,
+    interactionNumber: number,
+    metadata: Partial<StorageMetadata> = {}
+  ): Promise<void> {
+    try {
+      console.log('🏢 [VC_USAGE] Storing permanent usage record...');
+      console.log(`📝 [VC_USAGE] Session: ${payload.sessionId}, Interaction: ${interactionNumber}`);
+      
+      const { url, key } = this.getEnvironmentCredentials();
+      
+      // Clean responses
+      let cleanedUserInput = userInput;
+      let cleanedAiResponse = aiResponse;
+      
+      if (cleanedUserInput.length > 2000) {
+        cleanedUserInput = cleanedUserInput.substring(0, 1997) + '...';
+      }
+      if (cleanedAiResponse.length > 2000) {
+        cleanedAiResponse = cleanedAiResponse.substring(0, 1997) + '...';
+      }
+      
+      // Clean problematic characters
+      cleanedUserInput = cleanedUserInput.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      cleanedAiResponse = cleanedAiResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      
+      // 🏢 PHASE 2: VC Usage record with customer fields
+      const vcUsageData = {
+        user_name: payload.firstName || null,
+        user_tech_id: payload.techId || null,
+        session_id: payload.sessionId,
+        beta_code_id: payload.betaCodeId || null,
+        user_input: cleanedUserInput,
+        ai_response: cleanedAiResponse,
+        interaction_number: interactionNumber,
+        interaction_summary: `User asked about: ${cleanedUserInput.substring(0, 100)}${cleanedUserInput.length > 100 ? '...' : ''}`,
+        created_at: new Date().toISOString(),
+        // 🏢 CUSTOMER FIELDS: Include when provided
+        customer_name: payload.customerName || null,
+        customer_address: payload.customerAddress || null,
+        customer_email: payload.customerEmail || null,
+        customer_phone: payload.customerPhone || null
+      };
+
+      console.log('🏢 [VC_USAGE] Record structure:', {
+        sessionId: vcUsageData.session_id,
+        interactionNumber: vcUsageData.interaction_number,
+        hasCustomerData: !!(payload.customerName || payload.customerEmail),
+        customerName: vcUsageData.customer_name,
+        userInputLength: vcUsageData.user_input.length,
+        aiResponseLength: vcUsageData.ai_response.length
+      });
+
+      const endpoint = `${url}/rest/v1/VC Usage`;
+      console.log('🌐 [VC_USAGE] Request endpoint:', endpoint);
+
+      const supabaseResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'apikey': key,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(vcUsageData)
+      });
+
+      console.log('📥 [VC_USAGE] HTTP response:', {
+        status: supabaseResponse.status,
+        statusText: supabaseResponse.statusText,
+        ok: supabaseResponse.ok
+      });
+
+      if (!supabaseResponse.ok) {
+        const errorText = await supabaseResponse.text();
+        console.error('❌ [VC_USAGE] Supabase HTTP error:', {
+          status: supabaseResponse.status,
+          statusText: supabaseResponse.statusText,
+          errorBody: errorText,
+          endpoint: endpoint,
+          requestData: vcUsageData
+        });
+        throw new Error(`VC Usage storage failed: ${supabaseResponse.status} - ${errorText}`);
+      }
+
+      console.log('✅ [VC_USAGE] Permanent record stored successfully');
+
+    } catch (error) {
+      console.error('❌ [VC_USAGE] Storage failed:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // Don't throw - storage failure shouldn't break the main response
+      console.log('⚠️ [VC_USAGE] Continuing without VC Usage storage (non-blocking error)');
     }
   }
 

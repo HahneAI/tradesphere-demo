@@ -159,8 +159,23 @@ export const handler = async (event, context) => {
     });
 
     try {
+      // 💾 DUAL STORAGE: Store in both demo_messages (polling) AND VC Usage (permanent)
+      
+      // 1. Store in demo_messages for polling (existing behavior)
       await MessageStorageService.storeAIResponse(payload, response.response, storageMetadata);
-      console.log('✅ STORAGE CONFIRMED: Record written to database');
+      console.log('✅ DEMO_MESSAGES STORAGE: Polling record stored');
+      
+      // 2. 🏢 PHASE 2: Store in VC Usage for permanent records with customer data
+      const interactionNumber = 1; // TODO: Implement proper interaction number tracking
+      await MessageStorageService.storeVCUsageRecord(
+        payload, 
+        payload.message, 
+        response.response, 
+        interactionNumber, 
+        storageMetadata
+      );
+      console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
+      
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
       console.error('🔍 STORAGE ERROR DETAILS:', storageError);
@@ -245,7 +260,12 @@ function parseWebhookPayload(body) {
     techId: payload.techId,
     firstName: payload.firstName,
     jobTitle: payload.jobTitle,
-    betaCodeId: parseInt(payload.betaCodeId)
+    betaCodeId: parseInt(payload.betaCodeId),
+    // 🏢 PHASE 2: Optional customer fields (backward compatible)
+    customerName: payload.customerName || null,
+    customerAddress: payload.customerAddress || null,
+    customerEmail: payload.customerEmail || null,
+    customerPhone: payload.customerPhone || null
   };
 }
 
