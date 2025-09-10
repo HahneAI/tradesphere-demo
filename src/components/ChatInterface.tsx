@@ -6,6 +6,7 @@ import * as Icons from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { flushSync } from 'react-dom';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { getDeviceInfo, getVoiceConfig, getVoiceGuidance, needsIOSFallback, getVoiceErrorMessage } from '../utils/mobile-detection';
 import { AvatarSelectionPopup } from './ui/AvatarSelectionPopup';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -267,9 +268,17 @@ const ChatInterface = () => {
     browserSupportsSpeechRecognition
   } = useSpeechRecognition();
   
+  // Mobile-aware voice input state
+  const deviceInfo = getDeviceInfo();
+  const voiceConfig = getVoiceConfig(deviceInfo);
+  const voiceGuidance = getVoiceGuidance(deviceInfo);
+  
   const [isRecording, setIsRecording] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [micPermissionState, setMicPermissionState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [voiceTimeout, setVoiceTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [pauseTimeout, setPauseTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showIOSGuidance, setShowIOSGuidance] = useState(false);
 
   const generateSessionId = () => {
     if (!user) {
@@ -289,6 +298,7 @@ const ChatInterface = () => {
   const lastPollTimeRef = useRef<Date>(new Date());
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const refreshButtonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const welcomeMessage = EnvironmentManager.getWelcomeMessage();
@@ -719,24 +729,33 @@ const ChatInterface = () => {
             
             console.log(`✅ ${debugPrefix} Added ${uniqueNewMessages.length} new messages to chat`);
             
-            // 🔄 DUAL TESTING: Check if both responses received
-            if (DUAL_TESTING_ENABLED && uniqueNewMessages.some(msg => msg.sender === 'ai')) {
+            // 🔄 DUAL TESTING: Check completion based on mode
+            if (uniqueNewMessages.some(msg => msg.sender === 'ai')) {
               const allMessages = [...prev, ...uniqueNewMessages];
               const recentAIMessages = allMessages.filter(msg => 
                 msg.sender === 'ai' && 
                 Math.abs(new Date(msg.timestamp).getTime() - Date.now()) < 60000 // Last minute
               );
               
-              const hasMakeResponse = recentAIMessages.some(msg => 
-                !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
-              );
-              const hasNativeResponse = recentAIMessages.some(msg => 
-                msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
-              );
-              
-              if (hasMakeResponse && hasNativeResponse) {
-                console.log('🎯 DUAL TESTING: Both responses received - returning to idle polling');
-                setIsLoading(false); // This will trigger slower polling
+              if (DUAL_TESTING_ENABLED) {
+                // Dual mode: Wait for both responses
+                const hasMakeResponse = recentAIMessages.some(msg => 
+                  !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
+                );
+                const hasNativeResponse = recentAIMessages.some(msg => 
+                  msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
+                );
+                
+                if (hasMakeResponse && hasNativeResponse) {
+                  console.log('🎯 DUAL TESTING: Both responses received - returning to idle');
+                  setIsLoading(false);
+                }
+              } else {
+                // Single mode: Return to idle after ANY AI response
+                if (recentAIMessages.length > 0) {
+                  console.log('📱 SINGLE MODE: Response received - returning to idle');
+                  setIsLoading(false);
+                }
               }
             }
             
@@ -1059,93 +1078,277 @@ const ChatInterface = () => {
     checkMicrophonePermission();
   }, []);
 
-  // 🎤 VOICE INPUT: Update input text with transcript
+  // 🎤 VOICE INPUT: Cleanup voice timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+      }
+    };
+  }, [voiceTimeout, pauseTimeout]);
+
+  // 🎤 VOICE INPUT: Safe cleanup effect using listening state
+  useEffect(() => {
+    // Clean up voice state when speech recognition stops listening
+    if (!listening && isRecording) {
+      console.log('🎤 Speech recognition stopped - cleaning up state');
+      setIsRecording(false);
+      setVoiceError(null);
+      
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+        setVoiceTimeout(null);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        setPauseTimeout(null);
+      }
+    }
+  }, [listening, isRecording, voiceTimeout, pauseTimeout]);
+
+  // 🎤 VOICE INPUT: Smart text appending with transcript
+  const [voiceStartText, setVoiceStartText] = useState('');
+
+  // Helper function for smart text appending
+  const appendTranscript = (newText: string) => {
+    const current = voiceStartText.trim();
+    const newTextTrimmed = newText.trim();
+    
+    if (!newTextTrimmed) return voiceStartText;
+    
+    if (current && newTextTrimmed) {
+      // Smart punctuation handling
+      const separator = current.endsWith('.') || current.endsWith('!') || current.endsWith('?') 
+        ? ' ' 
+        : '. ';
+      setInputText(current + separator + newTextTrimmed);
+    } else if (current) {
+      setInputText(current + ' ' + newTextTrimmed);
+    } else {
+      setInputText(newTextTrimmed);
+    }
+  };
+
   useEffect(() => {
     if (transcript && isRecording) {
-      setInputText(transcript);
+      // During recording, append transcript to the text that was there when recording started
+      const current = voiceStartText.trim();
+      const newTextTrimmed = transcript.trim();
+      
+      if (current && newTextTrimmed) {
+        const separator = current.endsWith('.') || current.endsWith('!') || current.endsWith('?') 
+          ? ' ' 
+          : '. ';
+        setInputText(current + separator + newTextTrimmed);
+      } else if (current) {
+        setInputText(current + ' ' + newTextTrimmed);
+      } else {
+        setInputText(newTextTrimmed);
+      }
+      
+      // Reset pause detection when new speech is detected
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        
+        // Restart pause detection
+        const pauseTimer = setTimeout(() => {
+          console.log('🎤 Auto-stopping voice input after 8s pause');
+          try {
+            SpeechRecognition.stopListening();
+          } catch (error) {
+            console.warn('🎤 Error stopping speech recognition in transcript pause detection:', error);
+          }
+          setIsRecording(false);
+          setVoiceTimeout(null);
+          setPauseTimeout(null);
+        }, voiceConfig.pauseDetection);
+        
+        setPauseTimeout(pauseTimer);
+      }
     }
-  }, [transcript, isRecording]);
+  }, [transcript, isRecording, voiceStartText, pauseTimeout, voiceConfig.pauseDetection]);
 
-  // 🎤 VOICE INPUT: Handle voice recording toggle
+  // 🎤 VOICE INPUT: Handle voice recording toggle (Mobile-optimized)
   const handleVoiceToggle = async () => {
     setVoiceError(null);
     
+    // iOS fallback - show keyboard dictation guidance
+    if (needsIOSFallback(deviceInfo)) {
+      setShowIOSGuidance(true);
+      // Focus input field for keyboard dictation
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      return;
+    }
+    
     if (!browserSupportsSpeechRecognition) {
-      setVoiceError('Your browser does not support speech recognition. Please use Chrome, Edge, or Safari.');
+      const errorMsg = getVoiceErrorMessage('Browser not supported', deviceInfo);
+      setVoiceError(errorMsg);
       return;
     }
     
     if (isRecording) {
-      // Stop recording
-      SpeechRecognition.stopListening();
+      // Stop recording and clear all timeouts
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+        setVoiceTimeout(null);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        setPauseTimeout(null);
+      }
+      
+      try {
+        SpeechRecognition.stopListening();
+      } catch (error) {
+        console.warn('🎤 Error stopping speech recognition:', error);
+      }
       setIsRecording(false);
       
-      // If we have transcript text and user wants to send it
+      console.log('🎤 Voice recording stopped manually');
+      
+      // If we have transcript text, let user edit it
       if (transcript.trim()) {
-        // Let user edit the transcript if needed, don't auto-send
-        console.log('🎤 Voice recording stopped. Transcript available for editing.');
+        console.log('🎤 Transcript available for editing:', transcript.length, 'characters');
       }
     } else {
-      // Start recording
+      // Start recording with enhanced pause detection
       try {
+        // Store current text for appending later
+        setVoiceStartText(inputText);
         resetTranscript();
         setIsRecording(true);
         
-        await SpeechRecognition.startListening({ 
-          continuous: true, 
-          language: 'en-US',
-          interimResults: true
-        });
+        // Use mobile-aware configuration
+        try {
+          await SpeechRecognition.startListening({ 
+            continuous: voiceConfig.continuous,
+            language: voiceConfig.language,
+            interimResults: voiceConfig.interimResults,
+            maxAlternatives: voiceConfig.maxAlternatives
+          });
+        } catch (startError) {
+          console.error('🎤 Error starting speech recognition:', startError);
+          throw startError;
+        }
+        
+        // Set up fallback timeout (30 seconds)
+        const fallbackTimeout = setTimeout(() => {
+          console.log('🎤 Auto-stopping voice input after 30s fallback timeout');
+          try {
+            SpeechRecognition.stopListening();
+          } catch (error) {
+            console.warn('🎤 Error stopping speech recognition in timeout:', error);
+          }
+          setIsRecording(false);
+          setVoiceTimeout(null);
+          setPauseTimeout(null);
+        }, voiceConfig.timeout);
+        
+        setVoiceTimeout(fallbackTimeout);
+        
+        // Set up pause detection timeout (8 seconds of silence)
+        const startPauseDetection = () => {
+          if (pauseTimeout) {
+            clearTimeout(pauseTimeout);
+          }
+          
+          const pauseTimer = setTimeout(() => {
+            console.log('🎤 Auto-stopping voice input after 8s pause');
+            try {
+              SpeechRecognition.stopListening();
+            } catch (error) {
+              console.warn('🎤 Error stopping speech recognition in pause detection:', error);
+            }
+            setIsRecording(false);
+            setVoiceTimeout(null);
+            setPauseTimeout(null);
+          }, voiceConfig.pauseDetection);
+          
+          setPauseTimeout(pauseTimer);
+        };
+        
+        // Start initial pause detection
+        startPauseDetection();
         
         setMicPermissionState('granted');
-        console.log('🎤 Voice recording started');
+        console.log('🎤 Voice recording started', {
+          device: deviceInfo.isMobile ? 'mobile' : 'desktop',
+          continuous: voiceConfig.continuous,
+          timeout: voiceConfig.timeout
+        });
+        
       } catch (error) {
         console.error('Failed to start voice recognition:', error);
-        setVoiceError('Failed to access microphone. Please check your browser permissions.');
+        const errorMsg = getVoiceErrorMessage(error.message, deviceInfo);
+        setVoiceError(errorMsg);
         setIsRecording(false);
         setMicPermissionState('denied');
+        
+        // Clear timeout if it was set
+        if (voiceTimeout) {
+          clearTimeout(voiceTimeout);
+          setVoiceTimeout(null);
+        }
       }
     }
   };
 
-  // 🎤 VOICE INPUT: Get microphone button icon and style based on state
+  // 🎤 VOICE INPUT: Get microphone button icon and style based on state (Mobile-aware)
   const getMicrophoneButtonConfig = () => {
+    // Base transition classes for smooth state changes
+    const baseTransition = 'mic-button-transition transition-all duration-300 ease-in-out';
+    
+    // iOS fallback - show keyboard icon instead
+    if (needsIOSFallback(deviceInfo)) {
+      return {
+        icon: voiceGuidance.icon,
+        className: `${baseTransition} text-blue-500 hover:text-blue-700`,
+        title: voiceGuidance.message
+      };
+    }
+    
     if (!browserSupportsSpeechRecognition) {
       return {
         icon: 'MicOff',
-        className: 'opacity-50 cursor-not-allowed',
-        title: 'Voice input not supported in this browser'
+        className: `${baseTransition} opacity-50 cursor-not-allowed`,
+        title: getVoiceErrorMessage('Not supported', deviceInfo)
       };
     }
     
     if (voiceError) {
       return {
         icon: 'MicOff',
-        className: 'text-red-500',
+        className: `${baseTransition} text-red-500 hover:text-red-600`,
         title: voiceError
       };
     }
     
     if (isRecording) {
+      const timeoutText = deviceInfo.isMobile ? ` (auto-stop in ${Math.round(voiceConfig.timeout / 1000)}s)` : '';
       return {
         icon: 'MicIcon',
-        className: 'text-red-500 animate-pulse',
-        title: 'Click to stop recording'
+        className: `${baseTransition} text-red-500 animate-pulse hover:text-red-600 transform scale-110`,
+        title: `${voiceGuidance.buttonText.replace('Start', 'Stop')}${timeoutText}`
       };
     }
     
     if (micPermissionState === 'denied') {
       return {
         icon: 'MicOff',
-        className: 'text-orange-500',
+        className: `${baseTransition} text-orange-500 hover:text-orange-600`,
         title: 'Microphone permission denied. Please enable in browser settings.'
       };
     }
     
     return {
       icon: 'MicIcon',
-      className: 'text-gray-500 hover:text-blue-500 transition-colors',
-      title: 'Click to start voice input'
+      className: `${baseTransition} text-gray-500 hover:text-blue-500 hover:scale-105`,
+      title: voiceGuidance.message
     };
   };
 
@@ -1410,6 +1613,7 @@ const ChatInterface = () => {
               <div className="flex items-center space-x-4 max-w-4xl mx-auto">
                 <div className="flex-1 relative">
                   <textarea
+                    ref={inputRef}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -1426,30 +1630,32 @@ const ChatInterface = () => {
                     disabled={isLoading}
                   />
                   
-                  {/* 🎤 VOICE INPUT: Microphone button inside input field */}
-                  <button
-                    onClick={handleVoiceToggle}
-                    disabled={isLoading || !browserSupportsSpeechRecognition}
-                    className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-200 ${getMicrophoneButtonConfig().className} ${isRecording ? 'animate-recording-glow' : ''}`}
-                    title={getMicrophoneButtonConfig().title}
-                    aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording'}
-                  >
-                    <DynamicIcon 
-                      name={getMicrophoneButtonConfig().icon as keyof typeof Icons} 
-                      className={`h-4 w-4 ${isRecording ? 'animate-voice-pulse' : ''}`}
-                    />
-                  </button>
+                  {/* 🎤 VOICE INPUT: Microphone button - TEMPORARILY HIDDEN */}
+                  {false && (
+                    <button
+                      onClick={handleVoiceToggle}
+                      disabled={isLoading || !browserSupportsSpeechRecognition}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-200 ${getMicrophoneButtonConfig().className} ${isRecording ? 'animate-recording-glow' : ''}`}
+                      title={getMicrophoneButtonConfig().title}
+                      aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording'}
+                    >
+                      <DynamicIcon 
+                        name={getMicrophoneButtonConfig().icon as keyof typeof Icons} 
+                        className={`h-4 w-4 ${isRecording ? 'animate-voice-pulse' : ''}`}
+                      />
+                    </button>
+                  )}
                   
-                  {/* 🎤 VOICE INPUT: Recording indicator */}
-                  {isRecording && (
+                  {/* 🎤 VOICE INPUT: Recording indicator - TEMPORARILY HIDDEN */}
+                  {false && isRecording && (
                     <div className="absolute -top-8 right-0 flex items-center space-x-2 px-2 py-1 bg-red-500 text-white text-xs rounded-md animate-fade-in">
                       <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                       <span>Recording...</span>
                     </div>
                   )}
                   
-                  {/* 🎤 VOICE INPUT: Error message */}
-                  {voiceError && (
+                  {/* 🎤 VOICE INPUT: Error message - TEMPORARILY HIDDEN */}
+                  {false && voiceError && (
                     <div className="absolute -top-8 right-0 px-2 py-1 bg-red-500 text-white text-xs rounded-md max-w-xs">
                       {voiceError}
                     </div>
@@ -1542,6 +1748,63 @@ const ChatInterface = () => {
         onSubmit={handleFeedbackSubmit}
         userName={user?.first_name || 'Anonymous'}
       />
+
+      {/* iOS Voice Guidance Modal - TEMPORARILY HIDDEN */}
+      {false && showIOSGuidance && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
+          <div
+            className="rounded-xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4"
+                   style={{ backgroundColor: visualConfig.colors.primary + '20' }}>
+                <DynamicIcon 
+                  name={voiceGuidance.icon as keyof typeof Icons}
+                  className="h-6 w-6"
+                  style={{ color: visualConfig.colors.primary }}
+                />
+              </div>
+              
+              <h3 className="text-lg font-medium mb-2" 
+                  style={{ color: visualConfig.colors.text.primary }}>
+                {voiceGuidance.title}
+              </h3>
+              
+              <p className="text-sm mb-6"
+                 style={{ color: visualConfig.colors.text.secondary }}>
+                {voiceGuidance.message}
+              </p>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowIOSGuidance(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                  style={{
+                    borderColor: visualConfig.colors.secondary,
+                    color: visualConfig.colors.text.secondary,
+                    backgroundColor: 'transparent'
+                  }}
+                >
+                  Got it
+                </button>
+                <button
+                  onClick={() => {
+                    setShowIOSGuidance(false);
+                    if (inputRef.current) {
+                      inputRef.current.focus();
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white"
+                  style={{ backgroundColor: visualConfig.colors.primary }}
+                >
+                  {voiceGuidance.buttonText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
