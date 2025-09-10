@@ -7,11 +7,13 @@
  * ARCHITECTURE:
  * 1. TRADESPHERE_TECH_DEFAULTS - Core tech industry defaults
  * 2. INDUSTRY_OVERRIDES - Industry-specific customizations
- * 3. Helper functions for safe environment variable access
- * 4. Type-safe configuration retrieval
+ * 3. BUILD-TIME BRANDING CONFIG - Visual/branding settings (not in .env)
+ * 4. Helper functions for safe environment variable access
+ * 5. Type-safe configuration retrieval
  */
 
 import type { Icons } from 'lucide-react';
+import { brandingConfig } from './branding';
 
 // =============================================================================
 // CORE TRADESPHERE TECHNOLOGY DEFAULTS
@@ -161,7 +163,7 @@ export type UrgencyLevel = 'routine' | 'seasonal' | 'emergency';
  */
 export class EnvironmentManager {
   private static getIndustryType(): IndustryType {
-    return import.meta.env.VITE_INDUSTRY_TYPE as IndustryType;
+    return brandingConfig.industryType as IndustryType;
   }
 
   private static getIndustryOverride<T>(path: string): T | undefined {
@@ -187,22 +189,19 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getCompanyName(): string {
-    return import.meta.env.VITE_COMPANY_NAME || 
-           this.getTechDefault('branding.companyName');
+    return brandingConfig.companyName;
   }
 
   static getLogoUrl(): string {
-    return import.meta.env.VITE_LOGO_URL || 
-           this.getTechDefault('branding.logoUrl');
+    return brandingConfig.logoUrl;
   }
 
   static getWelcomeMessage(): string {
-    return import.meta.env.VITE_WELCOME_MESSAGE || 
-           `Welcome to ${this.getCompanyName()}! How can I help you today?`;
+    return `Welcome to ${this.getCompanyName()}! How can I help you today?`;
   }
 
   static getHeaderIcon(): keyof typeof Icons {
-    return (import.meta.env.VITE_HEADER_ICON as keyof typeof Icons) ||
+    return (brandingConfig.headerIcon as keyof typeof Icons) ||
            this.getIndustryOverride('branding.headerIcon') ||
            this.getTechDefault('branding.headerIcon');
   }
@@ -212,25 +211,25 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getPrimaryColor(): string {
-    return import.meta.env.VITE_PRIMARY_COLOR ||
+    return brandingConfig.primaryColor ||
            this.getIndustryOverride('colors.primary') ||
            this.getTechDefault('colors.primary');
   }
 
   static getSecondaryColor(): string {
-    return import.meta.env.VITE_SECONDARY_COLOR ||
+    return brandingConfig.secondaryColor ||
            this.getIndustryOverride('colors.secondary') ||
            this.getTechDefault('colors.secondary');
   }
 
   static getAccentColor(): string {
-    return import.meta.env.VITE_ACCENT_COLOR ||
+    return brandingConfig.accentColor ||
            this.getIndustryOverride('colors.accent') ||
            this.getTechDefault('colors.accent');
   }
 
   static getSuccessColor(): string {
-    return import.meta.env.VITE_SUCCESS_COLOR ||
+    return brandingConfig.successColor ||
            this.getIndustryOverride('colors.success') ||
            this.getTechDefault('colors.success');
   }
@@ -240,25 +239,25 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getSendEffect(): SendEffect {
-    return (import.meta.env.VITE_SEND_EFFECT as SendEffect) ||
+    return (brandingConfig.sendEffect as SendEffect) ||
            this.getIndustryOverride('visual.sendEffect') ||
            this.getTechDefault('visual.sendEffect');
   }
 
   static getLoadingAnimation(): LoadingAnimation {
-    return (import.meta.env.VITE_LOADING_ANIMATION as LoadingAnimation) ||
+    return (brandingConfig.loadingAnimation as LoadingAnimation) ||
            this.getIndustryOverride('visual.loadingAnimation') ||
            this.getTechDefault('visual.loadingAnimation');
   }
 
   static getMessageStyle(): MessageStyle {
-    return (import.meta.env.VITE_MESSAGE_STYLE as MessageStyle) ||
+    return (brandingConfig.messageStyle as MessageStyle) ||
            this.getIndustryOverride('visual.messageStyle') ||
            this.getTechDefault('visual.messageStyle');
   }
 
   static getBackgroundPattern(): BackgroundPattern {
-    return (import.meta.env.VITE_BACKGROUND_PATTERN as BackgroundPattern) ||
+    return (brandingConfig.backgroundPattern as BackgroundPattern) ||
            this.getIndustryOverride('visual.backgroundPattern') ||
            this.getTechDefault('visual.backgroundPattern');
   }
@@ -268,45 +267,44 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getBusinessType(): string {
-    return import.meta.env.VITE_BUSINESS_TYPE ||
+    return brandingConfig.businessType ||
            this.getIndustryOverride('terminology.businessType') ||
            this.getTechDefault('terminology.businessType');
   }
 
   static getProjectLanguage(): string {
-    return import.meta.env.VITE_PROJECT_LANGUAGE ||
+    return brandingConfig.projectLanguage ||
            this.getIndustryOverride('terminology.projectLanguage') ||
            this.getTechDefault('terminology.projectLanguage');
   }
 
   static getEstimateLanguage(): string {
-    return import.meta.env.VITE_ESTIMATE_LANGUAGE ||
+    return brandingConfig.estimateLanguage ||
            this.getIndustryOverride('terminology.estimateLanguage') ||
            this.getTechDefault('terminology.estimateLanguage');
   }
 
   static getPrimaryServices(): string[] {
-    const envServices = import.meta.env.VITE_PRIMARY_SERVICES;
-    if (envServices) return envServices.split(',').map(s => s.trim());
+    if (brandingConfig.primaryServices) return brandingConfig.primaryServices.split(',').map(s => s.trim());
     
     return this.getIndustryOverride('terminology.primaryServices') ||
            this.getTechDefault('terminology.primaryServices');
   }
 
   static getPlaceholderExamples(): string {
-    return import.meta.env.VITE_PLACEHOLDER_EXAMPLES ||
+    return brandingConfig.placeholderExamples ||
            this.getIndustryOverride('terminology.placeholderExamples') ||
            this.getTechDefault('terminology.placeholderExamples');
   }
 
   static getSpecialization(): Specialization {
-    return (import.meta.env.VITE_SPECIALIZATION as Specialization) ||
+    return (brandingConfig.specialization as Specialization) ||
            this.getIndustryOverride('terminology.specialization') ||
            this.getTechDefault('terminology.specialization');
   }
 
   static getUrgencyLevel(): UrgencyLevel {
-    return (import.meta.env.VITE_URGENCY_LEVEL as UrgencyLevel) ||
+    return (brandingConfig.urgencyLevel as UrgencyLevel) ||
            this.getIndustryOverride('terminology.urgencyLevel') ||
            this.getTechDefault('terminology.urgencyLevel');
   }
@@ -316,17 +314,17 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getUseSeasonalThemes(): boolean {
-    return import.meta.env.VITE_USE_SEASONAL_THEMES === 'true' ||
+    return brandingConfig.useSeasonalThemes ||
            this.getTechDefault('location.useSeasonalThemes');
   }
 
   static getRegion(): string {
-    return import.meta.env.VITE_REGION ||
+    return brandingConfig.region ||
            this.getTechDefault('location.region');
   }
 
   static getClimateZone(): string | undefined {
-    return import.meta.env.VITE_CLIMATE_ZONE ||
+    return brandingConfig.climateZone ||
            this.getTechDefault('location.climateZone');
   }
 
@@ -335,17 +333,17 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getPwaName(): string {
-    return import.meta.env.VITE_PWA_NAME ||
+    return brandingConfig.pwa.name ||
            this.getTechDefault('pwa.name');
   }
 
   static getPwaShortName(): string {
-    return import.meta.env.VITE_PWA_SHORT_NAME ||
+    return brandingConfig.pwa.shortName ||
            this.getTechDefault('pwa.shortName');
   }
 
   static getPwaDescription(): string {
-    return import.meta.env.VITE_PWA_DESCRIPTION ||
+    return brandingConfig.pwa.description ||
            this.getTechDefault('pwa.description');
   }
 
@@ -354,7 +352,8 @@ export class EnvironmentManager {
   // ==========================================================================
 
   static getSupabaseUrl(): string {
-    const url = import.meta.env.VITE_SUPABASE_URL;
+    const url = (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_URL : undefined);
     if (!url || url === 'YOUR_SUPABASE_URL') {
       throw new Error('VITE_SUPABASE_URL must be configured');
     }
@@ -362,7 +361,8 @@ export class EnvironmentManager {
   }
 
   static getSupabaseAnonKey(): string {
-    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const key = (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_SUPABASE_ANON_KEY : undefined);
     if (!key || key === 'YOUR_SUPABASE_ANON_KEY') {
       throw new Error('VITE_SUPABASE_ANON_KEY must be configured');
     }
@@ -370,7 +370,8 @@ export class EnvironmentManager {
   }
 
   static getMakeWebhookUrl(): string {
-    const url = import.meta.env.VITE_MAKE_WEBHOOK_URL;
+    const url = (typeof process !== 'undefined' ? process.env.VITE_MAKE_WEBHOOK_URL : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_MAKE_WEBHOOK_URL : undefined);
     if (!url || url === 'YOUR_MAKE_WEBHOOK_URL') {
       throw new Error('VITE_MAKE_WEBHOOK_URL must be configured');
     }
@@ -378,7 +379,8 @@ export class EnvironmentManager {
   }
 
   static getFeedbackWebhookUrl(): string | undefined {
-    const url = import.meta.env.VITE_FEEDBACK_WEBHOOK_URL;
+    const url = (typeof process !== 'undefined' ? process.env.VITE_FEEDBACK_WEBHOOK_URL : undefined) ||
+                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_FEEDBACK_WEBHOOK_URL : undefined);
     return (url && url !== 'YOUR_FEEDBACK_WEBHOOK_URL') ? url : undefined;
   }
 

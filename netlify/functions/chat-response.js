@@ -1,6 +1,24 @@
+// Import shared storage service for consistent data handling
+import { MessageStorageService } from '../../src/utils/message-storage.ts';
+
 export const handler = async (event, context) => {
+  // 🚨 WEBHOOK DEBUG: Log all incoming requests
+  const webhookStartTime = Date.now();
+  const requestId = `webhook_${webhookStartTime}_${Math.random().toString(36).substr(2, 4)}`;
+  
+  console.log(`🚨 [${requestId}] WEBHOOK RECEIVED:`, {
+    method: event.httpMethod,
+    path: event.path,
+    headers: event.headers,
+    hasBody: !!event.body,
+    bodyLength: event.body?.length || 0,
+    timestamp: new Date().toISOString(),
+    userAgent: event.headers?.['user-agent'] || 'unknown'
+  });
+
   // Handle CORS for demo
   if (event.httpMethod === 'OPTIONS') {
+    console.log(`🚨 [${requestId}] CORS preflight request handled`);
     return {
       statusCode: 200,
       headers: {
@@ -12,90 +30,129 @@ export const handler = async (event, context) => {
   }
 
   if (event.httpMethod !== 'POST') {
+    console.log(`🚨 [${requestId}] Method not allowed: ${event.httpMethod}`);
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
+    console.log(`🚨 [${requestId}] Processing POST request...`);
+    
     let requestBody;
     try {
+      console.log(`🚨 [${requestId}] Raw body preview:`, event.body?.substring(0, 500) + '...');
       requestBody = JSON.parse(event.body);
+      console.log(`🚨 [${requestId}] JSON parsed successfully. Keys:`, Object.keys(requestBody));
     } catch (parseError) {
-      console.error('JSON Parse Error:', parseError);
-      console.log('Raw body:', event.body);
+      console.error(`🚨 [${requestId}] JSON Parse Error:`, parseError);
+      console.log(`🚨 [${requestId}] Raw body:`, event.body);
       return {
         statusCode: 400,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ error: 'Invalid JSON in request' })
+        body: JSON.stringify({ 
+          error: 'Invalid JSON in request',
+          requestId,
+          debug: {
+            bodyPreview: event.body?.substring(0, 200),
+            parseError: parseError.message
+          }
+        })
       };
     }
 
     const { response, sessionId, timestamp, techId } = requestBody;
     
+    console.log(`🚨 [${requestId}] Extracted data:`, {
+      hasResponse: !!response,
+      responseLength: response?.length || 0,
+      sessionId: sessionId || 'MISSING',
+      techId: techId || 'MISSING',
+      timestamp: timestamp || 'MISSING'
+    });
+    
+    // Validate required fields
+    if (!sessionId) {
+      console.error(`🚨 [${requestId}] VALIDATION ERROR: Missing sessionId`);
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ 
+          error: 'Missing required field: sessionId',
+          requestId,
+          received: requestBody
+        })
+      };
+    }
+
+    if (!response) {
+      console.error(`🚨 [${requestId}] VALIDATION ERROR: Missing response`);
+      return {
+        statusCode: 400,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ 
+          error: 'Missing required field: response',
+          requestId,
+          received: requestBody
+        })
+      };
+    }
+    
+    console.log(`🚨 [${requestId}] Starting response processing...`);
+    
     // Decode and clean the response
-    let decodedResponse = response ? decodeURIComponent(response) : response;
+    let decodedResponse;
+    try {
+      decodedResponse = response ? decodeURIComponent(response) : response;
+      console.log(`🚨 [${requestId}] Response decoded successfully. Length: ${decodedResponse?.length}`);
+    } catch (decodeError) {
+      console.log(`🚨 [${requestId}] Decode error (using raw response):`, decodeError.message);
+      decodedResponse = response;
+    }
     
     // Limit response size to prevent errors
     if (decodedResponse && decodedResponse.length > 2000) {
       decodedResponse = decodedResponse.substring(0, 1997) + '...';
-      console.log('⚠️ Response truncated due to length:', decodedResponse.length);
+      console.log(`🚨 [${requestId}] Response truncated due to length: ${decodedResponse.length}`);
     }
     
     // Clean any problematic characters
     if (decodedResponse) {
+      const originalLength = decodedResponse.length;
       decodedResponse = decodedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      if (decodedResponse.length !== originalLength) {
+        console.log(`🚨 [${requestId}] Cleaned ${originalLength - decodedResponse.length} problematic characters`);
+      }
     }
     
-    console.log('📨 Received from Make.com:', { 
+    console.log(`🚨 [${requestId}] Final response preview:`, { 
       responsePreview: decodedResponse ? decodedResponse.substring(0, 200) + '...' : 'No response',
+      finalLength: decodedResponse?.length,
       sessionId, 
       techId 
     });
     
-    // Store message in Supabase demo_messages table
+    // Store message using shared storage service
+    console.log(`🚨 [${requestId}] Starting database storage...`);
     try {
-      const supabaseResponse = await fetch(
-        'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages',
+      await MessageStorageService.storeAIResponse(
+        { 
+          sessionId, 
+          techId 
+        },
+        decodedResponse,
         {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            message_text: decodedResponse,
-            sender: 'ai',
-            tech_id: techId,
-            created_at: timestamp || new Date().toISOString()
-          })
+          source: 'make_com' // 🔄 DUAL TESTING: Consistent source naming
         }
       );
-
-      if (!supabaseResponse.ok) {
-        const errorText = await supabaseResponse.text();
-        console.error('Supabase error:', supabaseResponse.status, errorText);
-        throw new Error(`Supabase error: ${supabaseResponse.status}`);
-      }
-
-      // Handle Supabase response properly to avoid JSON parsing errors
-      const responseText = await supabaseResponse.text();
-      if (responseText && responseText.trim()) {
-        try {
-          const savedMessage = JSON.parse(responseText);
-          console.log('✅ Stored message in Supabase:', savedMessage[0]?.id || 'success');
-        } catch (jsonError) {
-          console.log('✅ Stored message in Supabase (non-JSON response)');
-        }
-      } else {
-        console.log('✅ Stored message in Supabase (empty response - prefer=minimal)');
-      }
+      console.log(`🚨 [${requestId}] Database storage completed successfully`);
       
-    } catch (supabaseError) {
-      console.error('Supabase storage failed:', supabaseError.message);
+    } catch (storageError) {
+      console.error(`🚨 [${requestId}] Storage failed:`, {
+        error: storageError.message,
+        stack: storageError.stack,
+        name: storageError.name
+      });
       
-      // Fallback to in-memory storage if Supabase fails
+      // Fallback to in-memory storage if shared service fails
       global.demoMessages = global.demoMessages || [];
       global.demoMessages.push({
         id: Date.now().toString(),
@@ -104,29 +161,51 @@ export const handler = async (event, context) => {
         timestamp: timestamp || new Date().toISOString(),
         sessionId: sessionId
       });
-      console.log('✅ Stored demo message in memory (fallback)');
+      console.log(`🚨 [${requestId}] Fallback to memory storage completed`);
     }
+    
+    const totalProcessingTime = Date.now() - webhookStartTime;
+    console.log(`🚨 [${requestId}] WEBHOOK SUCCESS - Total time: ${totalProcessingTime}ms`);
     
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
+        'Access-Control-Allow-Origin': '*',
+        'X-Request-ID': requestId,
+        'X-Processing-Time': totalProcessingTime.toString()
       },
       body: JSON.stringify({ 
-        message: 'AI response received',
-        messageId: Date.now().toString()
+        message: 'AI response received and stored',
+        messageId: Date.now().toString(),
+        requestId,
+        processingTime: totalProcessingTime,
+        success: true
       })
     };
     
   } catch (error) {
-    console.error('Handler Error:', error);
+    const errorTime = Date.now() - webhookStartTime;
+    console.error(`🚨 [${requestId}] WEBHOOK ERROR (${errorTime}ms):`, {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+    
     return {
       statusCode: 500,
-      headers: { 'Access-Control-Allow-Origin': '*' },
+      headers: { 
+        'Access-Control-Allow-Origin': '*',
+        'X-Request-ID': requestId,
+        'X-Error-Time': errorTime.toString()
+      },
       body: JSON.stringify({ 
         error: 'Internal server error',
-        details: error.message 
+        details: error.message,
+        requestId,
+        errorTime,
+        success: false
       })
     };
   }

@@ -5,6 +5,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Icons from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { flushSync } from 'react-dom';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { getDeviceInfo, getVoiceConfig, getVoiceGuidance, needsIOSFallback, getVoiceErrorMessage } from '../utils/mobile-detection';
 import { AvatarSelectionPopup } from './ui/AvatarSelectionPopup';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +39,203 @@ const DynamicIcon = ({ name, ...props }: { name: keyof typeof Icons } & Icons.Lu
   return <IconComponent {...props} />;
 };
 
+// ✅ TIMING FIX: Waiting placeholder component for empty panels
+const WaitingPlaceholder = ({ system, visualConfig }: {
+  system: string;
+  visualConfig: any;
+}) => (
+  <div 
+    className="flex flex-col items-center justify-center p-8 rounded-lg border border-dashed"
+    style={{ 
+      backgroundColor: visualConfig.colors.surface,
+      borderColor: visualConfig.colors.text.secondary + '40'
+    }}
+  >
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 mb-3" 
+         style={{ borderColor: visualConfig.colors.primary }}></div>
+    <span 
+      className="text-sm font-medium"
+      style={{ color: visualConfig.colors.text.secondary }}
+    >
+      Waiting for {system} response...
+    </span>
+  </div>
+);
+
+// 🔄 DUAL TESTING: Performance comparison component
+const PerformanceComparison = ({ makeTime, nativeTime, visualConfig }: {
+  makeTime: number;
+  nativeTime: number;
+  visualConfig: any;
+}) => {
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  
+  if (!DUAL_TESTING_ENABLED) return null;
+  
+  const speedup = makeTime && nativeTime ? (makeTime / nativeTime).toFixed(1) : null;
+  
+  return (
+    <div className="flex items-center justify-center mt-3">
+      <div 
+        className="px-4 py-2 rounded-lg text-xs flex items-center gap-4"
+        style={{ 
+          backgroundColor: visualConfig.colors.surface,
+          border: `1px solid ${visualConfig.colors.secondary}`,
+          color: visualConfig.colors.text.secondary
+        }}
+      >
+        <span className="text-green-600">🔧 Make.com: {(makeTime / 1000).toFixed(1)}s</span>
+        <span className="text-yellow-600">⚡ Native: {(nativeTime / 1000).toFixed(1)}s</span>
+        {speedup && <span className="text-blue-600 font-medium">📈 {speedup}x faster</span>}
+      </div>
+    </div>
+  );
+};
+
+// 🔄 DUAL TESTING: Component for displaying dual responses side-by-side
+const DualResponseDisplay = ({ makeMsg, nativeMsg, waitingFor, visualConfig, theme }: {
+  makeMsg: Message | null;
+  nativeMsg: Message | null;
+  waitingFor?: 'make' | 'native' | null;
+  visualConfig: any;
+  theme: string;
+}) => {
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  
+  if (!DUAL_TESTING_ENABLED) return null;
+  const makeProcessingTime = makeMsg?.metadata?.processing_time || 0;
+  const nativeProcessingTime = nativeMsg?.metadata?.processing_time || 0;
+  const speedup = makeProcessingTime > 0 && nativeProcessingTime > 0 
+    ? (makeProcessingTime / nativeProcessingTime).toFixed(1)
+    : 'N/A';
+
+  return (
+    <div className="space-y-3">
+      {/* Dual Response Header */}
+      <div className="flex items-center justify-center">
+        <div 
+          className="px-3 py-1 rounded-full text-xs font-medium"
+          style={{ 
+            backgroundColor: visualConfig.colors.primary + '20',
+            color: visualConfig.colors.primary
+          }}
+        >
+          🔄 Dual Testing Comparison
+        </div>
+      </div>
+      
+      {/* Side-by-Side Responses */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Make.com Response Panel */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span style={{ color: visualConfig.colors.text.secondary }}>
+              🔗 Make.com Pipeline
+            </span>
+            <span style={{ color: visualConfig.colors.text.secondary }}>
+              {makeMsg && makeProcessingTime > 0 ? `${(makeProcessingTime / 1000).toFixed(1)}s` : 
+               waitingFor === 'make' ? 'Pending...' : 'N/A'}
+            </span>
+          </div>
+          <div
+            className="rounded-lg border border-green-300 min-h-[100px]"
+            style={{ backgroundColor: visualConfig.colors.elevated }}
+          >
+            {makeMsg ? (
+              <div className="p-4">
+                <ThemeAwareMessageBubble
+                  message={makeMsg}
+                  visualConfig={visualConfig}
+                  theme={theme}
+                  compact={true}
+                />
+              </div>
+            ) : (
+              <WaitingPlaceholder system="Make.com" visualConfig={visualConfig} />
+            )}
+          </div>
+        </div>
+
+        {/* Native Pipeline Response Panel */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span style={{ color: visualConfig.colors.text.secondary }}>
+              ⚡ Native Pipeline
+            </span>
+            <span className="text-yellow-500 font-medium">
+              {nativeMsg && nativeProcessingTime > 0 ? `${(nativeProcessingTime / 1000).toFixed(1)}s` : 
+               waitingFor === 'native' ? 'Pending...' : 'N/A'}
+              {nativeMsg && makeMsg && speedup !== 'N/A' && ` (${speedup}x faster)`}
+            </span>
+          </div>
+          <div
+            className="rounded-lg border border-yellow-300 min-h-[100px]"
+            style={{ backgroundColor: visualConfig.colors.elevated }}
+          >
+            {nativeMsg ? (
+              <div className="p-4">
+                <ThemeAwareMessageBubble
+                  message={nativeMsg}
+                  visualConfig={visualConfig}
+                  theme={theme}
+                  compact={true}
+                />
+              </div>
+            ) : (
+              <WaitingPlaceholder system="Native" visualConfig={visualConfig} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Metrics Comparison */}
+      {(makeMsg?.metadata || nativeMsg?.metadata) && (
+        <div className="grid grid-cols-2 gap-4 text-xs">
+          <div 
+            className="p-2 rounded"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div style={{ color: visualConfig.colors.text.secondary }}>Make.com Metrics:</div>
+            {makeMsg?.metadata?.services_count && (
+              <div>Services: {makeMsg.metadata.services_count}</div>
+            )}
+            {makeMsg?.metadata?.total_cost && (
+              <div>Cost: ${makeMsg.metadata.total_cost}</div>
+            )}
+            {makeMsg?.metadata?.confidence && (
+              <div>Confidence: {(makeMsg.metadata.confidence * 100).toFixed(0)}%</div>
+            )}
+          </div>
+          <div 
+            className="p-2 rounded"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div style={{ color: visualConfig.colors.text.secondary }}>Native Metrics:</div>
+            {nativeMsg?.metadata?.services_count && (
+              <div>Services: {nativeMsg.metadata.services_count}</div>
+            )}
+            {nativeMsg?.metadata?.total_cost && (
+              <div>Cost: ${nativeMsg.metadata.total_cost}</div>
+            )}
+            {nativeMsg?.metadata?.confidence && (
+              <div>Confidence: {(nativeMsg.metadata.confidence * 100).toFixed(0)}%</div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* 🔄 DUAL TESTING: Enhanced Performance Comparison */}
+      {makeProcessingTime > 0 && nativeProcessingTime > 0 && (
+        <PerformanceComparison 
+          makeTime={makeProcessingTime}
+          nativeTime={nativeProcessingTime}
+          visualConfig={visualConfig}
+        />
+      )}
+    </div>
+  );
+};
+
 const ChatInterface = () => {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut, isAdmin } = useAuth();
@@ -49,7 +248,9 @@ const ChatInterface = () => {
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
     webhookLatency: null,
-    totalResponseTime: null
+    totalResponseTime: null,
+    nativeLatency: null,
+    makeLatency: null
   });
   const [processingStartTime, setProcessingStartTime] = useState(null);
   const [showPerformancePanel, setShowPerformancePanel] = useState(false);
@@ -58,6 +259,26 @@ const ChatInterface = () => {
   const [diagnosticResults, setDiagnosticResults] = useState<DiagnosticResults | null>(null);
   const [showDiagnosticPanel, setShowDiagnosticPanel] = useState(false);
   const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
+
+  // 🎤 VOICE INPUT: Speech recognition state
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
+  
+  // Mobile-aware voice input state
+  const deviceInfo = getDeviceInfo();
+  const voiceConfig = getVoiceConfig(deviceInfo);
+  const voiceGuidance = getVoiceGuidance(deviceInfo);
+  
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [micPermissionState, setMicPermissionState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [voiceTimeout, setVoiceTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [pauseTimeout, setPauseTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showIOSGuidance, setShowIOSGuidance] = useState(false);
 
   const generateSessionId = () => {
     if (!user) {
@@ -77,6 +298,7 @@ const ChatInterface = () => {
   const lastPollTimeRef = useRef<Date>(new Date());
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const refreshButtonRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const welcomeMessage = EnvironmentManager.getWelcomeMessage();
@@ -99,6 +321,8 @@ const ChatInterface = () => {
 
   const MAKE_WEBHOOK_URL = coreConfig.makeWebhookUrl;
   const NETLIFY_API_URL = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
+  const NATIVE_PRICING_AGENT_URL = '/.netlify/functions/pricing-agent';
+  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -263,7 +487,8 @@ const ChatInterface = () => {
       // Track performance metrics
       setPerformanceMetrics(prev => ({
         ...prev,
-        webhookLatency: webhookLatency.toFixed(2)
+        webhookLatency: webhookLatency.toFixed(2),
+        makeLatency: webhookLatency.toFixed(2)
       }));
 
       // Handle different response scenarios
@@ -343,19 +568,91 @@ const ChatInterface = () => {
     }
   };
 
-  // 🔧 ENHANCED: Polling with comprehensive debug logging and error handling
+  // 🚀 DUAL TESTING: Send message to native pricing agent endpoint
+  const sendUserMessageToNative = async (userMessageText: string) => {
+    const debugPrefix = `🔗 NATIVE [${sessionIdRef.current.slice(-8)}]`;
+    
+    console.group(`${debugPrefix} Starting native pipeline request`);
+    console.log('📤 Message:', userMessageText.substring(0, 100) + (userMessageText.length > 100 ? '...' : ''));
+    
+    // Validate user authentication
+    if (!user) {
+      console.error('❌ No user data available for native pipeline');
+      console.groupEnd();
+      throw new Error("User not authenticated");
+    }
+
+    const payload = {
+      message: userMessageText,
+      timestamp: new Date().toISOString(),
+      sessionId: sessionIdRef.current,
+      source: 'TradeSphere_Native',
+      techId: user.tech_uuid,
+      firstName: user.first_name,
+      jobTitle: user.job_title,
+      betaCodeId: user.beta_code_id
+    };
+
+    const startTime = performance.now();
+    
+    try {
+      console.log('🚀 Sending to native pricing agent...');
+      
+      const response = await fetch(NATIVE_PRICING_AGENT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const nativeLatency = performance.now() - startTime;
+      
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        nativeLatency: nativeLatency.toFixed(2)
+      }));
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unable to read error response');
+        console.error('❌ Native pipeline failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText.substring(0, 500)
+        });
+        throw new Error(`Native pipeline failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Native pipeline success:', {
+        processingTime: `${result.processingTime}ms`,
+        stage: result.stage,
+        servicesFound: result.debug?.servicesFound || 0
+      });
+      
+      console.groupEnd();
+      return result;
+
+    } catch (error) {
+      console.error('❌ Native pipeline error:', error.message);
+      console.groupEnd();
+      throw error;
+    }
+  };
+
+  // 🔧 SIMPLIFIED: Fixed polling with proper URL construction
   const pollForAiMessages = async () => {
     const debugPrefix = `📡 POLL [${sessionIdRef.current.slice(-8)}]`;
     
     // Quick validation before polling
-    if (!NETLIFY_API_URL) {
-      console.warn(`${debugPrefix} Skipped - No Netlify API URL configured`);
+    if (!sessionIdRef.current) {
+      console.warn(`${debugPrefix} Skipped - No session ID`);
       return;
     }
     
     const pollStart = performance.now();
-    const currentApiUrl = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
-    const sinceParam = lastPollTimeRef.current.toISOString();
+    const currentApiUrl = `/.netlify/functions/chat-messages/${encodeURIComponent(sessionIdRef.current)}`;
+    const sinceParam = encodeURIComponent(lastPollTimeRef.current.toISOString());
     
     // Only log detailed info if admin or if there's been a recent user message
     const shouldDetailLog = isAdmin || (Date.now() - (processingStartTime || 0)) < 30000;
@@ -431,6 +728,37 @@ const ChatInterface = () => {
             lastPollTimeRef.current = new Date();
             
             console.log(`✅ ${debugPrefix} Added ${uniqueNewMessages.length} new messages to chat`);
+            
+            // 🔄 DUAL TESTING: Check completion based on mode
+            if (uniqueNewMessages.some(msg => msg.sender === 'ai')) {
+              const allMessages = [...prev, ...uniqueNewMessages];
+              const recentAIMessages = allMessages.filter(msg => 
+                msg.sender === 'ai' && 
+                Math.abs(new Date(msg.timestamp).getTime() - Date.now()) < 60000 // Last minute
+              );
+              
+              if (DUAL_TESTING_ENABLED) {
+                // Dual mode: Wait for both responses
+                const hasMakeResponse = recentAIMessages.some(msg => 
+                  !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
+                );
+                const hasNativeResponse = recentAIMessages.some(msg => 
+                  msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
+                );
+                
+                if (hasMakeResponse && hasNativeResponse) {
+                  console.log('🎯 DUAL TESTING: Both responses received - returning to idle');
+                  setIsLoading(false);
+                }
+              } else {
+                // Single mode: Return to idle after ANY AI response
+                if (recentAIMessages.length > 0) {
+                  console.log('📱 SINGLE MODE: Response received - returning to idle');
+                  setIsLoading(false);
+                }
+              }
+            }
+            
             return [...prev, ...uniqueNewMessages];
           } else {
             console.log(`🔄 ${debugPrefix} No new unique messages (${processedMessages.length} already exist)`);
@@ -462,20 +790,19 @@ const ChatInterface = () => {
     }
   };
 
-  // 🏢 ENTERPRISE: Smart polling - faster initial, then regular
+  // 🔍 DEBUG: Simple polling rollback to isolate 400 error
   useEffect(() => {
-    // Start with faster polling, then regular
-    const initialFastPolling = setInterval(pollForAiMessages, 1500); // 1.5s for first few polls
+    console.log('🔍 DEBUG: Starting simple 2-second polling');
+    const polling = setInterval(() => {
+      console.log('🔍 DEBUG: Polling attempt...');
+      pollForAiMessages();
+    }, 2000);
     
-    setTimeout(() => {
-      clearInterval(initialFastPolling);
-      const regularPolling = setInterval(pollForAiMessages, 3000); // Then 3s regular
-      
-      return () => clearInterval(regularPolling);
-    }, 10000); // Fast polling for first 10 seconds
-    
-    return () => clearInterval(initialFastPolling);
-  }, []);
+    return () => {
+      console.log('🔍 DEBUG: Cleaning up polling interval');
+      clearInterval(polling);
+    };
+  }, []); // Simplified dependency array
 
   // ORIGINAL: Auto-scroll functionality
   useEffect(() => {
@@ -502,6 +829,114 @@ const ChatInterface = () => {
       console.log('✅ Personalized initial welcome for:', user.first_name);
     }
   }, [user]);
+
+  // 🔄 DUAL TESTING: Group messages for dual display
+  const groupMessagesForDualDisplay = (messages: Message[]) => {
+    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ type: 'shared', message: msg }));
+
+    const grouped: Array<{ 
+      type: 'shared' | 'dual' | 'single';
+      message?: Message;
+      dual?: { make: Message | null; native: Message | null; waitingFor?: 'make' | 'native' | null };
+    }> = [];
+    const processed = new Set<string>();
+
+    // ✅ SLOT FILLING FIX: Function to fill existing waiting slots
+    const findAndFillExistingSlot = (newMessage: Message) => {
+      const isNative = newMessage.metadata?.source === 'native_pricing_agent' || newMessage.source === 'native_pricing_agent';
+      const isMake = newMessage.metadata?.source === 'make_com' || newMessage.source === 'make_com' || (!isNative && !newMessage.source);
+      
+      // Look for existing dual panel with empty slot for this source
+      for (let i = grouped.length - 1; i >= 0; i--) {
+        const group = grouped[i];
+        if (group.type === 'dual' && group.dual) {
+          if (isMake && !group.dual.make && group.dual.waitingFor === 'make') {
+            console.log('✅ SLOT FILLING: Make.com response filled waiting slot');
+            group.dual.make = newMessage;
+            group.dual.waitingFor = null; // Both slots now filled
+            return true; // Successfully filled existing slot
+          }
+          if (isNative && !group.dual.native && group.dual.waitingFor === 'native') {
+            console.log('✅ SLOT FILLING: Native response filled waiting slot');
+            group.dual.native = newMessage;
+            group.dual.waitingFor = null; // Both slots now filled
+            return true; // Successfully filled existing slot
+          }
+        }
+      }
+      return false; // No existing slot found
+    };
+
+    messages.forEach((msg, index) => {
+      if (processed.has(msg.id)) return;
+
+      // ✅ LOGICAL GROUPING: Shared messages (welcome + user inputs)
+      if (msg.sender === 'user' || (msg.sender === 'ai' && index === 0 && msg.text.includes('what\'s the customer scoop'))) {
+        grouped.push({ type: 'shared', message: msg });
+        processed.add(msg.id);
+      } else if (msg.sender === 'ai') {
+        if (DUAL_TESTING_ENABLED) {
+          // ✅ SLOT FILLING FIX: Try to fill existing waiting slot first
+          if (findAndFillExistingSlot(msg)) {
+            processed.add(msg.id);
+            return; // Skip creating new dual panel
+          }
+          // ✅ DUAL COMPARISON: AI responses - always create dual slots when dual testing enabled
+          const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
+          const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
+          
+          const correspondingMsg = messages.find(otherMsg => 
+            otherMsg.id !== msg.id &&
+            otherMsg.sender === 'ai' &&
+            Math.abs(new Date(otherMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000 && // Within 1 minute
+            otherMsg.sessionId === msg.sessionId &&
+            !processed.has(otherMsg.id) &&
+            ((isNative && (otherMsg.metadata?.source === 'make_com' || (!otherMsg.metadata?.source && !otherMsg.source))) ||
+             (isMake && (otherMsg.metadata?.source === 'native_pricing_agent' || otherMsg.source === 'native_pricing_agent')))
+          );
+
+          if (correspondingMsg) {
+            // ✅ DUAL DISPLAY: Both responses available
+            const makeMsg = isMake ? msg : correspondingMsg;
+            const nativeMsg = isNative ? msg : correspondingMsg;
+            
+            grouped.push({
+              type: 'dual',
+              dual: { 
+                make: makeMsg, 
+                native: nativeMsg,
+                waitingFor: null // Both responses available
+              }
+            });
+            
+            processed.add(msg.id);
+            processed.add(correspondingMsg.id);
+          } else {
+            // ✅ TIMING FIX: Always create dual slot, fill as responses arrive
+            grouped.push({
+              type: 'dual',
+              dual: { 
+                make: isMake ? msg : null, 
+                native: isNative ? msg : null,
+                waitingFor: isMake ? 'native' : 'make'
+              }
+            });
+            
+            processed.add(msg.id);
+          }
+        } else {
+          // When dual testing is disabled, show AI responses as normal shared messages
+          grouped.push({
+            type: 'shared',
+            message: msg
+          });
+          processed.add(msg.id);
+        }
+      }
+    });
+
+    return grouped;
+  };
 
   const handleRefreshChat = () => {
     if (!user) {
@@ -564,7 +999,45 @@ const ChatInterface = () => {
     }
 
     try {
-      await sendUserMessageToMake(userMessageText);
+      if (DUAL_TESTING_ENABLED) {
+        console.log('🔄 DUAL TESTING: Sending to both Make.com and Native Pipeline');
+        
+        // Send to both endpoints simultaneously
+        const promises = [
+          sendUserMessageToMake(userMessageText).catch(error => ({ error, source: 'make' })),
+          sendUserMessageToNative(userMessageText).catch(error => ({ error, source: 'native' }))
+        ];
+        
+        const results = await Promise.allSettled(promises);
+        
+        // Log results for both
+        results.forEach((result, index) => {
+          const source = index === 0 ? 'Make.com' : 'Native';
+          if (result.status === 'fulfilled') {
+            if (result.value?.error) {
+              console.warn(`⚠️ ${source} failed:`, result.value.error.message);
+            } else {
+              console.log(`✅ ${source} succeeded`);
+            }
+          } else {
+            console.error(`❌ ${source} rejected:`, result.reason);
+          }
+        });
+        
+        // If both failed, show error message
+        const bothFailed = results.every(result => 
+          result.status === 'rejected' || 
+          (result.status === 'fulfilled' && result.value?.error)
+        );
+        
+        if (bothFailed) {
+          throw new Error('Both Make.com and Native pipeline failed');
+        }
+        
+      } else {
+        // Original single webhook behavior
+        await sendUserMessageToMake(userMessageText);
+      }
     } catch (error) {
       const errorMessage: Message = {
         id: uuidv4(),
@@ -583,6 +1056,300 @@ const ChatInterface = () => {
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  // 🎤 VOICE INPUT: Check microphone permissions on mount
+  useEffect(() => {
+    const checkMicrophonePermission = async () => {
+      try {
+        if ('permissions' in navigator) {
+          const permission = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setMicPermissionState(permission.state as 'granted' | 'denied');
+          
+          permission.addEventListener('change', () => {
+            setMicPermissionState(permission.state as 'granted' | 'denied');
+          });
+        }
+      } catch (error) {
+        console.warn('Could not check microphone permission:', error);
+      }
+    };
+    
+    checkMicrophonePermission();
+  }, []);
+
+  // 🎤 VOICE INPUT: Cleanup voice timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+      }
+    };
+  }, [voiceTimeout, pauseTimeout]);
+
+  // 🎤 VOICE INPUT: Safe cleanup effect using listening state
+  useEffect(() => {
+    // Clean up voice state when speech recognition stops listening
+    if (!listening && isRecording) {
+      console.log('🎤 Speech recognition stopped - cleaning up state');
+      setIsRecording(false);
+      setVoiceError(null);
+      
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+        setVoiceTimeout(null);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        setPauseTimeout(null);
+      }
+    }
+  }, [listening, isRecording, voiceTimeout, pauseTimeout]);
+
+  // 🎤 VOICE INPUT: Smart text appending with transcript
+  const [voiceStartText, setVoiceStartText] = useState('');
+
+  // Helper function for smart text appending
+  const appendTranscript = (newText: string) => {
+    const current = voiceStartText.trim();
+    const newTextTrimmed = newText.trim();
+    
+    if (!newTextTrimmed) return voiceStartText;
+    
+    if (current && newTextTrimmed) {
+      // Smart punctuation handling
+      const separator = current.endsWith('.') || current.endsWith('!') || current.endsWith('?') 
+        ? ' ' 
+        : '. ';
+      setInputText(current + separator + newTextTrimmed);
+    } else if (current) {
+      setInputText(current + ' ' + newTextTrimmed);
+    } else {
+      setInputText(newTextTrimmed);
+    }
+  };
+
+  useEffect(() => {
+    if (transcript && isRecording) {
+      // During recording, append transcript to the text that was there when recording started
+      const current = voiceStartText.trim();
+      const newTextTrimmed = transcript.trim();
+      
+      if (current && newTextTrimmed) {
+        const separator = current.endsWith('.') || current.endsWith('!') || current.endsWith('?') 
+          ? ' ' 
+          : '. ';
+        setInputText(current + separator + newTextTrimmed);
+      } else if (current) {
+        setInputText(current + ' ' + newTextTrimmed);
+      } else {
+        setInputText(newTextTrimmed);
+      }
+      
+      // Reset pause detection when new speech is detected
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        
+        // Restart pause detection
+        const pauseTimer = setTimeout(() => {
+          console.log('🎤 Auto-stopping voice input after 8s pause');
+          try {
+            SpeechRecognition.stopListening();
+          } catch (error) {
+            console.warn('🎤 Error stopping speech recognition in transcript pause detection:', error);
+          }
+          setIsRecording(false);
+          setVoiceTimeout(null);
+          setPauseTimeout(null);
+        }, voiceConfig.pauseDetection);
+        
+        setPauseTimeout(pauseTimer);
+      }
+    }
+  }, [transcript, isRecording, voiceStartText, pauseTimeout, voiceConfig.pauseDetection]);
+
+  // 🎤 VOICE INPUT: Handle voice recording toggle (Mobile-optimized)
+  const handleVoiceToggle = async () => {
+    setVoiceError(null);
+    
+    // iOS fallback - show keyboard dictation guidance
+    if (needsIOSFallback(deviceInfo)) {
+      setShowIOSGuidance(true);
+      // Focus input field for keyboard dictation
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+      return;
+    }
+    
+    if (!browserSupportsSpeechRecognition) {
+      const errorMsg = getVoiceErrorMessage('Browser not supported', deviceInfo);
+      setVoiceError(errorMsg);
+      return;
+    }
+    
+    if (isRecording) {
+      // Stop recording and clear all timeouts
+      if (voiceTimeout) {
+        clearTimeout(voiceTimeout);
+        setVoiceTimeout(null);
+      }
+      if (pauseTimeout) {
+        clearTimeout(pauseTimeout);
+        setPauseTimeout(null);
+      }
+      
+      try {
+        SpeechRecognition.stopListening();
+      } catch (error) {
+        console.warn('🎤 Error stopping speech recognition:', error);
+      }
+      setIsRecording(false);
+      
+      console.log('🎤 Voice recording stopped manually');
+      
+      // If we have transcript text, let user edit it
+      if (transcript.trim()) {
+        console.log('🎤 Transcript available for editing:', transcript.length, 'characters');
+      }
+    } else {
+      // Start recording with enhanced pause detection
+      try {
+        // Store current text for appending later
+        setVoiceStartText(inputText);
+        resetTranscript();
+        setIsRecording(true);
+        
+        // Use mobile-aware configuration
+        try {
+          await SpeechRecognition.startListening({ 
+            continuous: voiceConfig.continuous,
+            language: voiceConfig.language,
+            interimResults: voiceConfig.interimResults,
+            maxAlternatives: voiceConfig.maxAlternatives
+          });
+        } catch (startError) {
+          console.error('🎤 Error starting speech recognition:', startError);
+          throw startError;
+        }
+        
+        // Set up fallback timeout (30 seconds)
+        const fallbackTimeout = setTimeout(() => {
+          console.log('🎤 Auto-stopping voice input after 30s fallback timeout');
+          try {
+            SpeechRecognition.stopListening();
+          } catch (error) {
+            console.warn('🎤 Error stopping speech recognition in timeout:', error);
+          }
+          setIsRecording(false);
+          setVoiceTimeout(null);
+          setPauseTimeout(null);
+        }, voiceConfig.timeout);
+        
+        setVoiceTimeout(fallbackTimeout);
+        
+        // Set up pause detection timeout (8 seconds of silence)
+        const startPauseDetection = () => {
+          if (pauseTimeout) {
+            clearTimeout(pauseTimeout);
+          }
+          
+          const pauseTimer = setTimeout(() => {
+            console.log('🎤 Auto-stopping voice input after 8s pause');
+            try {
+              SpeechRecognition.stopListening();
+            } catch (error) {
+              console.warn('🎤 Error stopping speech recognition in pause detection:', error);
+            }
+            setIsRecording(false);
+            setVoiceTimeout(null);
+            setPauseTimeout(null);
+          }, voiceConfig.pauseDetection);
+          
+          setPauseTimeout(pauseTimer);
+        };
+        
+        // Start initial pause detection
+        startPauseDetection();
+        
+        setMicPermissionState('granted');
+        console.log('🎤 Voice recording started', {
+          device: deviceInfo.isMobile ? 'mobile' : 'desktop',
+          continuous: voiceConfig.continuous,
+          timeout: voiceConfig.timeout
+        });
+        
+      } catch (error) {
+        console.error('Failed to start voice recognition:', error);
+        const errorMsg = getVoiceErrorMessage(error.message, deviceInfo);
+        setVoiceError(errorMsg);
+        setIsRecording(false);
+        setMicPermissionState('denied');
+        
+        // Clear timeout if it was set
+        if (voiceTimeout) {
+          clearTimeout(voiceTimeout);
+          setVoiceTimeout(null);
+        }
+      }
+    }
+  };
+
+  // 🎤 VOICE INPUT: Get microphone button icon and style based on state (Mobile-aware)
+  const getMicrophoneButtonConfig = () => {
+    // Base transition classes for smooth state changes
+    const baseTransition = 'mic-button-transition transition-all duration-300 ease-in-out';
+    
+    // iOS fallback - show keyboard icon instead
+    if (needsIOSFallback(deviceInfo)) {
+      return {
+        icon: voiceGuidance.icon,
+        className: `${baseTransition} text-blue-500 hover:text-blue-700`,
+        title: voiceGuidance.message
+      };
+    }
+    
+    if (!browserSupportsSpeechRecognition) {
+      return {
+        icon: 'MicOff',
+        className: `${baseTransition} opacity-50 cursor-not-allowed`,
+        title: getVoiceErrorMessage('Not supported', deviceInfo)
+      };
+    }
+    
+    if (voiceError) {
+      return {
+        icon: 'MicOff',
+        className: `${baseTransition} text-red-500 hover:text-red-600`,
+        title: voiceError
+      };
+    }
+    
+    if (isRecording) {
+      const timeoutText = deviceInfo.isMobile ? ` (auto-stop in ${Math.round(voiceConfig.timeout / 1000)}s)` : '';
+      return {
+        icon: 'MicIcon',
+        className: `${baseTransition} text-red-500 animate-pulse hover:text-red-600 transform scale-110`,
+        title: `${voiceGuidance.buttonText.replace('Start', 'Stop')}${timeoutText}`
+      };
+    }
+    
+    if (micPermissionState === 'denied') {
+      return {
+        icon: 'MicOff',
+        className: `${baseTransition} text-orange-500 hover:text-orange-600`,
+        title: 'Microphone permission denied. Please enable in browser settings.'
+      };
+    }
+    
+    return {
+      icon: 'MicIcon',
+      className: `${baseTransition} text-gray-500 hover:text-blue-500 hover:scale-105`,
+      title: voiceGuidance.message
+    };
   };
 
   const handleFeedbackSubmit = async (feedbackText: string) => {
@@ -755,22 +1522,61 @@ const ChatInterface = () => {
             borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.5rem' : '0.75rem'
           }}
         >
-          {/* ORIGINAL: Messages Area - exact same structure */}
+          {/* 🔄 DUAL TESTING: Enhanced Messages Area with dual response support */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {messages.map((message, index) => (
+            {groupMessagesForDualDisplay(messages).map((messageGroup, index) => (
               <div
-                key={message.id}
+                key={
+                  messageGroup.message?.id || 
+                  `dual-${messageGroup.dual?.make?.id || 'waiting'}-${messageGroup.dual?.native?.id || 'waiting'}` ||
+                  `group-${index}`
+                }
                 className={`
                   ${isRefreshing ? 'animate-fade-up-out' : ''}
-                  ${!isRefreshing && index === messages.length - 1 && message.sender === 'user' ? 'animate-fade-up-in-delay-user' : ''}
-                  ${!isRefreshing && index === messages.length - 1 && message.sender === 'ai' ? 'animate-fade-up-in-delay' : ''}
+                  ${!isRefreshing && index === messages.length - 1 ? 'animate-fade-up-in-delay' : ''}
                 `}
               >
-                <ThemeAwareMessageBubble
-                  message={message}
-                  visualConfig={visualConfig}
-                  theme={theme}
-                />
+                {/* ✅ SHARED MESSAGES: Welcome + User inputs (no source styling) */}
+                {messageGroup.type === 'shared' && messageGroup.message ? (
+                  <ThemeAwareMessageBubble
+                    message={messageGroup.message}
+                    visualConfig={visualConfig}
+                    theme={theme}
+                    removeSourceStyling={true}
+                  />
+                ) : messageGroup.type === 'dual' && messageGroup.dual && DUAL_TESTING_ENABLED ? (
+                  /* ✅ DUAL COMPARISON: Side-by-side AI responses with performance metrics */
+                  <DualResponseDisplay
+                    makeMsg={messageGroup.dual.make}
+                    nativeMsg={messageGroup.dual.native}
+                    waitingFor={messageGroup.dual.waitingFor}
+                    visualConfig={visualConfig}
+                    theme={theme}
+                  />
+                ) : messageGroup.type === 'single' && messageGroup.message && DUAL_TESTING_ENABLED ? (
+                  /* ✅ ORPHANED RESPONSE: Single AI response with context (only in dual testing mode) */
+                  <div className="space-y-2">
+                    <div className="flex justify-center">
+                      <div 
+                        className="text-xs px-3 py-1 rounded-full"
+                        style={{
+                          backgroundColor: visualConfig.colors.primary + '20',
+                          color: visualConfig.colors.primary
+                        }}
+                      >
+                        {messageGroup.message.source === 'native_pricing_agent' 
+                          ? '⚡ Native Only - Make.com Unavailable' 
+                          : '🔗 Make.com Only - Native Unavailable'}
+                      </div>
+                    </div>
+                    
+                    <ThemeAwareMessageBubble
+                      message={messageGroup.message}
+                      visualConfig={visualConfig}
+                      theme={theme}
+                    />
+                  </div>
+                ) : null}
               </div>
             ))}
 
@@ -805,22 +1611,56 @@ const ChatInterface = () => {
           >
             <div className="p-3">
               <div className="flex items-center space-x-4 max-w-4xl mx-auto">
-                <textarea
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder={terminologyConfig.placeholderExamples}
-                  className="flex-1 px-3 py-2 resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
-                  style={{
-                    backgroundColor: visualConfig.colors.background,
-                    color: visualConfig.colors.text.primary,
-                    borderColor: visualConfig.colors.secondary,
-                    '--tw-ring-color': visualConfig.colors.primary,
-                    borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
-                  }}
-                  rows={1}
-                  disabled={isLoading}
-                />
+                <div className="flex-1 relative">
+                  <textarea
+                    ref={inputRef}
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={terminologyConfig.placeholderExamples}
+                    className="w-full px-3 py-2 pr-12 resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
+                    style={{
+                      backgroundColor: visualConfig.colors.background,
+                      color: visualConfig.colors.text.primary,
+                      borderColor: visualConfig.colors.secondary,
+                      '--tw-ring-color': visualConfig.colors.primary,
+                      borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.25rem' : '0.75rem'
+                    }}
+                    rows={1}
+                    disabled={isLoading}
+                  />
+                  
+                  {/* 🎤 VOICE INPUT: Microphone button - TEMPORARILY HIDDEN */}
+                  {false && (
+                    <button
+                      onClick={handleVoiceToggle}
+                      disabled={isLoading || !browserSupportsSpeechRecognition}
+                      className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full transition-all duration-200 ${getMicrophoneButtonConfig().className} ${isRecording ? 'animate-recording-glow' : ''}`}
+                      title={getMicrophoneButtonConfig().title}
+                      aria-label={isRecording ? 'Stop voice recording' : 'Start voice recording'}
+                    >
+                      <DynamicIcon 
+                        name={getMicrophoneButtonConfig().icon as keyof typeof Icons} 
+                        className={`h-4 w-4 ${isRecording ? 'animate-voice-pulse' : ''}`}
+                      />
+                    </button>
+                  )}
+                  
+                  {/* 🎤 VOICE INPUT: Recording indicator - TEMPORARILY HIDDEN */}
+                  {false && isRecording && (
+                    <div className="absolute -top-8 right-0 flex items-center space-x-2 px-2 py-1 bg-red-500 text-white text-xs rounded-md animate-fade-in">
+                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                      <span>Recording...</span>
+                    </div>
+                  )}
+                  
+                  {/* 🎤 VOICE INPUT: Error message - TEMPORARILY HIDDEN */}
+                  {false && voiceError && (
+                    <div className="absolute -top-8 right-0 px-2 py-1 bg-red-500 text-white text-xs rounded-md max-w-xs">
+                      {voiceError}
+                    </div>
+                  )}
+                </div>
                 <button
                   ref={sendButtonRef}
                   onClick={handleSendMessage}
@@ -909,6 +1749,63 @@ const ChatInterface = () => {
         userName={user?.first_name || 'Anonymous'}
       />
 
+      {/* iOS Voice Guidance Modal - TEMPORARILY HIDDEN */}
+      {false && showIOSGuidance && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
+          <div
+            className="rounded-xl p-6 max-w-sm mx-4 shadow-2xl animate-scale-in"
+            style={{ backgroundColor: visualConfig.colors.surface }}
+          >
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4"
+                   style={{ backgroundColor: visualConfig.colors.primary + '20' }}>
+                <DynamicIcon 
+                  name={voiceGuidance.icon as keyof typeof Icons}
+                  className="h-6 w-6"
+                  style={{ color: visualConfig.colors.primary }}
+                />
+              </div>
+              
+              <h3 className="text-lg font-medium mb-2" 
+                  style={{ color: visualConfig.colors.text.primary }}>
+                {voiceGuidance.title}
+              </h3>
+              
+              <p className="text-sm mb-6"
+                 style={{ color: visualConfig.colors.text.secondary }}>
+                {voiceGuidance.message}
+              </p>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowIOSGuidance(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                  style={{
+                    borderColor: visualConfig.colors.secondary,
+                    color: visualConfig.colors.text.secondary,
+                    backgroundColor: 'transparent'
+                  }}
+                >
+                  Got it
+                </button>
+                <button
+                  onClick={() => {
+                    setShowIOSGuidance(false);
+                    if (inputRef.current) {
+                      inputRef.current.focus();
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white"
+                  style={{ backgroundColor: visualConfig.colors.primary }}
+                >
+                  {voiceGuidance.buttonText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showLogoutModal && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-fade-in">
           <div
@@ -948,9 +1845,26 @@ const ChatInterface = () => {
 
       {/* 🏢 ENTERPRISE: Performance metrics (dev only, non-intrusive) */}
       {isAdmin && showPerformancePanel && (
-        <div className="fixed bottom-20 right-4 bg-black bg-opacity-80 text-white text-xs p-2 rounded max-w-xs">
-          <div>🏢 PERFORMANCE</div>
-          <div>Webhook: {performanceMetrics.webhookLatency}ms</div>
+        <div className="fixed bottom-20 right-4 bg-black bg-opacity-80 text-white text-xs p-3 rounded max-w-xs">
+          <div className="font-semibold mb-2">🏢 PERFORMANCE</div>
+          {DUAL_TESTING_ENABLED ? (
+            <>
+              <div className="text-blue-300">🔄 DUAL TESTING MODE</div>
+              {performanceMetrics.makeLatency && (
+                <div>Make.com: {performanceMetrics.makeLatency}ms</div>
+              )}
+              {performanceMetrics.nativeLatency && (
+                <div className="text-green-300">Native: {performanceMetrics.nativeLatency}ms</div>
+              )}
+              {performanceMetrics.makeLatency && performanceMetrics.nativeLatency && (
+                <div className="text-yellow-300 border-t border-gray-600 pt-1 mt-1">
+                  Speedup: {((parseFloat(performanceMetrics.makeLatency) / parseFloat(performanceMetrics.nativeLatency)) || 1).toFixed(1)}x
+                </div>
+              )}
+            </>
+          ) : (
+            <div>Webhook: {performanceMetrics.webhookLatency}ms</div>
+          )}
           {performanceMetrics.totalResponseTime && <div>Total: {performanceMetrics.totalResponseTime}s</div>}
         </div>
       )}

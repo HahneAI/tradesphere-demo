@@ -72,7 +72,7 @@ export const handler = async (event, context) => {
     const timeoutId = setTimeout(() => controller.abort(), 5000); // ⚡ ENTERPRISE: Reduced to 5s
     
     try {
-      // EXISTING: Supabase URL construction with ENHANCED optimization
+      // 🔍 DEBUG: Enhanced Supabase URL construction with error prevention
       const supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages';
       const queryParams = new URLSearchParams({
         'session_id': `eq.${sessionId}`,
@@ -80,7 +80,14 @@ export const handler = async (event, context) => {
         'created_at': `gte.${since}`,
         'order': 'created_at.asc',
         'limit': '10', // ⚡ ENTERPRISE: Limit for performance
-        'select': 'id,message_text,sender,created_at,session_id' // ⚡ ENTERPRISE: Select only needed fields
+        'select': 'id,message_text,sender,created_at,session_id,message_source' // ✅ RESTORED: Include source for visual differentiation
+      });
+      
+      console.log('🔍 DEBUG - Query URL:', `${supabaseUrl}?${queryParams}`);
+      console.log('🔍 DEBUG - Query params:', {
+        sessionId,
+        since,
+        selectFields: 'id,message_text,sender,created_at,session_id,message_source'
       });
 
       const supabaseResponse = await fetch(`${supabaseUrl}?${queryParams}`, {
@@ -104,7 +111,16 @@ export const handler = async (event, context) => {
       
       if (!supabaseResponse.ok) {
         const errorText = await supabaseResponse.text();
-        console.error('❌ Supabase error:', supabaseResponse.status, errorText);
+        console.error('❌ SUPABASE 400 ERROR DETAILS:', {
+          status: supabaseResponse.status,
+          statusText: supabaseResponse.statusText,
+          errorBody: errorText,
+          queryUrl: `${supabaseUrl}?${queryParams}`,
+          sessionId,
+          since,
+          headers: Object.fromEntries(supabaseResponse.headers.entries())
+        });
+        
         return {
           statusCode: supabaseResponse.status >= 500 ? 500 : supabaseResponse.status,
           headers: { 
@@ -114,8 +130,14 @@ export const handler = async (event, context) => {
             'X-Error-Type': 'database' // ⚡ ENTERPRISE: Error classification
           },
           body: JSON.stringify({ 
-            error: 'Database error', 
+            error: 'Database query failed', 
             details: errorText,
+            debugInfo: {
+              queryUrl: `${supabaseUrl}?${queryParams}`,
+              sessionId,
+              since,
+              selectFields: 'id,message_text,sender,created_at,session_id,message_source'
+            },
             retryAfter: 5 // ⚡ ENTERPRISE: Retry guidance
           })
         };
@@ -124,7 +146,7 @@ export const handler = async (event, context) => {
       const sessionMessages = await supabaseResponse.json();
       console.log('📥 CONCURRENCY DEBUG - Raw messages from DB:', sessionMessages.length);
       
-      // EXISTING: Message formatting with ENHANCED validation
+      // 🔍 DEBUG: Basic message formatting (rollback to working version)
       const formattedMessages = sessionMessages.map(msg => {
         try {
           return {
@@ -133,7 +155,9 @@ export const handler = async (event, context) => {
             text: msg.message_text || '',
             sender: msg.sender || 'ai',
             timestamp: msg.created_at || new Date().toISOString(),
-            sessionId: msg.session_id || sessionId
+            sessionId: msg.session_id || sessionId,
+            // ✅ RESTORED: Include source for visual differentiation
+            source: msg.message_source || 'make_com'
           };
         } catch (formatError) {
           console.error('❌ Message formatting error:', formatError, msg);

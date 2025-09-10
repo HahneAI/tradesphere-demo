@@ -88,5 +88,23 @@ export default defineConfig(({ mode }) => {
     optimizeDeps: {
       exclude: ['lucide-react'],
     },
+    build: {
+      target: 'esnext', // Support import.meta
+      rollupOptions: {
+        // Mark Google APIs as external for Netlify functions
+        external: [
+          'google-auth-library',
+          'googleapis'
+        ],
+        output: {
+          format: 'es', // Use ES modules format for import.meta support
+          // Handle external dependencies properly
+          globals: {
+            'google-auth-library': 'GoogleAuth',
+            'googleapis': 'googleapis'
+          }
+        }
+      }
+    }
   };
 });

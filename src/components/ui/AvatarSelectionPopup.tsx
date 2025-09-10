@@ -15,7 +15,7 @@ const AVAILABLE_ICONS = [
   { name: 'TreePine', label: 'Pine Tree', description: 'Evergreen & conifers' },
   { name: 'TreeDeciduous', label: 'Oak Tree', description: 'Shade & ornamental trees' },
   { name: 'Flower', label: 'Flower', description: 'Gardens & blooms' },
-  { name: 'Leaf', label: 'Leaf', label: 'Foliage & plants' },
+  { name: 'Leaf', label: 'Foliage & plants', description: 'Leaves & plant care' },
   { name: 'Shovel', label: 'Shovel', description: 'Tools & installation' },
   { name: 'Sun', label: 'Sun', description: 'Outdoor & seasonal work' },
   { name: 'Sprout', label: 'Sprout', description: 'New plantings & growth' },
