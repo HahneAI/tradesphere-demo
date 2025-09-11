@@ -250,14 +250,17 @@ export const handler = async (event, context) => {
       console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
       
       // 3. 🧠 PHASE 2B: Generate intelligent summary (async, post-response)
-      // This runs in the background without blocking the user response
-      if (payload.customerName) {
-        generateInteractionSummary(payload.customerName, payload.message, response.response, previousContext)
-          .then(summary => updateInteractionSummary(payload.sessionId, interactionNumber, summary))
-          .catch(error => console.error('❌ Background summary generation failed:', error));
-        
-        console.log('🧠 Background summary generation initiated with cascading context');
-      }
+      // This runs in the background without blocking the user response for ALL interactions
+      const customerNameForSummary = payload.customerName || `Session_${payload.sessionId.slice(-8)}`;
+      
+      generateInteractionSummary(customerNameForSummary, payload.message, response.response, previousContext)
+        .then(summary => updateInteractionSummary(payload.sessionId, interactionNumber, summary))
+        .catch(error => {
+          console.error('❌ Background summary generation failed:', error);
+          console.error('❌ Summary failure details:', { sessionId: payload.sessionId, interactionNumber });
+        });
+      
+      console.log(`🧠 Background summary generation initiated for session ${payload.sessionId} with ${payload.customerName ? 'customer name' : 'session ID'}`);
       
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
@@ -472,13 +475,16 @@ async function generateInteractionSummary(customerName, userInput, aiResponse, p
       return `Incomplete interaction data for ${customerName || 'unknown customer'}`;
     }
     
-    // Get OpenAI API key from environment
-    const openaiKey = process.env.VITE_AI_API_KEY || process.env.OPENAI_API_KEY;
+    // Get OpenAI API key from environment (Netlify functions use OPENAI_API_KEY)
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_AI_API_KEY;
     
     if (!openaiKey || !openaiKey.startsWith('sk-')) {
-      console.warn('⚠️ No OpenAI API key available, using fallback summary');
+      console.warn('⚠️ No OpenAI API key available for summary generation');
+      console.warn(`⚠️ Available env vars: OPENAI_API_KEY=${!!process.env.OPENAI_API_KEY}, VITE_AI_API_KEY=${!!process.env.VITE_AI_API_KEY}`);
       return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
     }
+    
+    console.log(`🔑 Using OpenAI API key for summary generation (key starts with: ${openaiKey.substring(0, 7)}...)`);
     
     // Build cascading summary prompt
     let summaryPrompt = `Create a professional 3-4 sentence maximum summary of this customer interaction for business records.
