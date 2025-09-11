@@ -7,7 +7,7 @@
  * Phase 2A: Session-wide customer detail updates for mid-chat confirmations
  */
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
   const startTime = Date.now();
 
   // CORS headers

@@ -7,7 +7,7 @@
  * Phase 2D: Customer Context Preloading
  */
 
-export const handler = async (event, context) => {
+exports.handler = async (event, context) => {
   const startTime = Date.now();
 
   // CORS headers
