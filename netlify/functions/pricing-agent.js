@@ -229,7 +229,17 @@ export const handler = async (event, context) => {
       console.log('✅ DEMO_MESSAGES STORAGE: Polling record stored');
       
       // 2. 🏢 PHASE 2: Store in VC Usage for permanent records with customer data
+      console.log(`🔢 [INTERACTION_DEBUG] About to get interaction number for session: ${payload.sessionId}`);
       const interactionNumber = await getNextInteractionNumber(payload.sessionId);
+      console.log(`🔢 [INTERACTION_DEBUG] Retrieved interaction number: ${interactionNumber} for session: ${payload.sessionId}`);
+      
+      console.log(`💾 [STORAGE_DEBUG] About to store VC Usage record:`, {
+        sessionId: payload.sessionId,
+        interactionNumber: interactionNumber,
+        userInput: payload.message.substring(0, 50) + '...',
+        aiResponse: response.response.substring(0, 50) + '...'
+      });
+      
       await MessageStorageService.storeVCUsageRecord(
         payload, 
         payload.message, 
@@ -325,7 +335,7 @@ function parseWebhookPayload(body) {
     }
   }
 
-  return {
+  const parsedPayload = {
     message: payload.message,
     timestamp: payload.timestamp,
     sessionId: payload.sessionId,
@@ -340,6 +350,18 @@ function parseWebhookPayload(body) {
     customerEmail: payload.customerEmail || null,
     customerPhone: payload.customerPhone || null
   };
+
+  // 🔍 DEBUG: Log all customer fields
+  console.log('🏢 [PAYLOAD_DEBUG] Customer fields in payload:', {
+    hasCustomerName: !!parsedPayload.customerName,
+    hasCustomerAddress: !!parsedPayload.customerAddress,
+    hasCustomerEmail: !!parsedPayload.customerEmail,
+    hasCustomerPhone: !!parsedPayload.customerPhone,
+    customerName: parsedPayload.customerName,
+    customerEmail: parsedPayload.customerEmail?.substring(0, 20) + '...'
+  });
+
+  return parsedPayload;
 }
 
 /**
@@ -367,7 +389,8 @@ function debugEnvironmentVariables() {
  * Queries VC Usage table to find highest interaction_number for session and increments by 1
  */
 async function getNextInteractionNumber(sessionId) {
-  console.log(`🔢 Getting next interaction number for session: ${sessionId}`);
+  console.log(`🔢 [INTERACTION_DEBUG] Getting next interaction number for session: ${sessionId}`);
+  console.log(`🔢 [INTERACTION_DEBUG] SessionId type: ${typeof sessionId}, length: ${sessionId?.length}`);
   
   try {
     // Get Supabase credentials
@@ -377,34 +400,55 @@ async function getNextInteractionNumber(sessionId) {
     // Query for max interaction number in this session
     const queryParams = new URLSearchParams({
       'session_id': `eq.${sessionId}`,
-      'select': 'interaction_number',
+      'select': 'interaction_number,session_id,created_at',
       'order': 'interaction_number.desc',
-      'limit': '1'
+      'limit': '10'
     });
     
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Accept': 'application/json'
-        }
+    const queryUrl = `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`;
+    console.log(`🔢 [INTERACTION_DEBUG] Query URL: ${queryUrl}`);
+    
+    const response = await fetch(queryUrl, {
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Accept': 'application/json'
       }
-    );
+    });
+    
+    console.log(`🔢 [INTERACTION_DEBUG] Response status: ${response.status}, ok: ${response.ok}`);
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`🔢 [INTERACTION_DEBUG] Query failed: ${response.status} - ${errorText}`);
       console.warn(`⚠️ Failed to query interaction number, defaulting to 1: ${response.status}`);
       return 1;
     }
     
     const records = await response.json();
+    console.log(`🔢 [INTERACTION_DEBUG] Found ${records.length} existing records for session ${sessionId}`);
+    
+    if (records.length > 0) {
+      console.log(`🔢 [INTERACTION_DEBUG] Existing interactions:`, records.map(r => ({ 
+        interaction_number: r.interaction_number, 
+        session_id: r.session_id,
+        created_at: r.created_at 
+      })));
+    }
+    
     const nextNumber = records.length > 0 ? (records[0].interaction_number + 1) : 1;
     
-    console.log(`🔢 Next interaction number: ${nextNumber} (previous max: ${records.length > 0 ? records[0].interaction_number : 'none'})`);
+    console.log(`🔢 [INTERACTION_DEBUG] Calculated next interaction number: ${nextNumber}`);
+    console.log(`🔢 [INTERACTION_DEBUG] Previous max: ${records.length > 0 ? records[0].interaction_number : 'none'}`);
+    
     return nextNumber;
     
   } catch (error) {
+    console.error('🔢 [INTERACTION_DEBUG] Error getting interaction number:', {
+      error: error.message,
+      stack: error.stack,
+      sessionId: sessionId
+    });
     console.error('❌ Error getting interaction number, defaulting to 1:', error);
     return 1;
   }

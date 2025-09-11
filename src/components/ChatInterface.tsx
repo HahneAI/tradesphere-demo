@@ -327,6 +327,7 @@ const ChatInterface = () => {
     phone: string;
   } | null>(null);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
 
@@ -1447,6 +1448,7 @@ const ChatInterface = () => {
       phone: customer.customerPhone || ''
     });
     
+    setShowCustomerForm(false); // Hide form when selecting existing customer
     setShowCustomerDropdown(false);
     
     // 🔄 PHASE 2D: Load conversation context with preloading animation
@@ -1715,46 +1717,72 @@ const ChatInterface = () => {
                         borderColor: visualConfig.colors.secondary
                       }}
                     >
-                      {/* 📊 PHASE 2B: Enter New Customer Details Button */}
+                      {/* Top Action Section */}
                       <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
-                        <button
-                          onClick={() => {
-                            // Clear any selected customer and show form
-                            setCustomerDetails(null);
-                          }}
-                          className="w-full p-3 rounded-lg border-2 border-dashed transition-colors hover:bg-opacity-50"
-                          style={{ 
-                            borderColor: visualConfig.colors.primary,
-                            backgroundColor: 'transparent',
-                            color: visualConfig.colors.text.primary
-                          }}
-                        >
-                          <div className="flex items-center justify-center space-x-2">
-                            <DynamicIcon name="Plus" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
-                            <span className="font-medium">Enter New Customer Details</span>
-                          </div>
-                        </button>
+                        {!customerDetails ? (
+                          // Show "Add New Customer" when no customer selected
+                          <button
+                            onClick={() => {
+                              setShowCustomerForm(true);
+                              setCustomerDetails({ name: '', address: '', email: '', phone: '' });
+                            }}
+                            className="w-full p-3 rounded-lg border-2 border-dashed transition-colors hover:bg-opacity-50"
+                            style={{ 
+                              borderColor: visualConfig.colors.primary,
+                              backgroundColor: 'transparent',
+                              color: visualConfig.colors.text.primary
+                            }}
+                          >
+                            <div className="flex items-center justify-center space-x-2">
+                              <DynamicIcon name="Plus" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
+                              <span className="font-medium">Add New Customer</span>
+                            </div>
+                          </button>
+                        ) : (
+                          // Show "Edit Current Customer" when customer loaded
+                          <button
+                            onClick={() => {
+                              setShowCustomerForm(!showCustomerForm);
+                            }}
+                            className="w-full p-3 rounded-lg border transition-colors hover:shadow-sm"
+                            style={{ 
+                              borderColor: visualConfig.colors.secondary,
+                              backgroundColor: visualConfig.colors.elevated,
+                              color: visualConfig.colors.text.primary
+                            }}
+                          >
+                            <div className="flex items-center justify-center space-x-2">
+                              <DynamicIcon name="Edit" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
+                              <span className="font-medium">Edit Current Customer: {customerDetails.name}</span>
+                            </div>
+                          </button>
+                        )}
                       </div>
 
-                      {/* Recent Customers Section - Limited to 2 */}
+                      {/* Section Separator & Recent Customers */}
                       {recentCustomerSessions.length > 0 && (
-                        <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
-                          <h4 className="text-sm font-semibold mb-3 flex items-center space-x-2" style={{ color: visualConfig.colors.text.primary }}>
-                            <DynamicIcon name="Clock" className="h-4 w-4" />
-                            <span>Recent Customers</span>
-                          </h4>
-                          <div className="space-y-2">
-                            {recentCustomerSessions.slice(0, 2).map((customer, index) => (
-                              <button
-                                key={customer.id || index}
-                                onClick={() => handleCustomerSelect(customer)}
-                                className="w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all duration-200"
-                                style={{ 
-                                  backgroundColor: visualConfig.colors.elevated,
-                                  borderColor: visualConfig.colors.secondary
-                                }}
-                              >
-                                <div className="flex items-start justify-between">
+                        <>
+                          <div className="px-4 py-2" style={{ backgroundColor: visualConfig.colors.background }}>
+                            <div className="h-px" style={{ backgroundColor: visualConfig.colors.secondary }}></div>
+                          </div>
+                          
+                          <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                            <h4 className="text-sm font-semibold mb-3 flex items-center space-x-2" style={{ color: visualConfig.colors.text.primary }}>
+                              <DynamicIcon name="Clock" className="h-4 w-4" />
+                              <span>Recent Customers</span>
+                            </h4>
+                            <div className="space-y-2">
+                              {recentCustomerSessions.slice(0, 2).map((customer, index) => (
+                                <button
+                                  key={customer.id || index}
+                                  onClick={() => handleCustomerSelect(customer)}
+                                  className="w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all duration-200"
+                                  style={{ 
+                                    backgroundColor: visualConfig.colors.elevated,
+                                    borderColor: visualConfig.colors.secondary
+                                  }}
+                                >
+                                  <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
                                       {customer.customerName}
@@ -1794,8 +1822,9 @@ const ChatInterface = () => {
                         </div>
                       )}
 
-                      {/* Customer Form */}
-                      <div className="p-4">
+                      {/* Customer Form - Only show when form is active */}
+                      {showCustomerForm && (
+                        <div className="p-4">
                         <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
                           {recentCustomerSessions.length > 0 ? 'New Customer Details' : 'Customer Details'}
                         </h3>
@@ -1880,7 +1909,10 @@ const ChatInterface = () => {
                         
                         <div className="flex space-x-3 mt-4">
                           <button
-                            onClick={() => setShowCustomerDropdown(false)}
+                            onClick={() => {
+                              setShowCustomerForm(false);
+                              setShowCustomerDropdown(false);
+                            }}
                             className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
                             style={{
                               borderColor: visualConfig.colors.secondary,
@@ -1900,6 +1932,7 @@ const ChatInterface = () => {
                           </button>
                         </div>
                       </div>
+                      )}
                     </div>
                   </div>
                 )}
