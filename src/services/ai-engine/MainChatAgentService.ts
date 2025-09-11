@@ -75,8 +75,8 @@ export class MainChatAgentService {
       const conversationType = this.determineConversationType(input.collectionResult);
       console.log(`📋 Conversation Type: ${conversationType}`);
 
-      // Build simple data prompt for the AI
-      const dataPrompt = this.buildDataPrompt(input, conversationType);
+      // Build context prompt with customer history injected at the end
+      const dataPrompt = this.buildContextPrompt(input, conversationType);
 
       // Process with Claude Sonnet using conversation memory
       const aiResponse = await ConversationContextService.processMessageWithContext(
@@ -134,75 +134,30 @@ export class MainChatAgentService {
   }
 
   /**
-   * Build context prompt for Claude based on conversation type and data
+   * Build context prompt with customer context injected at the end
    */
   private static buildContextPrompt(input: ChatAgentInput, conversationType: string): string {
-    let prompt = '';
+    // Start with the main data prompt (same as buildDataPrompt)
+    let prompt = this.buildDataPrompt(input, conversationType);
     
-    // 📋 PHASE 2C: Include previous conversation context for customer continuity
+    // Add context injection section at the end
+    prompt += '\n\n--- CUSTOMER CONTEXT INFORMATION ---\n';
+    
+    // 📋 CUSTOMER CONTEXT: Include previous conversation context for continuity
     if (input.customerName && input.previousContext) {
-      prompt += `CUSTOMER CONTEXT:\n`;
-      prompt += `Returning customer: ${input.customerName}\n`;
+      prompt += `RETURNING CUSTOMER: ${input.customerName}\n`;
       if (input.previousContext.interaction_summary) {
-        prompt += `Previous interaction summary: ${input.previousContext.interaction_summary}\n`;
+        prompt += `PREVIOUS INTERACTION SUMMARY: ${input.previousContext.interaction_summary}\n`;
       }
       if (input.previousContext.created_at) {
         const daysAgo = Math.floor((Date.now() - new Date(input.previousContext.created_at).getTime()) / (1000 * 60 * 60 * 24));
-        prompt += `Last interaction: ${daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`}\n`;
+        prompt += `LAST INTERACTION: ${daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`}\n`;
       }
-      prompt += `\nPlease acknowledge this customer's history and provide continuity in your response.\n\n`;
-    }
-    
-    prompt += `Customer Message: "${input.originalMessage}"\n\n`;
-
-    if (conversationType === 'complete_quote' && input.pricingResult) {
-      prompt += `COMPLETE QUOTE SCENARIO:\n`;
-      prompt += `All services have been successfully priced. Generate a professional quote response.\n\n`;
-
-      prompt += `PRICING BREAKDOWN:\n`;
-      input.pricingResult.services.forEach(service => {
-        prompt += `- ${service.serviceName}: ${service.quantity} ${service.unit} = $${service.totalPrice.toFixed(2)} (${service.laborHours}h)\n`;
-      });
-
-      prompt += `\nTOTAL PROJECT COST: $${input.pricingResult.totals.totalCost.toFixed(2)}\n`;
-      prompt += `TOTAL LABOR HOURS: ${input.pricingResult.totals.totalLaborHours.toFixed(1)}h\n\n`;
-
-      prompt += `Generate a professional quote response with this pricing information.`;
-
-    } else if (conversationType === 'partial_quote') {
-      prompt += `PARTIAL QUOTE SCENARIO:\n`;
-      prompt += `Some services are complete, others need clarification.\n\n`;
-
-      if (input.collectionResult.services.length > 0 && input.pricingResult) {
-        prompt += `SERVICES WE CAN PRICE:\n`;
-        input.pricingResult.services.forEach(service => {
-          prompt += `- ${service.serviceName}: ${service.quantity} ${service.unit} = $${service.totalPrice.toFixed(2)}\n`;
-        });
-        prompt += `Subtotal: $${input.pricingResult.totals.totalCost.toFixed(2)}\n\n`;
-      }
-
-      if (input.collectionResult.incompleteServices.length > 0) {
-        prompt += `SERVICES NEEDING CLARIFICATION:\n`;
-        input.collectionResult.incompleteServices.forEach(service => {
-          prompt += `- ${service.serviceName}: Need quantity/measurement details\n`;
-        });
-        prompt += `\n`;
-      }
-
-      prompt += `Provide the partial pricing and ask specific questions for the incomplete services.`;
-
+      prompt += `\nIMPORTANT: Please acknowledge this customer's history and provide continuity in your response. Reference previous discussions naturally when relevant.`;
     } else {
-      prompt += `CLARIFICATION SCENARIO:\n`;
-
-      if (input.collectionResult.incompleteServices.length > 0) {
-        prompt += `Services mentioned but need details:\n`;
-        input.collectionResult.incompleteServices.forEach(service => {
-          prompt += `- ${service.serviceName}: Missing quantity/measurements\n`;
-        });
-        prompt += `\n`;
-      }
-
-      prompt += `No services can be priced yet. Ask helpful questions to gather the information needed for accurate pricing.`;
+      // Placeholder for non-customer users (just running numbers)
+      prompt += `NEW INTERACTION: This appears to be a new customer or someone running pricing calculations.\n`;
+      prompt += `No previous context available - treat as a fresh interaction.`;
     }
 
     return prompt;

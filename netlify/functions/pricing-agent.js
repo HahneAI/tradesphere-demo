@@ -252,11 +252,11 @@ export const handler = async (event, context) => {
       // 3. 🧠 PHASE 2B: Generate intelligent summary (async, post-response)
       // This runs in the background without blocking the user response
       if (payload.customerName) {
-        generateInteractionSummary(payload.customerName, payload.message, response.response)
+        generateInteractionSummary(payload.customerName, payload.message, response.response, previousContext)
           .then(summary => updateInteractionSummary(payload.sessionId, interactionNumber, summary))
           .catch(error => console.error('❌ Background summary generation failed:', error));
         
-        console.log('🧠 Background summary generation initiated');
+        console.log('🧠 Background summary generation initiated with cascading context');
       }
       
     } catch (storageError) {
@@ -455,13 +455,23 @@ async function getNextInteractionNumber(sessionId) {
 }
 
 /**
- * Generate intelligent interaction summary using GPT-4o-mini (async, post-response)
+ * Generate intelligent interaction summary using GPT-4o-mini with cascading context (async, post-response)
  * Runs after user gets their response for zero latency impact
+ * @param {string} customerName - Customer name
+ * @param {string} userInput - Current user input 
+ * @param {string} aiResponse - Current AI response
+ * @param {object|null} previousContext - Previous interaction context (null for first interaction)
  */
-async function generateInteractionSummary(customerName, userInput, aiResponse) {
-  console.log('🧠 Generating intelligent interaction summary...');
+async function generateInteractionSummary(customerName, userInput, aiResponse, previousContext = null) {
+  console.log('🧠 Generating intelligent interaction summary with cascading context...');
   
   try {
+    // Null safety check for parameters
+    if (!customerName || !userInput || !aiResponse) {
+      console.warn('⚠️ Missing required parameters for summary generation');
+      return `Incomplete interaction data for ${customerName || 'unknown customer'}`;
+    }
+    
     // Get OpenAI API key from environment
     const openaiKey = process.env.VITE_AI_API_KEY || process.env.OPENAI_API_KEY;
     
@@ -470,18 +480,37 @@ async function generateInteractionSummary(customerName, userInput, aiResponse) {
       return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
     }
     
-    const summaryPrompt = `Create a professional 2-3 sentence summary of this customer interaction for business records.
+    // Build cascading summary prompt
+    let summaryPrompt = `Create a professional 3-4 sentence maximum summary of this customer interaction for business records.
 
 Customer: ${customerName}
-User Input: "${userInput}"
-AI Response: "${aiResponse.substring(0, 400)}..."
+Current User Input: "${userInput}"
+Current AI Response: "${aiResponse.substring(0, 400)}..."`;
+
+    // Add previous context for cascading effect (with null safety)
+    if (previousContext && previousContext.interaction_summary) {
+      console.log('🔄 Including previous summary for cascading context');
+      summaryPrompt += `
+
+PREVIOUS INTERACTION SUMMARY: "${previousContext.interaction_summary}"
+
+Instructions: Build upon the previous summary to create an evolved summary that captures both the previous context and this new interaction. Focus on the progression of the customer's project and requirements.`;
+    } else {
+      console.log('🆕 First interaction - no previous summary available');
+      summaryPrompt += `
+
+Instructions: This appears to be the first interaction with this customer. Create a comprehensive initial summary.`;
+    }
+
+    summaryPrompt += `
 
 Focus on:
 - What the customer specifically requested or asked about
 - Key project details mentioned (size, type, materials, etc.)
 - The type of response provided (quote, clarification request, etc.)
+- How this interaction builds on or relates to previous discussions (if applicable)
 
-Keep it concise and business-appropriate for customer service records.`;
+Keep it concise and business-appropriate for customer service records. MAXIMUM 3-4 sentences only.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -494,31 +523,38 @@ Keep it concise and business-appropriate for customer service records.`;
         messages: [
           {
             role: 'system', 
-            content: 'You are a professional customer service assistant creating concise interaction summaries for business records.'
+            content: 'You are a professional customer service assistant creating concise interaction summaries for business records. When provided with previous summaries, build upon them to show customer relationship progression. IMPORTANT: Keep summaries to no more than 3-4 sentences maximum - be concise but comprehensive.'
           },
           {
             role: 'user',
             content: summaryPrompt
           }
         ],
-        max_tokens: 150,
+        max_tokens: 200, // Increased for cascading summaries
         temperature: 0.3
       })
     });
     
     if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`❌ OpenAI API error: ${response.status} - ${errorText}`);
       throw new Error(`OpenAI API error: ${response.status}`);
     }
     
     const data = await response.json();
     const summary = data.choices[0]?.message?.content?.trim() || `User asked about: ${userInput.substring(0, 100)}...`;
     
-    console.log(`✅ Generated intelligent summary: ${summary.substring(0, 80)}...`);
+    console.log(`✅ Generated ${previousContext ? 'cascading' : 'initial'} summary: ${summary.substring(0, 80)}...`);
     return summary;
     
   } catch (error) {
     console.error('❌ Summary generation failed, using fallback:', error);
-    return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
+    // Enhanced fallback with context awareness
+    const fallback = `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
+    if (previousContext && previousContext.interaction_summary) {
+      return `${previousContext.interaction_summary} | Latest: ${fallback}`;
+    }
+    return fallback;
   }
 }
 
