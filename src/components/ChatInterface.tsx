@@ -1510,15 +1510,20 @@ const ChatInterface = () => {
       setPreloadProgress(100);
       setPreloadMessage('Ready to continue conversation');
 
-      // Populate conversation history
-      if (contextData.conversationHistory && contextData.conversationHistory.length > 0) {
+      // Populate conversation history with error boundaries
+      if (contextData.conversationHistory && Array.isArray(contextData.conversationHistory) && contextData.conversationHistory.length > 0) {
         // Add previous messages to current chat (with visual indicators)
-        const previousMessages = contextData.conversationHistory.map((msg: any) => ({
-          ...msg,
-          isPreviousSession: true,
-          text: msg.text || '',
-          timestamp: msg.timestamp
-        }));
+        const previousMessages = contextData.conversationHistory
+          .filter((msg: any) => msg && typeof msg === 'object') // Filter out null/invalid messages
+          .map((msg: any) => ({
+            id: msg.id || `preload_${Date.now()}_${Math.random()}`,
+            text: msg.text || '',
+            sender: msg.sender || 'user',
+            timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+            sessionId: msg.sessionId || sessionId,
+            isPreviousSession: true,
+            interactionNumber: msg.interactionNumber || 0
+          }));
 
         setMessages((prev) => [
           ...previousMessages,
@@ -1546,6 +1551,7 @@ const ChatInterface = () => {
       }, 500);
 
     } catch (error) {
+      clearInterval(progressInterval);
       console.error('❌ Failed to preload customer context:', error);
       setPreloadMessage('Failed to load conversation history');
       

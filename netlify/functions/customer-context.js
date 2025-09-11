@@ -110,26 +110,35 @@ exports.handler = async (event, context) => {
       customerName: decodeURIComponent(customerName)
     });
 
-    // Format conversation history for frontend consumption
-    const formattedHistory = conversationHistory.map((record, index) => ({
-      id: `history_${record.interaction_number}_${Date.now()}_${index}`,
-      text: record.user_input,
-      sender: 'user',
-      timestamp: record.created_at,
-      sessionId: record.session_id,
-      source: 'previous_session',
-      interactionNumber: record.interaction_number
-    })).concat(
-      conversationHistory.map((record, index) => ({
-        id: `history_ai_${record.interaction_number}_${Date.now()}_${index}`,
-        text: record.ai_response,
-        sender: 'ai',
-        timestamp: record.created_at,
-        sessionId: record.session_id,
-        source: 'previous_session',
-        interactionNumber: record.interaction_number
-      }))
-    ).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    // Format conversation history - simple pairs without complex sorting
+    const formattedHistory = [];
+    conversationHistory.forEach((record, index) => {
+      // Add user message
+      if (record.user_input && record.user_input.trim()) {
+        formattedHistory.push({
+          id: `history_user_${record.interaction_number}_${index}`,
+          text: record.user_input,
+          sender: 'user',
+          timestamp: record.created_at,
+          sessionId: record.session_id,
+          source: 'previous_session',
+          interactionNumber: record.interaction_number
+        });
+      }
+      
+      // Add AI response
+      if (record.ai_response && record.ai_response.trim()) {
+        formattedHistory.push({
+          id: `history_ai_${record.interaction_number}_${index}`,
+          text: record.ai_response,
+          sender: 'ai',
+          timestamp: record.created_at,
+          sessionId: record.session_id,
+          source: 'previous_session',
+          interactionNumber: record.interaction_number
+        });
+      }
+    });
 
     // Extract customer details from the first record
     const customerDetails = conversationHistory.length > 0 ? {
