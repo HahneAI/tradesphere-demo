@@ -150,7 +150,7 @@ export const handler = async (event, context) => {
     console.log(`  🤖 GPT Splitting: ${Date.now() - gptSplitStart}ms | Services: ${splitResult.service_count}`);
     console.log(`  🎯 Parameter Collection: ${parameterCollectionTime}ms | Complete: ${collectionResult.services.length} | Incomplete: ${collectionResult.incompleteServices.length}`);
     console.log(`  💰 Pricing Calculation: ${pricingCalculationTime}ms | Success: ${!!pricingResult?.success}`);
-    console.log(`  🧠 Main Chat Agent: ${chatAgentTime}ms | Response: ${response.response.length} chars`);
+    console.log(`  🧠 Main Chat Agent: ${chatAgentTime}ms | Response: ${chatAgentResponse.message.length} chars`);
     console.log(`  ⚡ TOTAL PIPELINE: ${totalTime}ms | Grade: ${totalTime < 3000 ? 'A' : totalTime < 5000 ? 'B' : 'C'} | vs Make.com: ${((30000 - totalTime) / 1000).toFixed(1)}s faster`);
     
     // 👤 Customer context analytics
@@ -193,7 +193,7 @@ export const handler = async (event, context) => {
       services_count: collectionResult.services.length + collectionResult.incompleteServices.length,
       confidence: collectionResult.confidence,
       // Response analytics
-      response_length: response.response.length,
+      response_length: chatAgentResponse.message.length,
       ai_model: 'claude-sonnet-3.5',
       // Token usage (will be populated by AI service if available)
       token_usage: {
@@ -209,7 +209,7 @@ export const handler = async (event, context) => {
 
     console.log('💾 ABOUT TO STORE RESPONSE WITH ANALYTICS:', {
       sessionId: payload.sessionId,
-      responseLength: response.response.length,
+      responseLength: chatAgentResponse.message.length,
       source: storageMetadata.source,
       responseType: pricingResult ? 'pricing' : 'clarification',
       // 📊 PHASE 2A: Analytics summary
