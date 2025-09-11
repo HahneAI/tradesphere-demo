@@ -22,6 +22,15 @@ export interface ChatAgentInput {
   collectionResult: CollectionResult;
   pricingResult?: PricingResult;
   betaCodeId?: number;
+  // 📋 PHASE 2C: Customer context for conversation continuity
+  customerName?: string;
+  previousContext?: {
+    interaction_summary?: string;
+    user_input?: string;
+    ai_response?: string;
+    created_at?: string;
+    interaction_number?: number;
+  } | null;
 }
 
 export interface ChatAgentResponse {
@@ -46,6 +55,15 @@ export class MainChatAgentService {
     console.log(`Customer: ${input.firstName} | Session: ${input.sessionId}`);
     console.log(`Complete Services: ${input.collectionResult.services.length}`);
     console.log(`Incomplete Services: ${input.collectionResult.incompleteServices.length}`);
+    
+    // 📋 PHASE 2C: Log customer context availability
+    if (input.customerName && input.previousContext) {
+      console.log('📋 CUSTOMER CONTEXT AVAILABLE:', {
+        customerName: input.customerName,
+        previousSummary: input.previousContext.interaction_summary?.substring(0, 100) + '...',
+        lastInteraction: input.previousContext.created_at
+      });
+    }
 
     try {
       // Determine conversation type based on services found
@@ -113,7 +131,23 @@ export class MainChatAgentService {
    * Build context prompt for Claude based on conversation type and data
    */
   private static buildContextPrompt(input: ChatAgentInput, conversationType: string): string {
-    let prompt = `Customer Message: "${input.originalMessage}"\n\n`;
+    let prompt = '';
+    
+    // 📋 PHASE 2C: Include previous conversation context for customer continuity
+    if (input.customerName && input.previousContext) {
+      prompt += `CUSTOMER CONTEXT:\n`;
+      prompt += `Returning customer: ${input.customerName}\n`;
+      if (input.previousContext.interaction_summary) {
+        prompt += `Previous interaction summary: ${input.previousContext.interaction_summary}\n`;
+      }
+      if (input.previousContext.created_at) {
+        const daysAgo = Math.floor((Date.now() - new Date(input.previousContext.created_at).getTime()) / (1000 * 60 * 60 * 24));
+        prompt += `Last interaction: ${daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo} days ago`}\n`;
+      }
+      prompt += `\nPlease acknowledge this customer's history and provide continuity in your response.\n\n`;
+    }
+    
+    prompt += `Customer Message: "${input.originalMessage}"\n\n`;
 
     if (conversationType === 'complete_quote' && input.pricingResult) {
       prompt += `COMPLETE QUOTE SCENARIO:\n`;

@@ -330,6 +330,11 @@ const ChatInterface = () => {
   const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
 
+  // 🔄 PHASE 2D: Conversation preloading states
+  const [isPreloadingContext, setIsPreloadingContext] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState(0);
+  const [preloadMessage, setPreloadMessage] = useState('');
+
   const MAKE_WEBHOOK_URL = coreConfig.makeWebhookUrl;
   const NETLIFY_API_URL = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
   const NATIVE_PRICING_AGENT_URL = '/.netlify/functions/pricing-agent';
@@ -1432,7 +1437,7 @@ const ChatInterface = () => {
   };
 
   // 🏢 PHASE 5: Handle customer selection from recent customers
-  const handleCustomerSelect = (customer: any) => {
+  const handleCustomerSelect = async (customer: any) => {
     console.log('👤 Selected customer:', customer.customerName);
     
     setCustomerDetails({
@@ -1444,8 +1449,152 @@ const ChatInterface = () => {
     
     setShowCustomerDropdown(false);
     
-    // TODO: Load session context from customer.sessionId if needed
-    console.log('📋 Customer session context available:', customer.summary);
+    // 🔄 PHASE 2D: Load conversation context with preloading animation
+    if (customer.sessionId) {
+      await preloadCustomerContext(customer.customerName, customer.sessionId);
+    }
+  };
+
+  // 🔄 PHASE 2D: Preload customer conversation context with smooth UX
+  const preloadCustomerContext = async (customerName: string, sessionId?: string) => {
+    if (!user?.tech_uuid) return;
+
+    try {
+      setIsPreloadingContext(true);
+      setPreloadProgress(0);
+      setPreloadMessage('Remembering previous conversation...');
+
+      // Simulate smooth progress for better UX
+      const progressInterval = setInterval(() => {
+        setPreloadProgress(prev => {
+          if (prev < 80) return prev + 5;
+          return prev;
+        });
+      }, 50);
+
+      console.log('🔄 Preloading customer context:', { customerName, sessionId });
+
+      // Build query URL
+      const queryParams = new URLSearchParams({
+        tech_id: user.tech_uuid
+      });
+      if (sessionId) {
+        queryParams.set('session_id', sessionId);
+      }
+
+      const response = await fetch(
+        `/.netlify/functions/customer-context/${encodeURIComponent(customerName)}?${queryParams}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+
+      clearInterval(progressInterval);
+      setPreloadProgress(90);
+      setPreloadMessage('Loading conversation history...');
+
+      if (!response.ok) {
+        throw new Error(`Context preload failed: ${response.status}`);
+      }
+
+      const contextData = await response.json();
+      console.log('🔄 Context data loaded:', {
+        recordsFound: contextData.contextMetadata?.recordsFound,
+        customerName: contextData.customerName
+      });
+
+      setPreloadProgress(100);
+      setPreloadMessage('Ready to continue conversation');
+
+      // Populate conversation history
+      if (contextData.conversationHistory && contextData.conversationHistory.length > 0) {
+        // Add previous messages to current chat (with visual indicators)
+        const previousMessages = contextData.conversationHistory.map((msg: any) => ({
+          ...msg,
+          isPreviousSession: true,
+          text: msg.text || '',
+          timestamp: msg.timestamp
+        }));
+
+        setMessages((prev) => [
+          ...previousMessages,
+          ...prev.filter(m => !m.isPreviousSession) // Keep current session messages
+        ]);
+
+        console.log('✅ Conversation history populated:', previousMessages.length, 'messages');
+      }
+
+      // Update customer details if available
+      if (contextData.customerDetails) {
+        setCustomerDetails({
+          name: contextData.customerDetails.name || '',
+          address: contextData.customerDetails.address || '',
+          email: contextData.customerDetails.email || '',
+          phone: contextData.customerDetails.phone || ''
+        });
+      }
+
+      // Smooth completion
+      setTimeout(() => {
+        setIsPreloadingContext(false);
+        setPreloadProgress(0);
+        setPreloadMessage('');
+      }, 500);
+
+    } catch (error) {
+      console.error('❌ Failed to preload customer context:', error);
+      setPreloadMessage('Failed to load conversation history');
+      
+      setTimeout(() => {
+        setIsPreloadingContext(false);
+        setPreloadProgress(0);
+        setPreloadMessage('');
+      }, 2000);
+    }
+  };
+
+  // 📊 PHASE 2A: Save customer details and update session records
+  const saveCustomerDetails = async () => {
+    if (!customerDetails?.name) {
+      console.warn('⚠️ Cannot save customer without name');
+      return;
+    }
+
+    try {
+      console.log('👤 Saving customer details for session:', sessionIdRef.current);
+      
+      // Update all VC Usage records for this session
+      const response = await fetch('/.netlify/functions/customer-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current,
+          customerName: customerDetails.name,
+          customerAddress: customerDetails.address,
+          customerEmail: customerDetails.email,
+          customerPhone: customerDetails.phone
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Customer update failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Customer details updated for entire session:', result);
+      
+      setShowCustomerDropdown(false);
+      
+    } catch (error) {
+      console.error('❌ Failed to save customer details:', error);
+      // Don't throw - allow UI to close, but log the error
+    }
   };
 
   // 🔧 ADMIN DIAGNOSTICS: Run comprehensive backend tests
@@ -1560,33 +1709,66 @@ const ChatInterface = () => {
                         borderColor: visualConfig.colors.secondary
                       }}
                     >
-                      {/* Recent Customers Section */}
+                      {/* 📊 PHASE 2B: Enter New Customer Details Button */}
+                      <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                        <button
+                          onClick={() => {
+                            // Clear any selected customer and show form
+                            setCustomerDetails(null);
+                          }}
+                          className="w-full p-3 rounded-lg border-2 border-dashed transition-colors hover:bg-opacity-50"
+                          style={{ 
+                            borderColor: visualConfig.colors.primary,
+                            backgroundColor: 'transparent',
+                            color: visualConfig.colors.text.primary
+                          }}
+                        >
+                          <div className="flex items-center justify-center space-x-2">
+                            <DynamicIcon name="Plus" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
+                            <span className="font-medium">Enter New Customer Details</span>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* Recent Customers Section - Limited to 2 */}
                       {recentCustomerSessions.length > 0 && (
                         <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
-                          <h4 className="text-sm font-semibold mb-2" style={{ color: visualConfig.colors.text.primary }}>
-                            Recent Customers
+                          <h4 className="text-sm font-semibold mb-3 flex items-center space-x-2" style={{ color: visualConfig.colors.text.primary }}>
+                            <DynamicIcon name="Clock" className="h-4 w-4" />
+                            <span>Recent Customers</span>
                           </h4>
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {recentCustomerSessions.map((customer, index) => (
+                          <div className="space-y-2">
+                            {recentCustomerSessions.slice(0, 2).map((customer, index) => (
                               <button
                                 key={customer.id || index}
                                 onClick={() => handleCustomerSelect(customer)}
-                                className="w-full text-left p-2 rounded hover:bg-opacity-80 transition-colors"
-                                style={{ backgroundColor: visualConfig.colors.elevated }}
+                                className="w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all duration-200"
+                                style={{ 
+                                  backgroundColor: visualConfig.colors.elevated,
+                                  borderColor: visualConfig.colors.secondary
+                                }}
                               >
-                                <div className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                                  {customer.customerName}
-                                </div>
-                                {customer.customerEmail && (
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                                      {customer.customerName}
+                                    </div>
+                                    {customer.customerEmail && (
+                                      <div className="text-xs mt-1 flex items-center space-x-1" style={{ color: visualConfig.colors.text.secondary }}>
+                                        <DynamicIcon name="Mail" className="h-3 w-3" />
+                                        <span>{customer.customerEmail}</span>
+                                      </div>
+                                    )}
+                                    {customer.summary && (
+                                      <div className="text-xs mt-1" style={{ color: visualConfig.colors.text.secondary }}>
+                                        {customer.summary.substring(0, 60)}...
+                                      </div>
+                                    )}
+                                  </div>
                                   <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                                    {customer.customerEmail}
+                                    {new Date(customer.lastInteraction).toLocaleDateString()}
                                   </div>
-                                )}
-                                {customer.summary && (
-                                  <div className="text-xs mt-1" style={{ color: visualConfig.colors.text.secondary }}>
-                                    {customer.summary.substring(0, 50)}...
-                                  </div>
-                                )}
+                                </div>
                               </button>
                             ))}
                           </div>
@@ -1703,12 +1885,7 @@ const ChatInterface = () => {
                             Cancel
                           </button>
                           <button
-                            onClick={() => {
-                              if (customerDetails?.name) {
-                                setShowCustomerDropdown(false);
-                                console.log('✅ Customer details saved:', customerDetails);
-                              }
-                            }}
+                            onClick={saveCustomerDetails}
                             disabled={!customerDetails?.name}
                             className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white disabled:opacity-50"
                             style={{ backgroundColor: visualConfig.colors.primary }}
@@ -2245,6 +2422,55 @@ const ChatInterface = () => {
         isOpen={showAvatarPopup}
         onClose={() => setShowAvatarPopup(false)}
       />
+
+      {/* 🔄 PHASE 2D: Conversation Preloading Overlay */}
+      {isPreloadingContext && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Dimmed background */}
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+          ></div>
+          
+          {/* Loading content */}
+          <div 
+            className="relative bg-white rounded-lg shadow-xl p-8 max-w-md mx-4"
+            style={{ 
+              backgroundColor: visualConfig.colors.surface,
+              color: visualConfig.colors.text.primary 
+            }}
+          >
+            <div className="text-center">
+              {/* Main message */}
+              <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
+                {preloadMessage}
+              </h3>
+              
+              {/* Progress bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-4" style={{ backgroundColor: visualConfig.colors.background }}>
+                <div 
+                  className="h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ 
+                    width: `${preloadProgress}%`,
+                    backgroundColor: visualConfig.colors.primary 
+                  }}
+                ></div>
+              </div>
+              
+              {/* Progress percentage */}
+              <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                {preloadProgress}% complete
+              </p>
+              
+              {/* Animated icon */}
+              <div className="mt-4 flex justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" 
+                     style={{ borderColor: visualConfig.colors.primary }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

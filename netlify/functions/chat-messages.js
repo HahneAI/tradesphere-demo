@@ -90,7 +90,7 @@ export const handler = async (event, context) => {
           'user_tech_id': `eq.${techId}`,
           'customer_name': 'not.is.null',
           'order': 'created_at.desc',
-          'limit': '5', // Recent customer sessions
+          'limit': '2', // 📊 PHASE 2B: Limit to 2 recent customers for cleaner UX
           'select': 'session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary'
         });
         

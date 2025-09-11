@@ -24,6 +24,21 @@ export interface StorageMetadata {
   confidence?: number;
   source: 'native_pricing_agent' | 'make_com_webhook';
   calculation_time?: number;
+  // 📊 PHASE 2A: Analytics tracking fields
+  token_usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  ai_model?: string;
+  response_length?: number;
+  performance_metrics?: {
+    gpt_splitting_time?: number;
+    parameter_collection_time?: number;
+    pricing_calculation_time?: number;
+    ai_generation_time?: number;
+    total_processing_time?: number;
+  };
 }
 
 export interface StorageCredentials {
@@ -250,7 +265,7 @@ export class MessageStorageService {
       cleanedUserInput = cleanedUserInput.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
       cleanedAiResponse = cleanedAiResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
       
-      // 🏢 PHASE 2: VC Usage record with customer fields
+      // 🏢 PHASE 2: VC Usage record with customer fields + analytics
       const vcUsageData = {
         user_name: payload.firstName || null,
         user_tech_id: payload.techId || null,
@@ -265,7 +280,20 @@ export class MessageStorageService {
         customer_name: payload.customerName || null,
         customer_address: payload.customerAddress || null,
         customer_email: payload.customerEmail || null,
-        customer_phone: payload.customerPhone || null
+        customer_phone: payload.customerPhone || null,
+        // 📊 PHASE 2A: Analytics fields
+        processing_time_ms: metadata.processing_time || null,
+        ai_model: metadata.ai_model || 'claude-sonnet-3.5',
+        prompt_tokens: metadata.token_usage?.prompt_tokens || null,
+        completion_tokens: metadata.token_usage?.completion_tokens || null,
+        total_tokens: metadata.token_usage?.total_tokens || null,
+        response_length: metadata.response_length || cleanedAiResponse.length,
+        services_count: metadata.services_count || null,
+        confidence_score: metadata.confidence || null,
+        gpt_splitting_time_ms: metadata.performance_metrics?.gpt_splitting_time || null,
+        parameter_collection_time_ms: metadata.performance_metrics?.parameter_collection_time || null,
+        pricing_calculation_time_ms: metadata.performance_metrics?.pricing_calculation_time || null,
+        ai_generation_time_ms: metadata.performance_metrics?.ai_generation_time || null
       };
 
       console.log('🏢 [VC_USAGE] Record structure:', {

@@ -106,13 +106,33 @@ export const handler = async (event, context) => {
     console.log('🧠 STEP 3: MAIN CHAT AGENT ORCHESTRATION');
     const chatAgentStart = Date.now();
     
+    // 📋 PHASE 2C: Query previous interaction context for customer continuity
+    let previousContext = null;
+    if (payload.customerName) {
+      console.log('📋 Querying previous interaction context for customer:', payload.customerName);
+      try {
+        previousContext = await queryCustomerContext(payload.customerName, payload.techId);
+        if (previousContext) {
+          console.log('📋 Previous context found:', {
+            summary: previousContext.interaction_summary?.substring(0, 100) + '...',
+            lastInteraction: previousContext.created_at
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to query customer context:', error.message);
+      }
+    }
+
     const chatAgentInput = {
       originalMessage: payload.message,
       sessionId: payload.sessionId,
       firstName: payload.firstName,
       collectionResult,
       pricingResult,
-      betaCodeId: payload.betaCodeId
+      betaCodeId: payload.betaCodeId,
+      // 📋 PHASE 2C: Include previous interaction context
+      customerName: payload.customerName,
+      previousContext: previousContext
     };
 
     const chatAgentResponse = await MainChatAgentService.generateResponse(chatAgentInput);
@@ -125,12 +145,24 @@ export const handler = async (event, context) => {
 
     const totalTime = Date.now() - startTime;
 
-    console.log('📊 PERFORMANCE METRICS:');
-    console.log(`  GPT Splitting: ${Date.now() - gptSplitStart}ms`);
-    console.log(`  Parameter Collection: ${parameterCollectionTime}ms`);
-    console.log(`  Pricing Calculation: ${pricingCalculationTime}ms`);
-    console.log(`  Main Chat Agent: ${chatAgentTime}ms`);
-    console.log(`  TOTAL: ${totalTime}ms (vs Make.com 30-50s)`);
+    // 📊 PHASE 2A: Enhanced performance metrics logging
+    console.log('📊 COMPREHENSIVE PERFORMANCE ANALYTICS:');
+    console.log(`  🤖 GPT Splitting: ${Date.now() - gptSplitStart}ms | Services: ${splitResult.service_count}`);
+    console.log(`  🎯 Parameter Collection: ${parameterCollectionTime}ms | Complete: ${collectionResult.services.length} | Incomplete: ${collectionResult.incompleteServices.length}`);
+    console.log(`  💰 Pricing Calculation: ${pricingCalculationTime}ms | Success: ${!!pricingResult?.success}`);
+    console.log(`  🧠 Main Chat Agent: ${chatAgentTime}ms | Response: ${response.response.length} chars`);
+    console.log(`  ⚡ TOTAL PIPELINE: ${totalTime}ms | Grade: ${totalTime < 3000 ? 'A' : totalTime < 5000 ? 'B' : 'C'} | vs Make.com: ${((30000 - totalTime) / 1000).toFixed(1)}s faster`);
+    
+    // 👤 Customer context analytics
+    if (payload.customerName || payload.customerEmail) {
+      console.log('👤 CUSTOMER CONTEXT ANALYTICS:', {
+        customerName: payload.customerName || 'Not provided',
+        hasEmail: !!payload.customerEmail,
+        hasPhone: !!payload.customerPhone,
+        hasAddress: !!payload.customerAddress,
+        sessionId: payload.sessionId
+      });
+    }
 
     // Create final response
     const response = {
@@ -146,16 +178,48 @@ export const handler = async (event, context) => {
       }
     };
 
-    // ✅ SIMPLIFIED: Store ALL responses with minimal metadata
+    // 📊 PHASE 2A: Comprehensive analytics metadata
     const storageMetadata = {
-      source: 'native_pricing_agent' // Simplified - no complex metadata
+      source: 'native_pricing_agent',
+      // Performance metrics collected during execution
+      performance_metrics: {
+        gpt_splitting_time: Date.now() - gptSplitStart,
+        parameter_collection_time: parameterCollectionTime,
+        pricing_calculation_time: pricingCalculationTime,
+        ai_generation_time: chatAgentTime,
+        total_processing_time: totalTime
+      },
+      // Service analysis metrics
+      services_count: collectionResult.services.length + collectionResult.incompleteServices.length,
+      confidence: collectionResult.confidence,
+      // Response analytics
+      response_length: response.response.length,
+      ai_model: 'claude-sonnet-3.5',
+      // Token usage (will be populated by AI service if available)
+      token_usage: {
+        // TODO: Extract from Claude API response if available
+        prompt_tokens: null,
+        completion_tokens: null,
+        total_tokens: null
+      },
+      // Processing context
+      processing_time: totalTime,
+      calculation_time: pricingResult?.calculationTime || null
     };
 
-    console.log('💾 ABOUT TO STORE RESPONSE (ALL RESPONSES):', {
+    console.log('💾 ABOUT TO STORE RESPONSE WITH ANALYTICS:', {
       sessionId: payload.sessionId,
       responseLength: response.response.length,
       source: storageMetadata.source,
-      responseType: pricingResult ? 'pricing' : 'clarification'
+      responseType: pricingResult ? 'pricing' : 'clarification',
+      // 📊 PHASE 2A: Analytics summary
+      analytics: {
+        totalProcessingTime: storageMetadata.processing_time,
+        servicesFound: storageMetadata.services_count,
+        confidence: storageMetadata.confidence,
+        hasCustomerData: !!(payload.customerName || payload.customerEmail),
+        performanceGrade: totalTime < 3000 ? 'A' : totalTime < 5000 ? 'B' : 'C'
+      }
     });
 
     try {
@@ -363,6 +427,50 @@ async function storeExactChatResponseFormat(sessionId, responseText, techId) {
     console.error('🔄 EXACT FORMAT ERROR:', error.message);
     console.error('🔄 EXACT FORMAT STACK:', error.stack);
     return false;
+  }
+}
+
+/**
+ * 📋 PHASE 2C: Query customer's last interaction for context continuity
+ */
+async function queryCustomerContext(customerName, techId) {
+  try {
+    console.log('📋 CUSTOMER CONTEXT: Querying last interaction for:', customerName);
+    
+    const supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
+    
+    const queryParams = new URLSearchParams({
+      'customer_name': `eq.${customerName}`,
+      'user_tech_id': `eq.${techId}`,
+      'order': 'interaction_number.desc',
+      'limit': '1',
+      'select': 'interaction_summary,user_input,ai_response,created_at,interaction_number'
+    });
+    
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Query failed: ${response.status}`);
+    }
+    
+    const results = await response.json();
+    console.log('📋 CUSTOMER CONTEXT: Query results:', results.length, 'records found');
+    
+    return results.length > 0 ? results[0] : null;
+    
+  } catch (error) {
+    console.error('📋 CUSTOMER CONTEXT ERROR:', error.message);
+    return null;
   }
 }
 
