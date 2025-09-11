@@ -24,6 +24,12 @@
 [functions."chat-response"] 
   timeout = 30
 
+[functions."customer-update"]
+  timeout = 30
+
+[functions."customer-context"]
+  timeout = 30
+
 # Headers for CORS and caching
 [[headers]]
   for = "/.netlify/functions/*"
