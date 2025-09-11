@@ -1701,6 +1701,24 @@ const ChatInterface = () => {
                   <span className="hidden sm:inline text-sm font-medium">
                     {customerDetails ? `Customer: ${customerDetails.name}` : "Add Customer Details"}
                   </span>
+                  
+                  {/* Quick Clear Customer Button - Only show when customer selected */}
+                  {customerDetails && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent dropdown from opening
+                        setCustomerDetails(null);
+                        setShowCustomerForm(false);
+                        console.log('🗑️ Customer cleared via badge X button');
+                      }}
+                      className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
+                      style={{ color: '#EF4444' }}
+                      title="Clear customer"
+                    >
+                      <DynamicIcon name="X" className="h-3 w-3" />
+                    </button>
+                  )}
+                  
                   <DynamicIcon 
                     name={showCustomerDropdown ? "ChevronUp" : "ChevronDown"} 
                     className="h-4 w-4" 
@@ -1739,23 +1757,49 @@ const ChatInterface = () => {
                             </div>
                           </button>
                         ) : (
-                          // Show "Edit Current Customer" when customer loaded
-                          <button
-                            onClick={() => {
-                              setShowCustomerForm(!showCustomerForm);
-                            }}
-                            className="w-full p-3 rounded-lg border transition-colors hover:shadow-sm"
-                            style={{ 
-                              borderColor: visualConfig.colors.secondary,
-                              backgroundColor: visualConfig.colors.elevated,
-                              color: visualConfig.colors.text.primary
-                            }}
-                          >
-                            <div className="flex items-center justify-center space-x-2">
-                              <DynamicIcon name="Edit" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
-                              <span className="font-medium">Edit Current Customer: {customerDetails.name}</span>
-                            </div>
-                          </button>
+                          // Show both "Clear Customer" and "Edit Current Customer" when customer loaded
+                          <div className="space-y-3">
+                            {/* Clear Customer & Start Fresh */}
+                            <button
+                              onClick={() => {
+                                // Clear customer and start completely fresh
+                                setCustomerDetails(null);
+                                setShowCustomerForm(false);
+                                setShowCustomerDropdown(false);
+                                // Also refresh the chat to start completely fresh
+                                handleRefreshChat();
+                              }}
+                              className="w-full p-3 rounded-lg border-2 border-dashed transition-colors hover:bg-opacity-10"
+                              style={{ 
+                                borderColor: '#EF4444',
+                                backgroundColor: 'transparent',
+                                color: '#EF4444'
+                              }}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <DynamicIcon name="UserX" className="h-5 w-5" />
+                                <span className="font-medium">Clear Customer & Start Fresh</span>
+                              </div>
+                            </button>
+
+                            {/* Edit Current Customer */}
+                            <button
+                              onClick={() => {
+                                setShowCustomerForm(!showCustomerForm);
+                              }}
+                              className="w-full p-3 rounded-lg border transition-colors hover:shadow-sm"
+                              style={{ 
+                                borderColor: visualConfig.colors.secondary,
+                                backgroundColor: visualConfig.colors.elevated,
+                                color: visualConfig.colors.text.primary
+                              }}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <DynamicIcon name="Edit" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
+                                <span className="font-medium">Edit Current Customer: {customerDetails.name}</span>
+                              </div>
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -1972,10 +2016,17 @@ const ChatInterface = () => {
                   color: visualConfig.colors.text.onPrimary,
                   '--tw-ring-color': visualConfig.colors.primary,
                 }}
-                title="Start a new chat session"
+                title={customerDetails ? `New chat with ${customerDetails.name}` : "Start a new chat session"}
               >
                 <DynamicIcon name="RotateCcw" className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm font-medium">New Chat</span>
+                <span className="hidden sm:inline text-sm font-medium">
+                  {customerDetails ? "New Chat" : "New Chat"}
+                </span>
+                {customerDetails && (
+                  <span className="hidden lg:inline text-xs opacity-75 ml-1">
+                    (Keep Customer)
+                  </span>
+                )}
               </button>
 
               {isAdmin && (
