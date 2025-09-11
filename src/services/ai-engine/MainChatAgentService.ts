@@ -39,6 +39,11 @@ export interface ChatAgentResponse {
   clarifyingQuestions: string[];
   conversationType: 'complete_quote' | 'partial_quote' | 'clarification_needed';
   sessionId: string;
+  tokenUsage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 export class MainChatAgentService {
@@ -91,7 +96,8 @@ export class MainChatAgentService {
         requiresClarification: aiResponse.requiresClarification || conversationType === 'clarification_needed',
         clarifyingQuestions: aiResponse.suggestedQuestions || [],
         conversationType,
-        sessionId: input.sessionId
+        sessionId: input.sessionId,
+        tokenUsage: aiResponse.tokenUsage
       };
 
       console.log(`✅ MAIN CHAT AGENT COMPLETE: ${conversationType} response generated`);

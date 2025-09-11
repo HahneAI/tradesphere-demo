@@ -195,12 +195,11 @@ export const handler = async (event, context) => {
       // Response analytics
       response_length: chatAgentResponse.message.length,
       ai_model: 'claude-sonnet-3.5',
-      // Token usage (will be populated by AI service if available)
+      // Token usage from Claude/OpenAI API response
       token_usage: {
-        // TODO: Extract from Claude API response if available
-        prompt_tokens: null,
-        completion_tokens: null,
-        total_tokens: null
+        prompt_tokens: chatAgentResponse.tokenUsage?.promptTokens || null,
+        completion_tokens: chatAgentResponse.tokenUsage?.completionTokens || null,
+        total_tokens: chatAgentResponse.tokenUsage?.totalTokens || null
       },
       // Processing context
       processing_time: totalTime,
@@ -230,7 +229,7 @@ export const handler = async (event, context) => {
       console.log('✅ DEMO_MESSAGES STORAGE: Polling record stored');
       
       // 2. 🏢 PHASE 2: Store in VC Usage for permanent records with customer data
-      const interactionNumber = 1; // TODO: Implement proper interaction number tracking
+      const interactionNumber = await getNextInteractionNumber(payload.sessionId);
       await MessageStorageService.storeVCUsageRecord(
         payload, 
         payload.message, 
@@ -239,6 +238,16 @@ export const handler = async (event, context) => {
         storageMetadata
       );
       console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
+      
+      // 3. 🧠 PHASE 2B: Generate intelligent summary (async, post-response)
+      // This runs in the background without blocking the user response
+      if (payload.customerName) {
+        generateInteractionSummary(payload.customerName, payload.message, response.response)
+          .then(summary => updateInteractionSummary(payload.sessionId, interactionNumber, summary))
+          .catch(error => console.error('❌ Background summary generation failed:', error));
+        
+        console.log('🧠 Background summary generation initiated');
+      }
       
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
@@ -351,6 +360,161 @@ function extractSessionId(body) {
  */
 function debugEnvironmentVariables() {
   MessageStorageService.debugEnvironment();
+}
+
+/**
+ * Get next interaction number for session (auto-incrementing)
+ * Queries VC Usage table to find highest interaction_number for session and increments by 1
+ */
+async function getNextInteractionNumber(sessionId) {
+  console.log(`🔢 Getting next interaction number for session: ${sessionId}`);
+  
+  try {
+    // Get Supabase credentials
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://acdudelebwrzewxqmwnc.supabase.co';
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
+    
+    // Query for max interaction number in this session
+    const queryParams = new URLSearchParams({
+      'session_id': `eq.${sessionId}`,
+      'select': 'interaction_number',
+      'order': 'interaction_number.desc',
+      'limit': '1'
+    });
+    
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      console.warn(`⚠️ Failed to query interaction number, defaulting to 1: ${response.status}`);
+      return 1;
+    }
+    
+    const records = await response.json();
+    const nextNumber = records.length > 0 ? (records[0].interaction_number + 1) : 1;
+    
+    console.log(`🔢 Next interaction number: ${nextNumber} (previous max: ${records.length > 0 ? records[0].interaction_number : 'none'})`);
+    return nextNumber;
+    
+  } catch (error) {
+    console.error('❌ Error getting interaction number, defaulting to 1:', error);
+    return 1;
+  }
+}
+
+/**
+ * Generate intelligent interaction summary using GPT-4o-mini (async, post-response)
+ * Runs after user gets their response for zero latency impact
+ */
+async function generateInteractionSummary(customerName, userInput, aiResponse) {
+  console.log('🧠 Generating intelligent interaction summary...');
+  
+  try {
+    // Get OpenAI API key from environment
+    const openaiKey = process.env.VITE_AI_API_KEY || process.env.OPENAI_API_KEY;
+    
+    if (!openaiKey || !openaiKey.startsWith('sk-')) {
+      console.warn('⚠️ No OpenAI API key available, using fallback summary');
+      return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
+    }
+    
+    const summaryPrompt = `Create a professional 2-3 sentence summary of this customer interaction for business records.
+
+Customer: ${customerName}
+User Input: "${userInput}"
+AI Response: "${aiResponse.substring(0, 400)}..."
+
+Focus on:
+- What the customer specifically requested or asked about
+- Key project details mentioned (size, type, materials, etc.)
+- The type of response provided (quote, clarification request, etc.)
+
+Keep it concise and business-appropriate for customer service records.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system', 
+            content: 'You are a professional customer service assistant creating concise interaction summaries for business records.'
+          },
+          {
+            role: 'user',
+            content: summaryPrompt
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.3
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const summary = data.choices[0]?.message?.content?.trim() || `User asked about: ${userInput.substring(0, 100)}...`;
+    
+    console.log(`✅ Generated intelligent summary: ${summary.substring(0, 80)}...`);
+    return summary;
+    
+  } catch (error) {
+    console.error('❌ Summary generation failed, using fallback:', error);
+    return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
+  }
+}
+
+/**
+ * Update VC Usage record with generated summary (async, post-storage)
+ */
+async function updateInteractionSummary(sessionId, interactionNumber, summary) {
+  console.log(`📝 Updating interaction ${interactionNumber} with intelligent summary...`);
+  
+  try {
+    // Get Supabase credentials  
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://acdudelebwrzewxqmwnc.supabase.co';
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
+    
+    // Update the specific record
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/VC Usage?session_id=eq.${sessionId}&interaction_number=eq.${interactionNumber}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          interaction_summary: summary
+        })
+      }
+    );
+    
+    if (response.ok) {
+      console.log(`✅ Updated interaction ${interactionNumber} with intelligent summary`);
+    } else {
+      console.error(`❌ Failed to update summary: ${response.status}`);
+    }
+    
+  } catch (error) {
+    console.error('❌ Summary update failed:', error);
+  }
 }
 
 /**
