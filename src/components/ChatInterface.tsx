@@ -1409,7 +1409,7 @@ const ChatInterface = () => {
     try {
       // Use existing chat-messages endpoint with customer lookup flag
       const response = await fetch(
-        `/.netlify/functions/chat-messages/dummy?recent_customers=true&tech_id=${user.tech_uuid}`,
+        `/.netlify/functions/chat-messages?recent_customers=true&tech_id=${user.tech_uuid}`,
         {
           method: 'GET',
           headers: {

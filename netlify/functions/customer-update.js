@@ -53,8 +53,7 @@ exports.handler = async (event, context) => {
       customer_name: payload.customerName,
       customer_address: payload.customerAddress || null,
       customer_email: payload.customerEmail || null,
-      customer_phone: payload.customerPhone || null,
-      updated_at: new Date().toISOString()
+      customer_phone: payload.customerPhone || null
     };
 
     console.log('👤 UPDATE DATA:', {
