@@ -1807,6 +1807,7 @@ const ChatInterface = () => {
                             ))}
                           </div>
                         </div>
+                        </>
                       )}
 
                       {/* Loading State */}
