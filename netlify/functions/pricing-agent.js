@@ -251,9 +251,8 @@ export const handler = async (event, context) => {
       
       // 3. 🧠 PHASE 2B: Generate intelligent summary (async, post-response)
       // This runs in the background without blocking the user response for ALL interactions
-      const customerNameForSummary = payload.customerName || `Session_${payload.sessionId.slice(-8)}`;
       
-      generateInteractionSummary(customerNameForSummary, payload.message, response.response, previousContext)
+      generateInteractionSummary(payload.customerName, payload.sessionId, payload.message, response.response, previousContext)
         .then(summary => updateInteractionSummary(payload.sessionId, interactionNumber, summary))
         .catch(error => {
           console.error('❌ Background summary generation failed:', error);
@@ -465,31 +464,44 @@ async function getNextInteractionNumber(sessionId) {
  * @param {string} aiResponse - Current AI response
  * @param {object|null} previousContext - Previous interaction context (null for first interaction)
  */
-async function generateInteractionSummary(customerName, userInput, aiResponse, previousContext = null) {
+async function generateInteractionSummary(customerName, sessionId, userInput, aiResponse, previousContext = null) {
   console.log('🧠 Generating intelligent interaction summary with cascading context...');
   
   try {
-    // Null safety check for parameters
-    if (!customerName || !userInput || !aiResponse) {
+    // Null safety check for parameters (customerName can be null, but sessionId, userInput, aiResponse are required)
+    if (!sessionId || !userInput || !aiResponse) {
       console.warn('⚠️ Missing required parameters for summary generation');
-      return `Incomplete interaction data for ${customerName || 'unknown customer'}`;
+      console.warn(`⚠️ Params: sessionId=${!!sessionId}, userInput=${!!userInput}, aiResponse=${!!aiResponse}`);
+      return `Incomplete interaction data for session ${sessionId || 'unknown'}`;
     }
     
-    // Get OpenAI API key from environment (Netlify functions use OPENAI_API_KEY)
-    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_AI_API_KEY;
+    // Get OpenAI API key from environment (NOT Claude API key!)
+    // Look for OpenAI-specific environment variables first
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_AI_API_KEY;
     
-    if (!openaiKey || !openaiKey.startsWith('sk-')) {
-      console.warn('⚠️ No OpenAI API key available for summary generation');
-      console.warn(`⚠️ Available env vars: OPENAI_API_KEY=${!!process.env.OPENAI_API_KEY}, VITE_AI_API_KEY=${!!process.env.VITE_AI_API_KEY}`);
+    if (!openaiKey || openaiKey.startsWith('sk-ant-')) {
+      console.error('❌ CRITICAL: Found Claude API key instead of OpenAI key!');
+      console.warn('⚠️ Available env vars:', {
+        OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+        VITE_OPENAI_API_KEY: !!process.env.VITE_OPENAI_API_KEY,  
+        VITE_AI_API_KEY: !!process.env.VITE_AI_API_KEY,
+        keyPrefix: openaiKey?.substring(0, 7)
+      });
+      return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
+    }
+    
+    if (!openaiKey.startsWith('sk-')) {
+      console.warn('⚠️ Invalid OpenAI API key format (should start with sk-)');
       return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
     }
     
     console.log(`🔑 Using OpenAI API key for summary generation (key starts with: ${openaiKey.substring(0, 7)}...)`);
     
-    // Build cascading summary prompt
+    // Build cascading summary prompt with proper customer name and session ID fields
     let summaryPrompt = `Create a professional 3-4 sentence maximum summary of this customer interaction for business records.
 
-Customer: ${customerName}
+Customer Name: ${customerName || 'NULL'}
+Session ID: ${sessionId}
 Current User Input: "${userInput}"
 Current AI Response: "${aiResponse.substring(0, 400)}..."`;
 
@@ -524,7 +536,7 @@ Keep it concise and business-appropriate for customer service records. MAXIMUM 3
       messages: [
         {
           role: 'system', 
-          content: 'You are a professional customer service assistant creating concise interaction summaries for business records. When provided with previous summaries, build upon them to show customer relationship progression. IMPORTANT: Keep summaries to no more than 3-4 sentences maximum - be concise but comprehensive.'
+          content: 'You are a professional customer service assistant creating concise interaction summaries for business records. Focus ONLY on business facts: what the user requested (services, quantities, materials) and what was provided (pricing, labor hours, quotes). Use format: "User asked about [specific request] and was [successfully/unsuccessfully] presented with [specific results including numbers, prices, hours]". When provided with previous summaries, build upon them to show customer relationship progression. IMPORTANT: Keep summaries to no more than 3-4 sentences maximum - be concise but comprehensive.'
         },
         {
           role: 'user',

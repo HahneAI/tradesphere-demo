@@ -68,6 +68,9 @@ export class MainChatAgentService {
         previousSummary: input.previousContext.interaction_summary?.substring(0, 100) + '...',
         lastInteraction: input.previousContext.created_at
       });
+      console.log('✅ [SUMMARY_INTEGRATION] Previous interaction summary WILL BE included in Claude prompt');
+    } else {
+      console.log('📋 [SUMMARY_INTEGRATION] No previous context available - treating as first interaction');
     }
 
     try {
