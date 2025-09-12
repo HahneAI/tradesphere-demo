@@ -70,61 +70,76 @@ async function generateInteractionSummary(customerName, sessionId, userInput, ai
     
     console.log(`🔑 Using OpenAI API key for summary generation (key starts with: ${openaiKey.substring(0, 7)}...)`);
     
-    // Build cascading summary prompt with proper customer name and session ID fields
-    let summaryPrompt = `Create a professional 3-4 sentence maximum summary of this customer interaction for business records.
-
-Customer Name: ${customerName || 'NULL'}
-Session ID: ${sessionId}
-Current User Input: "${userInput}"
-Current AI Response: "${aiResponse.substring(0, 400)}..."`;
-
-    // Add previous context for cascading effect (with null safety)
-    if (previousContext && previousContext.interaction_summary) {
-      console.log('🔄 Including previous summary for cascading context');
-      summaryPrompt += `
-
-PREVIOUS INTERACTION SUMMARY: "${previousContext.interaction_summary}"
-
-Instructions: Build upon the previous summary to create an evolved summary that captures both the previous context and this new interaction. Focus on the progression of the customer's project and requirements.`;
-    } else {
-      console.log('🆕 First interaction - no previous summary available');
-      summaryPrompt += `
-
-Instructions: This appears to be the first interaction with this customer. Create a comprehensive initial summary.`;
-    }
-
-    summaryPrompt += `
-
-Focus on:
-- What the customer specifically requested or asked about
-- Key project details mentioned (size, type, materials, etc.)
-- The type of response provided (quote, clarification request, etc.)
-- How this interaction builds on or relates to previous discussions (if applicable)
-
-Keep it concise and business-appropriate for customer service records. MAXIMUM 3-4 sentences only.`;
-
-    // 📤 DETAILED REQUEST LOGGING
+    // 🚀 NEW DUAL-PATH LOGIC SYSTEM with Example Training
+    console.log('🧠 [DUAL_PATH] Building improved summarizer with customer vs exploratory logic...');
+    console.log('🔍 [DUAL_PATH] Customer Name Analysis:', {
+      customerName: customerName,
+      isPresent: !!customerName,
+      path: customerName ? 'CUSTOMER_QUOTE_EVOLUTION' : 'EXPLORATORY_CALCULATIONS'
+    });
+    
+    // 📤 DETAILED REQUEST LOGGING - New 6-message structure with examples
     const requestBody = {
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system', 
-          content: 'You are a professional customer service assistant creating concise interaction summaries for business records. Focus ONLY on business facts: what the user requested (services, quantities, materials) and what was provided (pricing, labor hours, quotes). Use format: "User asked about [specific request] and was [successfully/unsuccessfully] presented with [specific results including numbers, prices, hours]". When provided with previous summaries, build upon them to show customer relationship progression. IMPORTANT: Keep summaries to no more than 3-4 sentences maximum - be concise but comprehensive.'
+          content: 'You are a no-nonsense landscaping interaction summarizer. Cut through the chatter and get to what matters: services, quantities, and totals. Two rules: 1) No customer name = exploratory pricing, summarize as "User explored: [services and totals]". 2) Customer name present = real quote evolution, summarize as "[Name] REVISED/CONFIRMED: [cumulative totals and changes]". Accept loose language like "add more", "make it bigger", "what about less". Be decisive and direct. Focus on numbers, services, and quote progression. Maximum 2-3 sentences.'
         },
         {
           role: 'user',
-          content: summaryPrompt
+          content: `Summarize this interaction:
+Customer Name: NULL
+Session ID: session-123
+Current User Input: "How much for 150 sqft mulch and small patio?"
+Current AI Response: "150 sqft mulch: $375 + 200 sqft patio: $3000 = $3375 total. 8 labor hours."`
+        },
+        {
+          role: 'assistant',
+          content: 'User explored pricing: 150 sqft mulch ($375) + 200 sqft patio ($3000) = $3375 total, 8 hours. Exploratory calculation session.'
+        },
+        {
+          role: 'user',
+          content: `Summarize this interaction:
+Customer Name: Jennifer
+Session ID: session-456
+Current User Input: "Actually make that patio 15x15 instead"
+Current AI Response: "REVISED QUOTE for Jennifer: 150 sqft mulch ($375) + 225 sqft patio ($3375) = $3750 total, 9.5 hours."
+Previous Context: Jennifer initially inquired about 150 sqft mulch and 200 sqft patio totaling $3375.`
+        },
+        {
+          role: 'assistant',
+          content: 'Jennifer REVISED patio from 200 to 225 sqft. New total: $3750 (up $375), 9.5 hours. Quote evolution continues.'
+        },
+        {
+          role: 'user',
+          content: `Summarize this interaction:
+Customer Name: ${customerName || 'NULL'}
+Session ID: ${sessionId}
+Current User Input: "${userInput}"
+Current AI Response: "${aiResponse.substring(0, 500)}..."${previousContext && previousContext.interaction_summary ? `
+Previous Context: ${previousContext.interaction_summary}` : ''}`
         }
       ],
-      max_tokens: 200,
-      temperature: 0.3
+      max_tokens: 150,
+      temperature: 0.1
     };
 
     console.log('📤 [SUMMARY_API] REQUEST DETAILS:');
     console.log('🔑 [SUMMARY_API] API Key:', openaiKey.substring(0, 12) + '...' + openaiKey.slice(-4));
-    console.log('📝 [SUMMARY_API] Full Prompt:');
+    console.log('📝 [SUMMARY_API] New 6-Message Structure with Examples:');
     console.log('='.repeat(80));
-    console.log(summaryPrompt);
+    console.log('🤖 [DUAL_PATH] System Prompt: Tough guy summarizer with customer vs exploratory logic');
+    console.log('📚 [DUAL_PATH] Example 1: Exploratory calculations (no customer name)');
+    console.log('📚 [DUAL_PATH] Example 2: Customer quote evolution (customer name present)');
+    console.log('🎯 [DUAL_PATH] Actual Query:', {
+      customerPresent: !!customerName,
+      path: customerName ? 'QUOTE_EVOLUTION' : 'EXPLORATORY',
+      sessionId: sessionId,
+      inputLength: userInput?.length,
+      responseLength: aiResponse?.length,
+      hasPreviousContext: !!(previousContext && previousContext.interaction_summary)
+    });
     console.log('='.repeat(80));
     console.log('⚙️ [SUMMARY_API] Request Body:', JSON.stringify(requestBody, null, 2));
 
@@ -156,10 +171,12 @@ Keep it concise and business-appropriate for customer service records. MAXIMUM 3
 
     const summary = data.choices[0]?.message?.content?.trim() || `User asked about: ${userInput.substring(0, 100)}...`;
     console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ FINAL SUMMARY:', summary);
-    console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ Summary generation completed successfully');
+    console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ Dual-path summary generation completed successfully');
     
-    console.log(`✅ Generated ${previousContext ? 'cascading' : 'initial'} summary: ${summary.substring(0, 80)}...`);
-    console.log('🔍 [DEBUG] About to return summary from generateInteractionSummary');
+    // 🎯 Log which path was taken
+    const pathTaken = customerName ? 'CUSTOMER_QUOTE_EVOLUTION' : 'EXPLORATORY_CALCULATIONS';
+    console.log(`✅ [DUAL_PATH] Generated ${pathTaken} summary: ${summary.substring(0, 80)}...`);
+    console.log('🔍 [DEBUG] About to return dual-path summary from generateInteractionSummary');
     return summary;
     
   } catch (error) {
