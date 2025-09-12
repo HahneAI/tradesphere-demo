@@ -250,16 +250,25 @@ export const handler = async (event, context) => {
       console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
       
       // 3. 🧠 PHASE 2B: Generate intelligent summary (async, post-response)
-      // This runs in the background without blocking the user response for ALL interactions
+      // This runs in the background WITHOUT blocking the user response for ALL interactions
+      console.log('⏰ [BACKGROUND_SUMMARY] Summary process starting AFTER user response is sent');
+      console.log('⏰ [BACKGROUND_SUMMARY] User will see their response while this summary generates in background');
       
       generateInteractionSummary(payload.customerName, payload.sessionId, payload.message, response.response, previousContext)
-        .then(summary => updateInteractionSummary(payload.sessionId, interactionNumber, summary))
+        .then(summary => {
+          console.log('⏰ [BACKGROUND_SUMMARY] GPT summary completed, now updating VC Usage record...');
+          return updateInteractionSummary(payload.sessionId, interactionNumber, summary);
+        })
+        .then(() => {
+          console.log('✅ [BACKGROUND_SUMMARY] ✅ COMPLETE ✅ Background summary pipeline finished successfully');
+          console.log('✅ [BACKGROUND_SUMMARY] User response delivered + VC Usage updated + Summary generated');
+        })
         .catch(error => {
-          console.error('❌ Background summary generation failed:', error);
-          console.error('❌ Summary failure details:', { sessionId: payload.sessionId, interactionNumber });
+          console.error('❌ [BACKGROUND_SUMMARY] ❌ FAILED ❌ Background summary pipeline failed:', error);
+          console.error('❌ [BACKGROUND_SUMMARY] ❌ FAILED ❌ Details:', { sessionId: payload.sessionId, interactionNumber });
         });
       
-      console.log(`🧠 Background summary generation initiated for session ${payload.sessionId} with ${payload.customerName ? 'customer name' : 'session ID'}`);
+      console.log(`🧠 [BACKGROUND_SUMMARY] Summary pipeline initiated for session ${payload.sessionId} (${payload.customerName ? 'customer: ' + payload.customerName : 'anonymous session'})`);
       
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
@@ -575,15 +584,19 @@ Keep it concise and business-appropriate for customer service records. MAXIMUM 3
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unable to read error');
-      console.error('❌ [SUMMARY_API] ERROR RESPONSE:', errorText);
+      console.error('❌ [SUMMARY_API] ❌ FAILED ❌ ERROR RESPONSE:', errorText);
+      console.error('❌ [SUMMARY_API] ❌ FAILED ❌ Status:', response.status, response.statusText);
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
+    console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ OpenAI API call completed successfully');
+    
     const data = await response.json();
     console.log('📋 [SUMMARY_API] COMPLETE RESPONSE:', JSON.stringify(data, null, 2));
 
     const summary = data.choices[0]?.message?.content?.trim() || `User asked about: ${userInput.substring(0, 100)}...`;
-    console.log('✅ [SUMMARY_API] FINAL SUMMARY:', summary);
+    console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ FINAL SUMMARY:', summary);
+    console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ Summary generation completed successfully');
     
     console.log(`✅ Generated ${previousContext ? 'cascading' : 'initial'} summary: ${summary.substring(0, 80)}...`);
     return summary;
@@ -627,14 +640,24 @@ async function updateInteractionSummary(sessionId, interactionNumber, summary) {
       }
     );
     
+    console.log(`📝 [SUPABASE_UPDATE] Response Status: ${response.status} ${response.statusText}`);
+    console.log(`📝 [SUPABASE_UPDATE] Update URL: ${supabaseUrl}/rest/v1/VC Usage?session_id=eq.${sessionId}&interaction_number=eq.${interactionNumber}`);
+    console.log(`📝 [SUPABASE_UPDATE] Summary Length: ${summary.length} characters`);
+    
     if (response.ok) {
-      console.log(`✅ Updated interaction ${interactionNumber} with intelligent summary`);
+      console.log(`✅ [SUPABASE_UPDATE] ✅ SUCCESS ✅ Updated interaction ${interactionNumber} with intelligent summary`);
+      console.log(`✅ [SUPABASE_UPDATE] ✅ SUCCESS ✅ Database update completed for session ${sessionId}`);
     } else {
-      console.error(`❌ Failed to update summary: ${response.status}`);
+      const errorText = await response.text().catch(() => 'Unable to read error');
+      console.error(`❌ [SUPABASE_UPDATE] ❌ FAILED ❌ Failed to update summary: ${response.status}`);
+      console.error(`❌ [SUPABASE_UPDATE] ❌ FAILED ❌ Error details:`, errorText);
+      console.error(`❌ [SUPABASE_UPDATE] ❌ FAILED ❌ Session: ${sessionId}, Interaction: ${interactionNumber}`);
     }
     
   } catch (error) {
-    console.error('❌ Summary update failed:', error);
+    console.error('❌ [SUPABASE_UPDATE] ❌ FAILED ❌ Summary update failed with exception:', error.message);
+    console.error('❌ [SUPABASE_UPDATE] ❌ FAILED ❌ Error stack:', error.stack);
+    console.error('❌ [SUPABASE_UPDATE] ❌ FAILED ❌ Session:', sessionId, 'Interaction:', interactionNumber);
   }
 }
 
