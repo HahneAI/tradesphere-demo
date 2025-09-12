@@ -3,145 +3,9 @@
  * 
  * Loads conversation history and customer details for seamless conversation continuation
  * Returns last 2 interactions for a specific customer + session
- * Also generates missing interaction summaries using OpenAI GPT-4o-mini
  * 
- * Phase 2D: Customer Context Preloading + GPT Summarization
+ * Phase 2D: Customer Context Preloading
  */
-
-/**
- * Generate missing interaction summaries using OpenAI GPT-4o-mini
- */
-async function generateMissingSummaries(conversationHistory, supabaseUrl, supabaseKey) {
-  const apiKey = process.env.VITE_OPENAI_API_KEY_MINI;
-  
-  if (!apiKey) {
-    console.log('🔄 No OpenAI API key found, skipping summary generation');
-    return;
-  }
-
-  const recordsNeedingSummary = conversationHistory.filter(record => 
-    !record.interaction_summary || 
-    record.interaction_summary.trim() === '' ||
-    record.interaction_summary.includes('User asked about:') // Old fallback summaries
-  );
-
-  if (recordsNeedingSummary.length === 0) {
-    console.log('✅ All conversation records already have summaries');
-    return;
-  }
-
-  console.log(`🤖 SUMMARY GENERATION: Found ${recordsNeedingSummary.length} records needing summaries`);
-
-  for (const record of recordsNeedingSummary) {
-    try {
-      console.log(`🤖 [SUMMARY] Processing interaction ${record.interaction_number}`);
-      
-      const summary = await callOpenAIForSummary(record.user_input, record.ai_response, apiKey);
-      
-      if (summary) {
-        await updateInteractionSummary(record, summary, supabaseUrl, supabaseKey);
-        console.log(`✅ [SUMMARY] Updated interaction ${record.interaction_number}: ${summary.substring(0, 80)}...`);
-      }
-      
-    } catch (error) {
-      console.error(`❌ [SUMMARY] Failed for interaction ${record.interaction_number}:`, error.message);
-    }
-  }
-}
-
-/**
- * Call OpenAI GPT-4o-mini for interaction summary generation
- */
-async function callOpenAIForSummary(userInput, aiResponse, apiKey) {
-  const prompt = `Create a concise business-focused summary of this landscaping conversation interaction:
-
-USER: ${userInput}
-AI: ${aiResponse}
-
-Create a 1-2 sentence summary focusing on:
-- What services/products the customer inquired about
-- Key project details (size, location, materials)
-- Any decisions made or next steps
-
-Format: "Customer inquired about [services] for [project details]. [Key outcome/decision]."
-
-Example: "Customer inquired about patio installation and mulch for backyard renovation (20x15 patio, 100 sqft mulch). Provided $6,737 quote with 30 labor hours."`;
-
-  try {
-    console.log(`🤖 [API] Calling OpenAI for summary generation`);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a business conversation summarizer. Create concise, professional summaries of customer service interactions.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 200
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const summary = data.choices[0]?.message?.content?.trim();
-    
-    console.log(`✅ [API] Generated summary: ${summary?.substring(0, 60)}...`);
-    return summary;
-
-  } catch (error) {
-    console.error('❌ [API] OpenAI summary generation failed:', error.message);
-    return null;
-  }
-}
-
-/**
- * Update interaction summary in VC Usage table
- */
-async function updateInteractionSummary(record, summary, supabaseUrl, supabaseKey) {
-  try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/VC Usage?customer_name=eq.${encodeURIComponent(record.customer_name)}&interaction_number=eq.${record.interaction_number}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          interaction_summary: summary
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Database update failed: ${response.status} - ${errorText}`);
-    }
-
-    console.log(`✅ [DB] Updated summary for ${record.customer_name} interaction ${record.interaction_number}`);
-    
-  } catch (error) {
-    console.error(`❌ [DB] Failed to update summary:`, error.message);
-    throw error;
-  }
-}
 
 exports.handler = async (event, context) => {
   const startTime = Date.now();
@@ -208,7 +72,7 @@ exports.handler = async (event, context) => {
       'user_tech_id': `eq.${techId}`,
       'order': 'interaction_number.asc',
       'limit': '2', // Last 2 interactions for context
-      'select': 'user_input,ai_response,interaction_number,created_at,session_id,interaction_summary,customer_name,customer_address,customer_email,customer_phone'
+      'select': 'user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone'
     });
 
     // If session_id provided, get interactions from that specific session
@@ -284,13 +148,7 @@ exports.handler = async (event, context) => {
       phone: conversationHistory[0].customer_phone || ''
     } : null;
 
-    // 🤖 GPT SUMMARIZATION: Generate missing interaction summaries
-    await generateMissingSummaries(conversationHistory, supabaseUrl, supabaseKey);
 
-    // Get latest interaction summary
-    const latestSummary = conversationHistory.length > 0 
-      ? conversationHistory[conversationHistory.length - 1].interaction_summary
-      : null;
 
     const totalTime = Date.now() - startTime;
     console.log(`✅ Context preload completed in ${totalTime}ms`);
@@ -308,7 +166,6 @@ exports.handler = async (event, context) => {
         customerName: decodeURIComponent(customerName),
         customerDetails,
         conversationHistory: formattedHistory,
-        latestSummary,
         contextMetadata: {
           recordsFound: conversationHistory.length,
           sessionId: sessionId || 'cross_session',
