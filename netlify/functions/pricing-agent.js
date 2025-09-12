@@ -458,36 +458,74 @@ async function getNextInteractionNumber(sessionId) {
  * Trigger dedicated interaction summary function
  */
 async function triggerSummaryFunction(sessionId, interactionNumber, customerName, userInput, aiResponse, previousContext) {
+  console.log('🔍 [DEBUG] triggerSummaryFunction ENTERED');
+  console.log('🔍 [DEBUG] Function parameters:', {
+    sessionId: sessionId,
+    interactionNumber: interactionNumber,
+    customerName: customerName || 'NULL',
+    userInputLength: userInput?.length,
+    aiResponseLength: aiResponse?.length,
+    hasPreviousContext: !!previousContext
+  });
+  
   try {
+    console.log('🔍 [DEBUG] Building summary function URL...');
+    console.log('🔍 [DEBUG] process.env.URL:', process.env.URL);
+    
     const summaryUrl = process.env.URL ? 
       `${process.env.URL}/.netlify/functions/generate-interaction-summary` :
       'https://tradesphere-demo.netlify.app/.netlify/functions/generate-interaction-summary';
     
     console.log('📤 SUMMARY_CALL: Triggering summary at:', summaryUrl);
     
+    const payload = {
+      sessionId,
+      interactionNumber,
+      customerName,
+      userInput,
+      aiResponse,
+      previousContext
+    };
+    
+    console.log('🔍 [DEBUG] Payload being sent:', {
+      sessionId: payload.sessionId,
+      interactionNumber: payload.interactionNumber,
+      customerName: payload.customerName || 'NULL',
+      userInputLength: payload.userInput?.length,
+      aiResponseLength: payload.aiResponse?.length,
+      hasPreviousContext: !!payload.previousContext
+    });
+    
+    console.log('🔍 [DEBUG] About to make fetch call...');
     const response = await fetch(summaryUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId,
-        interactionNumber,
-        customerName,
-        userInput,
-        aiResponse,
-        previousContext
-      })
+      body: JSON.stringify(payload)
     });
+    
+    console.log('🔍 [DEBUG] Fetch call completed');
+    console.log('📥 SUMMARY_RESPONSE: Status:', response.status, response.statusText);
+    console.log('📥 SUMMARY_RESPONSE: Headers:', Object.fromEntries(response.headers));
     
     if (response.ok) {
       const result = await response.json();
       console.log('✅ SUMMARY_CALL: Summary generated successfully');
+      console.log('✅ SUMMARY_RESULT:', result);
     } else {
+      const errorText = await response.text().catch(() => 'Unable to read error');
       console.error('❌ SUMMARY_CALL: Failed with status:', response.status);
+      console.error('❌ SUMMARY_ERROR_BODY:', errorText);
+      console.error('❌ SUMMARY_ERROR_HEADERS:', Object.fromEntries(response.headers));
     }
     
   } catch (error) {
-    console.error('❌ SUMMARY_CALL: Network error:', error.message);
+    console.error('❌ SUMMARY_CALL: Caught exception in triggerSummaryFunction:', error);
+    console.error('❌ SUMMARY_ERROR_TYPE:', typeof error);
+    console.error('❌ SUMMARY_ERROR_MESSAGE:', error.message);
+    console.error('❌ SUMMARY_ERROR_STACK:', error.stack);
   }
+  
+  console.log('🔍 [DEBUG] triggerSummaryFunction EXITING');
 }
 
 /**

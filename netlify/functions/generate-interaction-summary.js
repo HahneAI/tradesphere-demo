@@ -252,9 +252,13 @@ async function updateInteractionSummary(sessionId, interactionNumber, summary) {
 exports.handler = async (event, context) => {
   const startTime = Date.now();
   
+  console.log('🚀🚀🚀 GENERATE_INTERACTION_SUMMARY FUNCTION HIT! 🚀🚀🚀');
   console.log('🔍 [DEBUG] GENERATE_INTERACTION_SUMMARY FUNCTION STARTED');
+  console.log('🔍 [DEBUG] Timestamp:', new Date().toISOString());
   console.log('🔍 [DEBUG] HTTP Method:', event.httpMethod);
   console.log('🔍 [DEBUG] Request headers:', event.headers);
+  console.log('🔍 [DEBUG] Request path:', event.path);
+  console.log('🔍 [DEBUG] Raw request body:', event.body);
 
   // CORS headers
   const corsHeaders = {
