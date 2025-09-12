@@ -254,16 +254,30 @@ export const handler = async (event, context) => {
       console.log('⏰ [BACKGROUND_SUMMARY] Summary process starting AFTER user response is sent');
       console.log('⏰ [BACKGROUND_SUMMARY] User will see their response while this summary generates in background');
       
+      console.log('🔍 [DEBUG] ABOUT TO CALL generateInteractionSummary with params:', {
+        customerName: payload.customerName,
+        sessionId: payload.sessionId,
+        userInputLength: payload.message.length,
+        aiResponseLength: response.response.length,
+        hasPreviousContext: !!previousContext
+      });
+      
       generateInteractionSummary(payload.customerName, payload.sessionId, payload.message, response.response, previousContext)
         .then(summary => {
+          console.log('🔍 [DEBUG] generateInteractionSummary RETURNED:', typeof summary, summary?.length);
           console.log('⏰ [BACKGROUND_SUMMARY] GPT summary completed, now updating VC Usage record...');
           return updateInteractionSummary(payload.sessionId, interactionNumber, summary);
         })
         .then(() => {
+          console.log('🔍 [DEBUG] updateInteractionSummary COMPLETED successfully');
           console.log('✅ [BACKGROUND_SUMMARY] ✅ COMPLETE ✅ Background summary pipeline finished successfully');
           console.log('✅ [BACKGROUND_SUMMARY] User response delivered + VC Usage updated + Summary generated');
         })
         .catch(error => {
+          console.error('🔍 [DEBUG] Promise chain caught error:', error);
+          console.error('🔍 [DEBUG] Error type:', typeof error);
+          console.error('🔍 [DEBUG] Error message:', error.message);
+          console.error('🔍 [DEBUG] Error stack:', error.stack);
           console.error('❌ [BACKGROUND_SUMMARY] ❌ FAILED ❌ Background summary pipeline failed:', error);
           console.error('❌ [BACKGROUND_SUMMARY] ❌ FAILED ❌ Details:', { sessionId: payload.sessionId, interactionNumber });
         });
@@ -474,9 +488,18 @@ async function getNextInteractionNumber(sessionId) {
  * @param {object|null} previousContext - Previous interaction context (null for first interaction)
  */
 async function generateInteractionSummary(customerName, sessionId, userInput, aiResponse, previousContext = null) {
+  console.log('🔍 [DEBUG] generateInteractionSummary FUNCTION ENTERED');
+  console.log('🔍 [DEBUG] Function params:', {
+    customerName: customerName,
+    sessionId: sessionId,
+    userInputType: typeof userInput,
+    aiResponseType: typeof aiResponse,
+    previousContextType: typeof previousContext
+  });
   console.log('🧠 Generating intelligent interaction summary with cascading context...');
   
   try {
+    console.log('🔍 [DEBUG] Entered try block in generateInteractionSummary');
     // Null safety check for parameters (customerName can be null, but sessionId, userInput, aiResponse are required)
     if (!sessionId || !userInput || !aiResponse) {
       console.warn('⚠️ Missing required parameters for summary generation');
@@ -485,7 +508,13 @@ async function generateInteractionSummary(customerName, sessionId, userInput, ai
     }
     
     // Get OpenAI API key EXCLUSIVELY for GPT-4o-mini summarization (same pattern as GPTServiceSplitter)
+    console.log('🔍 [DEBUG] About to check environment variables...');
+    console.log('🔍 [DEBUG] All process.env keys:', Object.keys(process.env).filter(k => k.includes('API')));
+    
     const openaiKey = process.env.VITE_OPENAI_API_KEY_MINI;
+    console.log('🔍 [DEBUG] VITE_OPENAI_API_KEY_MINI exists:', !!openaiKey);
+    console.log('🔍 [DEBUG] VITE_OPENAI_API_KEY_MINI length:', openaiKey?.length);
+    console.log('🔍 [DEBUG] VITE_OPENAI_API_KEY_MINI prefix:', openaiKey?.substring(0, 7));
     
     if (!openaiKey) {
       console.error('❌ CRITICAL: VITE_OPENAI_API_KEY_MINI not found in environment variables!');
@@ -599,15 +628,21 @@ Keep it concise and business-appropriate for customer service records. MAXIMUM 3
     console.log('✅ [SUMMARY_API] ✅ SUCCESS ✅ Summary generation completed successfully');
     
     console.log(`✅ Generated ${previousContext ? 'cascading' : 'initial'} summary: ${summary.substring(0, 80)}...`);
+    console.log('🔍 [DEBUG] About to return summary from generateInteractionSummary');
     return summary;
     
   } catch (error) {
+    console.error('🔍 [DEBUG] CAUGHT ERROR in generateInteractionSummary:', error);
+    console.error('🔍 [DEBUG] Error type:', typeof error);
+    console.error('🔍 [DEBUG] Error message:', error.message);
     console.error('❌ Summary generation failed, using fallback:', error);
     // Enhanced fallback with context awareness
     const fallback = `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
     if (previousContext && previousContext.interaction_summary) {
+      console.log('🔍 [DEBUG] Returning cascading fallback');
       return `${previousContext.interaction_summary} | Latest: ${fallback}`;
     }
+    console.log('🔍 [DEBUG] Returning simple fallback');
     return fallback;
   }
 }
