@@ -30,6 +30,9 @@
 [functions."customer-context"]
   timeout = 30
 
+[functions."generate-interaction-summary"]
+  timeout = 60
+
 # Headers for CORS and caching
 [[headers]]
   for = "/.netlify/functions/*"

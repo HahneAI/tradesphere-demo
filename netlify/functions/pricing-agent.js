@@ -249,8 +249,15 @@ export const handler = async (event, context) => {
       );
       console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
       
-      // 3. ✅ PHASE 2B: VC Usage storage complete - pricing workflow finished
-      console.log('✅ PRICING_WORKFLOW: All storage operations completed successfully');
+      // 3. 🧠 PHASE 2B: Trigger dedicated summary function (async, post-response)
+      console.log('🚀 SUMMARY_TRIGGER: Calling dedicated generate-interaction-summary function');
+      triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.message, response.response, previousContext)
+        .then(() => {
+          console.log('✅ SUMMARY_TRIGGER: Summary function triggered successfully');
+        })
+        .catch(error => {
+          console.error('❌ SUMMARY_TRIGGER: Summary trigger failed:', error.message);
+        });
       
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
@@ -447,7 +454,41 @@ async function getNextInteractionNumber(sessionId) {
   }
 }
 
-// Summary generation now handled by dedicated generate-interaction-summary.js function
+/**
+ * Trigger dedicated interaction summary function
+ */
+async function triggerSummaryFunction(sessionId, interactionNumber, customerName, userInput, aiResponse, previousContext) {
+  try {
+    const summaryUrl = process.env.URL ? 
+      `${process.env.URL}/.netlify/functions/generate-interaction-summary` :
+      'https://tradesphere-demo.netlify.app/.netlify/functions/generate-interaction-summary';
+    
+    console.log('📤 SUMMARY_CALL: Triggering summary at:', summaryUrl);
+    
+    const response = await fetch(summaryUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId,
+        interactionNumber,
+        customerName,
+        userInput,
+        aiResponse,
+        previousContext
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ SUMMARY_CALL: Summary generated successfully');
+    } else {
+      console.error('❌ SUMMARY_CALL: Failed with status:', response.status);
+    }
+    
+  } catch (error) {
+    console.error('❌ SUMMARY_CALL: Network error:', error.message);
+  }
+}
 
 /**
  * Store using EXACT chat-response.js format and code
