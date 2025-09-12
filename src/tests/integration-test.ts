@@ -219,7 +219,7 @@ class IntegrationTester {
       { input: 'metal edging', expectedService: 'Metal Edging' },
       { input: 'topsoil', expectedService: 'Topsoil (CUYD)' },
       { input: 'small tree', expectedService: 'Small Tree (<2in Caliper)' },
-      { input: 'retaining wall', expectedService: '5' Retaining Wall (LNFTXSQFT)' }
+      { input: 'retaining wall', expectedService: "5' Retaining Wall (LNFTXSQFT)" }
     ];
 
     for (const testCase of testCases) {
