@@ -518,37 +518,54 @@ Focus on:
 
 Keep it concise and business-appropriate for customer service records. MAXIMUM 3-4 sentences only.`;
 
+    // 📤 DETAILED REQUEST LOGGING
+    const requestBody = {
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system', 
+          content: 'You are a professional customer service assistant creating concise interaction summaries for business records. When provided with previous summaries, build upon them to show customer relationship progression. IMPORTANT: Keep summaries to no more than 3-4 sentences maximum - be concise but comprehensive.'
+        },
+        {
+          role: 'user',
+          content: summaryPrompt
+        }
+      ],
+      max_tokens: 200,
+      temperature: 0.3
+    };
+
+    console.log('📤 [SUMMARY_API] REQUEST DETAILS:');
+    console.log('🔑 [SUMMARY_API] API Key:', openaiKey.substring(0, 12) + '...' + openaiKey.slice(-4));
+    console.log('📝 [SUMMARY_API] Full Prompt:');
+    console.log('='.repeat(80));
+    console.log(summaryPrompt);
+    console.log('='.repeat(80));
+    console.log('⚙️ [SUMMARY_API] Request Body:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openaiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system', 
-            content: 'You are a professional customer service assistant creating concise interaction summaries for business records. When provided with previous summaries, build upon them to show customer relationship progression. IMPORTANT: Keep summaries to no more than 3-4 sentences maximum - be concise but comprehensive.'
-          },
-          {
-            role: 'user',
-            content: summaryPrompt
-          }
-        ],
-        max_tokens: 200, // Increased for cascading summaries
-        temperature: 0.3
-      })
+      body: JSON.stringify(requestBody)
     });
-    
+
+    // 📥 DETAILED RESPONSE LOGGING
+    console.log('📥 [SUMMARY_API] Response Status:', response.status, response.statusText);
+
     if (!response.ok) {
-      const errorText = await response.text().catch(() => 'Unknown error');
-      console.error(`❌ OpenAI API error: ${response.status} - ${errorText}`);
+      const errorText = await response.text().catch(() => 'Unable to read error');
+      console.error('❌ [SUMMARY_API] ERROR RESPONSE:', errorText);
       throw new Error(`OpenAI API error: ${response.status}`);
     }
-    
+
     const data = await response.json();
+    console.log('📋 [SUMMARY_API] COMPLETE RESPONSE:', JSON.stringify(data, null, 2));
+
     const summary = data.choices[0]?.message?.content?.trim() || `User asked about: ${userInput.substring(0, 100)}...`;
+    console.log('✅ [SUMMARY_API] FINAL SUMMARY:', summary);
     
     console.log(`✅ Generated ${previousContext ? 'cascading' : 'initial'} summary: ${summary.substring(0, 80)}...`);
     return summary;
