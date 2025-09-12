@@ -70,7 +70,7 @@ exports.handler = async (event, context) => {
     const queryParams = new URLSearchParams({
       'customer_name': `eq.${decodeURIComponent(customerName)}`,
       'user_tech_id': `eq.${techId}`,
-      'order': 'interaction_number.asc',
+      'order': 'interaction_number.desc',
       'limit': '2', // Last 2 interactions for context
       'select': 'user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone'
     });
@@ -110,9 +110,11 @@ exports.handler = async (event, context) => {
       customerName: decodeURIComponent(customerName)
     });
 
-    // Format conversation history - simple pairs without complex sorting
+    // Format conversation history - reverse to chronological order (oldest first)
     const formattedHistory = [];
-    conversationHistory.forEach((record, index) => {
+    const reversedHistory = [...conversationHistory].reverse(); // Reverse to get chronological order
+    
+    reversedHistory.forEach((record, index) => {
       // Add user message
       if (record.user_input && record.user_input.trim()) {
         formattedHistory.push({
