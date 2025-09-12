@@ -249,15 +249,14 @@ export const handler = async (event, context) => {
       );
       console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
       
-      // 3. 🧠 PHASE 2B: Trigger dedicated summary function (async, post-response)
+      // 3. 🧠 PHASE 2B: Trigger dedicated summary function (synchronous, waits for completion)
       console.log('🚀 SUMMARY_TRIGGER: Calling dedicated generate-interaction-summary function');
-      triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.message, response.response, previousContext)
-        .then(() => {
-          console.log('✅ SUMMARY_TRIGGER: Summary function triggered successfully');
-        })
-        .catch(error => {
-          console.error('❌ SUMMARY_TRIGGER: Summary trigger failed:', error.message);
-        });
+      try {
+        await triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.message, response.response, previousContext);
+        console.log('✅ SUMMARY_TRIGGER: Summary function completed successfully');
+      } catch (error) {
+        console.error('❌ SUMMARY_TRIGGER: Summary trigger failed:', error.message);
+      }
       
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
@@ -462,7 +461,7 @@ async function triggerSummaryFunction(sessionId, interactionNumber, customerName
   console.log('🔍 [DEBUG] Function parameters:', {
     sessionId: sessionId,
     interactionNumber: interactionNumber,
-    customerName: customerName || 'NULL',
+    customerName: customerName || null,
     userInputLength: userInput?.length,
     aiResponseLength: aiResponse?.length,
     hasPreviousContext: !!previousContext
@@ -481,27 +480,36 @@ async function triggerSummaryFunction(sessionId, interactionNumber, customerName
     const payload = {
       sessionId,
       interactionNumber,
-      customerName,
-      userInput,
-      aiResponse,
+      customerName: customerName || null,  // Fix: null instead of undefined
+      userInput,    // Fix: actual content, not just length
+      aiResponse,   // Fix: actual content, not just length
       previousContext
     };
     
     console.log('🔍 [DEBUG] Payload being sent:', {
       sessionId: payload.sessionId,
       interactionNumber: payload.interactionNumber,
-      customerName: payload.customerName || 'NULL',
+      customerName: payload.customerName || null,
       userInputLength: payload.userInput?.length,
       aiResponseLength: payload.aiResponse?.length,
-      hasPreviousContext: !!payload.previousContext
+      hasPreviousContext: !!payload.previousContext,
+      actualUserInput: payload.userInput?.substring(0, 50) + '...',
+      actualAiResponse: payload.aiResponse?.substring(0, 50) + '...'
     });
     
-    console.log('🔍 [DEBUG] About to make fetch call...');
-    const response = await fetch(summaryUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    console.log('🔍 [DEBUG] About to make fetch call with 8-second timeout...');
+    
+    // Add 8-second timeout protection so it doesn't block pricing agent indefinitely
+    const response = await Promise.race([
+      fetch(summaryUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Summary function call timeout after 8 seconds')), 8000)
+      )
+    ]);
     
     console.log('🔍 [DEBUG] Fetch call completed');
     console.log('📥 SUMMARY_RESPONSE: Status:', response.status, response.statusText);
