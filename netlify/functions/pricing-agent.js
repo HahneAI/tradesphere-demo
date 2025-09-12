@@ -475,23 +475,29 @@ async function generateInteractionSummary(customerName, sessionId, userInput, ai
       return `Incomplete interaction data for session ${sessionId || 'unknown'}`;
     }
     
-    // Get OpenAI API key from environment (NOT Claude API key!)
-    // Look for OpenAI-specific environment variables first
-    const openaiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPENAI_API_KEY || process.env.VITE_AI_API_KEY;
+    // Get OpenAI API key EXCLUSIVELY for GPT-4o-mini summarization (completely separate from Claude)
+    const openaiKey = process.env.OPENAI_API_KEY_MINI;
     
-    if (!openaiKey || openaiKey.startsWith('sk-ant-')) {
-      console.error('❌ CRITICAL: Found Claude API key instead of OpenAI key!');
+    if (!openaiKey) {
+      console.error('❌ CRITICAL: OPENAI_API_KEY_MINI not found in environment variables!');
       console.warn('⚠️ Available env vars:', {
+        OPENAI_API_KEY_MINI: !!process.env.OPENAI_API_KEY_MINI,
         OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
-        VITE_OPENAI_API_KEY: !!process.env.VITE_OPENAI_API_KEY,  
         VITE_AI_API_KEY: !!process.env.VITE_AI_API_KEY,
-        keyPrefix: openaiKey?.substring(0, 7)
+        'Note': 'GPT summary requires OPENAI_API_KEY_MINI specifically'
       });
       return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
     }
     
+    if (openaiKey.startsWith('sk-ant-')) {
+      console.error('❌ CRITICAL: OPENAI_API_KEY_MINI contains Claude API key! Must be OpenAI key starting with sk-');
+      console.error('❌ Key prefix found:', openaiKey.substring(0, 7));
+      return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
+    }
+    
     if (!openaiKey.startsWith('sk-')) {
-      console.warn('⚠️ Invalid OpenAI API key format (should start with sk-)');
+      console.error('❌ CRITICAL: OPENAI_API_KEY_MINI must start with "sk-" (OpenAI format)');
+      console.error('❌ Key prefix found:', openaiKey.substring(0, 7));
       return `User asked about: ${userInput.substring(0, 100)}${userInput.length > 100 ? '...' : ''}`;
     }
     
