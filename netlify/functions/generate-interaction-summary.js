@@ -12,10 +12,11 @@
 /**
  * Generate intelligent interaction summary using OpenAI GPT-4o-mini
  */
-async function generateInteractionSummary(customerName, sessionId, userInput, aiResponse, previousContext = null) {
+async function generateInteractionSummary(customerName, userName, sessionId, userInput, aiResponse, previousContext = null) {
   console.log('🔍 [DEBUG] generateInteractionSummary FUNCTION ENTERED');
   console.log('🔍 [DEBUG] Function params:', {
     customerName: customerName,
+    userName: userName,  // NEW: logged-in user's name
     sessionId: sessionId,
     userInputType: typeof userInput,
     userInputLength: userInput?.length,
@@ -90,18 +91,20 @@ async function generateInteractionSummary(customerName, sessionId, userInput, ai
           role: 'user',
           content: `Summarize this interaction:
 Customer Name: NULL
+User's Name: Mike
 Session ID: session-123
 Current User Input: "How much for 150 sqft mulch and small patio?"
 Current AI Response: "150 sqft mulch: $375 + 200 sqft patio: $3000 = $3375 total. 8 labor hours."`
         },
         {
           role: 'assistant',
-          content: 'User explored pricing: 150 sqft mulch ($375) + 200 sqft patio ($3000) = $3375 total, 8 hours. Exploratory calculation session.'
+          content: 'Mike explored pricing: 150 sqft mulch ($375) + 200 sqft patio ($3000) = $3375 total, 8 hours. Exploratory calculation session.'
         },
         {
           role: 'user',
           content: `Summarize this interaction:
 Customer Name: Jennifer
+User's Name: Sarah
 Session ID: session-456
 Current User Input: "Actually make that patio 15x15 instead"
 Current AI Response: "REVISED QUOTE for Jennifer: 150 sqft mulch ($375) + 225 sqft patio ($3375) = $3750 total, 9.5 hours."
@@ -115,6 +118,7 @@ Previous Context: Jennifer initially inquired about 150 sqft mulch and 200 sqft 
           role: 'user',
           content: `Summarize this interaction:
 Customer Name: ${customerName || 'NULL'}
+User's Name: ${userName || 'NULL'}
 Session ID: ${sessionId}
 Current User Input: "${userInput}"
 Current AI Response: "${aiResponse.substring(0, 500)}..."${previousContext && previousContext.interaction_summary ? `
@@ -331,13 +335,14 @@ exports.handler = async (event, context) => {
     }
 
     // Validate required parameters
-    const { sessionId, interactionNumber, customerName, userInput, aiResponse, previousContext } = payload;
+    const { sessionId, interactionNumber, customerName, userName, userInput, aiResponse, previousContext } = payload;
     
     console.log('🔍 [DEBUG] Validating parameters...');
     console.log('🔍 [DEBUG] Parameter validation:', {
       sessionId: !!sessionId,
       interactionNumber: !!interactionNumber,
       customerName: !!customerName,
+      userName: !!userName,  // NEW: logged-in user's name
       userInput: !!userInput,
       aiResponse: !!aiResponse,
       previousContext: !!previousContext
@@ -359,11 +364,11 @@ exports.handler = async (event, context) => {
     }
 
     console.log('🚀 [SUMMARY_PROCESS] Starting interaction summary generation pipeline...');
-    console.log('🚀 [SUMMARY_PROCESS] Session:', sessionId, '| Interaction:', interactionNumber, '| Customer:', customerName || 'anonymous');
+    console.log('🚀 [SUMMARY_PROCESS] Session:', sessionId, '| Interaction:', interactionNumber, '| Customer:', customerName || 'anonymous', '| User:', userName || 'anonymous');
 
     // 1. Generate intelligent summary using OpenAI GPT-4o-mini
     console.log('🧠 [SUMMARY_PROCESS] STEP 1: Generating intelligent summary...');
-    const summary = await generateInteractionSummary(customerName, sessionId, userInput, aiResponse, previousContext);
+    const summary = await generateInteractionSummary(customerName, userName, sessionId, userInput, aiResponse, previousContext);
     
     if (!summary) {
       throw new Error('Summary generation returned null/undefined');

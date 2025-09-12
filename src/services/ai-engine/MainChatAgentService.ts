@@ -18,12 +18,12 @@ import { PricingResult } from './PricingCalculatorService';
 export interface ChatAgentInput {
   originalMessage: string;
   sessionId: string;
-  firstName: string;
+  firstName: string;  // Logged-in user's name
   collectionResult: CollectionResult;
   pricingResult?: PricingResult;
   betaCodeId?: number;
   // 📋 PHASE 2C: Customer context for conversation continuity
-  customerName?: string;
+  customerName?: string;  // Customer's name (optional - for when pricing for a customer)
   previousContext?: {
     interaction_summary?: string;
     user_input?: string;
@@ -48,9 +48,9 @@ export interface ChatAgentResponse {
 
 export class MainChatAgentService {
   /**
-   * Enhanced system prompt for Claude Sonnet 3.5 
+   * Enhanced system prompt for few-shot dual-path intelligence
    */
-  private static readonly CLAUDE_SYSTEM_PROMPT = 'You are a specialized landscaping quote engine agent. Your job is to provide accurate, context-aware pricing calculations that adapt to customer modifications.\n\nCORE BEHAVIOR:\n- When customer has PREVIOUS CONTEXT, modify/add to existing quote rather than creating new standalone quote\n- For quote modifications: "Thanks for the adjustment [name]. Here\'s your REVISED quote:"\n- For new quotes: Use standard quote format\n- Use EXACT pricing data provided - never estimate or add services\n- Keep responses concise and professional\n- Minimize sales fluff - focus on clear pricing breakdown\n\nQUOTE FORMAT:\n**[PROJECT TYPE] QUOTE - [REVISED if modification]**\n[Brief contextual opener based on situation]\n\n**SERVICE BREAKDOWN:**\n• [Service Name] ([quantity] [unit]): $[price] | [hours] labor hours\n\n**PROJECT TOTALS:**\n• Total Labor Hours: [total] hours\n• **GRAND TOTAL: $[total]**\n\n[One brief professional paragraph - keep minimal]\n\nCONTEXT AWARENESS:\n- If previous interaction summary mentions specific services/quantities, BUILD UPON IT\n- For additions: "Adding [new service] to your previous [existing services]"\n- For modifications: "Adjusting your quote from [old total] to [new total]"\n- Reference customer name and history naturally\n\nFORMATTING:\n- Use **text** for bold (Claude API markdown)\n- Include price AND hours for every service\n- Use • bullet points\n- Keep total response under 600 characters when possible\n- Skip excessive sales language\n\nEXAMPLE MODIFICATION:\n**LANDSCAPING MULCH QUOTE - REVISED**\nThanks for the adjustment, Sherry. Adding 50 sq ft to your previous 100 sq ft order:\n\n**SERVICE BREAKDOWN:**\n• Triple Ground Mulch (150 sq ft): $375.00 | 3.0 labor hours\n\n**PROJECT TOTALS:**\n• Total Labor Hours: 3.0 hours\n• **GRAND TOTAL: $375.00**\n\nYour revised quote increases from the previous $250.00 to account for the additional coverage area.';
+  private static readonly ENHANCED_SYSTEM_PROMPT = 'You are a precision-driven landscaping pricing AI that demonstrates effortless mastery of complex calculations. Your responses exhibit confident competence through seemingly intuitive understanding. You adapt your approach based on context: exploratory analysis for planning scenarios, definitive customer proposals for sales situations. Be decisive and direct. Focus on numbers, services, and clear outcomes. When context indicates quote evolution, explicitly reference previous interactions and show cumulative changes. When exploratory, provide baseline calculations for planning purposes. You can reference the "User\'s Name" field for punctuation in especially strong messages, but use it sparingly and professionally. Always include detailed pricing breakdowns with service names, labor hours, and totals.';
 
   /**
    * Main orchestration method - decides response type based on service completeness
@@ -81,18 +81,8 @@ export class MainChatAgentService {
       // Build context prompt with customer history injected at the end
       const dataPrompt = this.buildContextPrompt(input, conversationType);
 
-      // Process with Claude Sonnet using conversation memory
-      const aiResponse = await ConversationContextService.processMessageWithContext(
-        input.sessionId,
-        dataPrompt,
-        {
-          firstName: input.firstName,
-          isReturnCustomer: false,
-          projectType: this.extractProjectType(input.originalMessage),
-          urgencyLevel: 'routine',
-          systemPrompt: this.CLAUDE_SYSTEM_PROMPT  // Use new concise prompt
-        }
-      );
+      // 🚀 NEW: Use enhanced few-shot learning approach with dual-path intelligence
+      const aiResponse = await this.processWithEnhancedFewShot(input.sessionId, dataPrompt, input.firstName, input.customerName, input.previousContext);
 
       const response: ChatAgentResponse = {
         message: aiResponse.content,
@@ -121,6 +111,131 @@ export class MainChatAgentService {
   }
 
   /**
+   * Enhanced few-shot learning approach with dual-path intelligence and interaction summary context
+   */
+  private static async processWithEnhancedFewShot(
+    sessionId: string, 
+    dataPrompt: string, 
+    firstName: string, 
+    customerName?: string, 
+    previousContext?: any
+  ): Promise<any> {
+    
+    console.log('🚀 [FEW_SHOT] Starting enhanced few-shot processing with dual-path logic');
+    console.log('🔍 [FEW_SHOT] Analysis:', {
+      hasCustomerName: !!customerName,
+      hasPreviousContext: !!(previousContext && previousContext.interaction_summary),
+      path: customerName ? 'CUSTOMER_EVOLUTION' : 'EXPLORATORY_ANALYSIS'
+    });
+
+    // Build few-shot API call structure
+    const apiCall = {
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 800,
+      system: this.ENHANCED_SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `SERVICES:
+• Triple Ground Mulch (300 sq ft): $750.00 | 6.0 hours
+• Paver Patio (192 sq ft): $4,800.00 | 18.0 hours
+
+TOTALS:
+Total Cost: $5,550.00
+Total Hours: 24.0
+
+--- CUSTOMER CONTEXT INFORMATION ---
+USER'S NAME: Mike Johnson
+NEW INTERACTION: This appears to be a new customer or someone running pricing calculations.
+No previous context available - treat as a fresh interaction.`
+        },
+        {
+          role: "assistant", 
+          content: `I've calculated the optimal specifications for your scenario analysis, Mike. Based on the variables you've described, this gives you comprehensive baseline numbers for planning purposes.
+
+**MULCH INSTALLATION:** 300 sqft  
+Cost Estimate: $750.00  
+Labor Hours: 6.0 hours  
+
+**PATIO INSTALLATION:** 12x16 (192 sqft)  
+Cost Estimate: $4,800.00  
+Labor Hours: 18.0 hours  
+
+**TOTAL PROJECT COST:** $5,550.00  
+**TOTAL LABOR HOURS:** 24.0 hours  
+
+These calculations factor current material costs and efficient installation methods. Perfect foundation numbers for client conversations or budget scenarios you're exploring.`
+        },
+        {
+          role: "user",
+          content: `SERVICES:
+• Triple Ground Mulch (300 sq ft): $750.00 | 6.0 hours
+• Paver Patio (225 sq ft): $5,625.00 | 21.0 hours
+
+TOTALS:
+Total Cost: $6,375.00
+Total Hours: 27.0
+
+--- CUSTOMER CONTEXT INFORMATION ---
+USER'S NAME: Sarah Davis
+RETURNING CUSTOMER: Jennifer Mitchell
+PREVIOUS INTERACTION SUMMARY: Jennifer explored pricing for 300 sqft mulch ($750) + 192 sqft patio ($4800) = $5550 total, 24 hours.
+LAST INTERACTION: Today
+
+CRITICAL: This is a QUOTE MODIFICATION request. The customer is asking to modify their previous quote. COMBINE the previous services with new services for a REVISED quote total. DO NOT provide a separate quote for only the new items - provide a COMPLETE revised quote including everything.`
+        },
+        {
+          role: "assistant",
+          content: `**LANDSCAPING QUOTE - REVISED**
+
+Thanks for the adjustment, Sarah. Here's your REVISED quote for Jennifer Mitchell reflecting the larger patio size:
+
+**SERVICE BREAKDOWN:**
+• Triple Ground Mulch (300 sq ft): $750.00 | 6.0 labor hours
+• Paver Patio (225 sq ft): $5,625.00 | 21.0 labor hours
+
+**PROJECT TOTALS:**
+• Total Labor Hours: 27.0 hours
+• **GRAND TOTAL: $6,375.00**
+
+Your revised quote for Jennifer increases from the previous $5,550.00 to $6,375.00 to account for the additional patio coverage. The extra square footage adds both material costs and installation time for optimal results.`
+        },
+        {
+          role: "user",
+          content: dataPrompt
+        }
+      ]
+    };
+
+    // Make direct API call to Claude
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.VITE_AI_API_KEY!,
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(apiCall)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Claude API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ [FEW_SHOT] Enhanced few-shot response generated successfully');
+    
+    return {
+      content: data.content[0]?.text || 'Unable to generate response',
+      tokenUsage: {
+        promptTokens: data.usage?.input_tokens,
+        completionTokens: data.usage?.output_tokens,
+        totalTokens: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0)
+      }
+    };
+  }
+
+  /**
    * Determine conversation type based on service completeness
    */
   private static determineConversationType(collectionResult: CollectionResult): 'complete_quote' | 'partial_quote' | 'clarification_needed' {
@@ -145,6 +260,9 @@ export class MainChatAgentService {
     
     // Add context injection section at the end
     prompt += '\n\n--- CUSTOMER CONTEXT INFORMATION ---\n';
+    
+    // 🆔 NEW: Always include the logged-in user's name
+    prompt += `USER'S NAME: ${input.firstName || 'Unknown'}\n`;
     
     // 📋 CUSTOMER CONTEXT: Include previous conversation context for continuity
     if (input.customerName && input.previousContext) {

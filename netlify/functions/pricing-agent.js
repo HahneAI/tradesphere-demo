@@ -252,7 +252,7 @@ export const handler = async (event, context) => {
       // 3. 🧠 PHASE 2B: Trigger dedicated summary function (synchronous, waits for completion)
       console.log('🚀 SUMMARY_TRIGGER: Calling dedicated generate-interaction-summary function');
       try {
-        await triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.message, response.response, previousContext);
+        await triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.firstName, payload.message, response.response, previousContext);
         console.log('✅ SUMMARY_TRIGGER: Summary function completed successfully');
       } catch (error) {
         console.error('❌ SUMMARY_TRIGGER: Summary trigger failed:', error.message);
@@ -456,12 +456,13 @@ async function getNextInteractionNumber(sessionId) {
 /**
  * Trigger dedicated interaction summary function
  */
-async function triggerSummaryFunction(sessionId, interactionNumber, customerName, userInput, aiResponse, previousContext) {
+async function triggerSummaryFunction(sessionId, interactionNumber, customerName, userName, userInput, aiResponse, previousContext) {
   console.log('🔍 [DEBUG] triggerSummaryFunction ENTERED');
   console.log('🔍 [DEBUG] Function parameters:', {
     sessionId: sessionId,
     interactionNumber: interactionNumber,
     customerName: customerName || null,
+    userName: userName || null,  // NEW: logged-in user's name
     userInputLength: userInput?.length,
     aiResponseLength: aiResponse?.length,
     hasPreviousContext: !!previousContext
@@ -481,6 +482,7 @@ async function triggerSummaryFunction(sessionId, interactionNumber, customerName
       sessionId,
       interactionNumber,
       customerName: customerName || null,  // Fix: null instead of undefined
+      userName: userName || null,  // NEW: logged-in user's name
       userInput,    // Fix: actual content, not just length
       aiResponse,   // Fix: actual content, not just length
       previousContext
@@ -490,6 +492,7 @@ async function triggerSummaryFunction(sessionId, interactionNumber, customerName
       sessionId: payload.sessionId,
       interactionNumber: payload.interactionNumber,
       customerName: payload.customerName || null,
+      userName: payload.userName || null,  // NEW: logged-in user's name
       userInputLength: payload.userInput?.length,
       aiResponseLength: payload.aiResponse?.length,
       hasPreviousContext: !!payload.previousContext,
