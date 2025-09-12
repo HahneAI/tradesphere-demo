@@ -27,6 +27,7 @@ import { Message } from '../types/message';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
+import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
 const coreConfig = getCoreConfig();
@@ -318,6 +319,8 @@ const ChatInterface = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showCustomersPopup, setShowCustomersPopup] = useState(false);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [loadingCustomerName, setLoadingCustomerName] = useState<string | null>(null);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -1402,6 +1405,69 @@ const ChatInterface = () => {
     }
   };
 
+  // Handle customer loading from CustomersTab
+  const handleLoadCustomer = async (customer: any, historicalMessages: Message[]) => {
+    if (!user?.tech_uuid || !customer.customer_name) {
+      console.error('Cannot load customer: missing tech_uuid or customer name');
+      return;
+    }
+
+    setIsLoadingCustomer(true);
+    setLoadingCustomerName(customer.customer_name);
+
+    try {
+      // Load customer context using the service
+      const response = await customerContextService.loadCustomerContext(
+        customer.customer_name,
+        user.tech_uuid,
+        customer.session_id
+      );
+
+      if (response.success) {
+        // Clear existing messages and add customer context
+        const customerInfoId = uuidv4();
+        const historySummaryId = uuidv4();
+        
+        const contextMessages = customerContextService.prepareMessagesForChat(
+          response.customerDetails,
+          response.conversationHistory,
+          customerInfoId,
+          historySummaryId
+        );
+
+        // Update messages state with customer context and history
+        setMessages(contextMessages);
+        
+        // Update session data
+        if (response.customerDetails) {
+          setCurrentCustomer(response.customerDetails.name);
+          setSessionData(prev => ({
+            ...prev,
+            sessionId: customer.session_id || uuidv4(),
+            customerName: response.customerDetails.name,
+            customerContext: {
+              address: response.customerDetails.address,
+              email: response.customerDetails.email,
+              phone: response.customerDetails.phone,
+            }
+          }));
+        }
+
+        console.log(`✅ Customer context loaded: ${customer.customer_name} (${response.conversationHistory.length} messages)`);
+      } else {
+        console.error('Failed to load customer context:', response.error);
+        // Could show error message to user here
+      }
+
+    } catch (error) {
+      console.error('Error loading customer context:', error);
+      // Could show error message to user here
+    } finally {
+      setIsLoadingCustomer(false);
+      setLoadingCustomerName(null);
+    }
+  };
+
   // 🏢 PHASE 5: Load recent customer sessions using existing infrastructure
   const loadRecentCustomers = async () => {
     if (!user?.tech_uuid || isLoadingCustomers) return;
@@ -2274,6 +2340,7 @@ const ChatInterface = () => {
       <CustomersTab
         isOpen={showCustomersPopup}
         onClose={() => setShowCustomersPopup(false)}
+        onLoadCustomer={handleLoadCustomer}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">

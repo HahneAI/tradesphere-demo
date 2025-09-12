@@ -1,9 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSupabase } from '../services/supabase';
 import { getSmartVisualThemeConfig } from '../config/industry';
+import { 
+  debounce, 
+  hapticFeedback, 
+  getTouchTargetSize, 
+  isMobileDevice, 
+  SwipeGestureDetector,
+  LongPressDetector
+} from '../utils/mobile-gestures';
+import { customerService } from '../services/customerService';
+import { useCustomerContext } from '../hooks/useCustomerContext';
+import { Message } from '../types/message';
 
 interface Customer {
   session_id: string;
@@ -25,18 +36,23 @@ interface EditCustomerData {
 interface CustomersTabProps {
   isOpen: boolean;
   onClose: () => void;
+  onLoadCustomer?: (customer: Customer, messages: Message[]) => void;
 }
 
-export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) => {
+export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onLoadCustomer }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [searchResultCount, setSearchResultCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [touchTargetSize, setTouchTargetSize] = useState(getTouchTargetSize());
   const [editData, setEditData] = useState<EditCustomerData>({
     customer_name: '',
     customer_address: '',
@@ -45,6 +61,33 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
   });
 
   const visualConfig = getSmartVisualThemeConfig(theme);
+  const customerContext = useCustomerContext();
+  const isMobile = useMemo(() => isMobileDevice(), []);
+
+  // Recently viewed tracking state with localStorage persistence
+  const [recentlyViewedCustomers, setRecentlyViewedCustomers] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined' && user?.tech_uuid) {
+      try {
+        const stored = localStorage.getItem(`recentlyViewed_${user.tech_uuid}`);
+        return stored ? new Set(JSON.parse(stored)) : new Set();
+      } catch {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+
+  // Persist recently viewed customers to localStorage
+  useEffect(() => {
+    if (user?.tech_uuid && recentlyViewedCustomers.size > 0) {
+      try {
+        const recentArray = Array.from(recentlyViewedCustomers).slice(0, 20); // Keep only last 20
+        localStorage.setItem(`recentlyViewed_${user.tech_uuid}`, JSON.stringify(recentArray));
+      } catch (error) {
+        console.warn('Failed to persist recently viewed customers:', error);
+      }
+    }
+  }, [recentlyViewedCustomers, user?.tech_uuid]);
 
   // Fetch customers on component mount
   useEffect(() => {
@@ -53,47 +96,101 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
     }
   }, [user?.tech_uuid]);
 
-  // Update filtered customers when customers change
-  useEffect(() => {
-    setFilteredCustomers(customers);
-  }, [customers]);
+  // Debounced search effect
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      setDebouncedSearchQuery(query);
+    }, 300),
+    []
+  );
 
-  const fetchCustomers = async () => {
+  useEffect(() => {
+    debouncedSearch(searchQuery);
+  }, [searchQuery, debouncedSearch]);
+
+  // Filter and sort customers based on debounced search query and recently viewed
+  useEffect(() => {
+    let processedCustomers = [...customers];
+
+    // Apply search filter
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
+      processedCustomers = processedCustomers.filter(customer =>
+        customer.customer_name?.toLowerCase().includes(query) ||
+        customer.customer_email?.toLowerCase().includes(query) ||
+        customer.customer_number?.toLowerCase().includes(query) ||
+        customer.customer_address?.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply recently viewed sorting - recently viewed customers appear first
+    processedCustomers.sort((a, b) => {
+      const aRecentlyViewed = recentlyViewedCustomers.has(a.customer_name || '');
+      const bRecentlyViewed = recentlyViewedCustomers.has(b.customer_name || '');
+      
+      if (aRecentlyViewed && !bRecentlyViewed) return -1;
+      if (!aRecentlyViewed && bRecentlyViewed) return 1;
+      
+      // If both or neither recently viewed, maintain original order (database sorting)
+      return 0;
+    });
+    
+    setFilteredCustomers(processedCustomers);
+    setSearchResultCount(processedCustomers.length);
+  }, [customers, debouncedSearchQuery, recentlyViewedCustomers]);
+
+  const fetchCustomers = async (isRefresh = false) => {
     if (!user?.tech_uuid) return;
 
-    setIsLoading(true);
+    if (isRefresh) {
+      setIsRefreshing(true);
+      hapticFeedback.impact('light');
+    } else {
+      setIsLoading(true);
+    }
+    
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('VC USAGE')
-        .select('session_id, customer_name, customer_address, customer_email, customer_number, interaction_summary, created_at')
-        .eq('tech_id', user.tech_uuid)
-        .not('customer_name', 'is', null)
-        .order('created_at', { ascending: false });
+      const { customers: customerData, error } = await customerService.getCustomerList(
+        user.tech_uuid,
+        { limit: 100 }
+      );
 
       if (error) {
         console.error('Error fetching customers:', error);
+        hapticFeedback.notification('error');
         return;
       }
 
-      // Remove duplicates based on customer_name and keep most recent
-      const uniqueCustomers = data?.reduce((acc: Customer[], current) => {
-        const existing = acc.find(c => c.customer_name === current.customer_name);
-        if (!existing) {
-          acc.push(current);
-        }
-        return acc;
-      }, []) || [];
+      // Convert CustomerSummary to Customer interface
+      const formattedCustomers: Customer[] = customerData.map(customer => ({
+        session_id: customer.latest_session_id,
+        customer_name: customer.customer_name,
+        customer_address: customer.customer_address,
+        customer_email: customer.customer_email,
+        customer_number: customer.customer_number || customer.customer_phone,
+        interaction_summary: customer.interaction_summary,
+        created_at: customer.last_interaction_at
+      }));
 
-      setCustomers(uniqueCustomers);
+      setCustomers(formattedCustomers);
+      
+      if (isRefresh) {
+        hapticFeedback.notification('success');
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
+      if (isRefresh) {
+        hapticFeedback.notification('error');
+      }
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  const handleCustomerClick = (customer: Customer) => {
+  const handleCustomerClick = async (customer: Customer) => {
+    hapticFeedback.selection();
+    
     if (isEditMode) {
       setSelectedCustomer(customer);
       setEditData({
@@ -103,28 +200,65 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
         customer_number: customer.customer_number || ''
       });
       setShowEditModal(true);
+    } else if (onLoadCustomer && customer.customer_name && user?.tech_uuid) {
+      // Load customer context and conversation history
+      try {
+        // Track customer interaction for smart ordering
+        await customerService.trackCustomerInteraction(
+          user.tech_uuid,
+          customer.customer_name,
+          customer.session_id,
+          'load'
+        );
+
+        // Update recently viewed customers for immediate UI feedback
+        setRecentlyViewedCustomers(prev => new Set([customer.customer_name!, ...Array.from(prev)]));
+
+        // Load customer context using the correct API
+        await customerContext.loadCustomerContext(
+          customer.customer_name,
+          customer.session_id
+        );
+        
+        if (customerContext.hasContext()) {
+          const messages = customerContext.getMessagesForChat();
+          onLoadCustomer(customer, messages);
+          hapticFeedback.notification('success');
+          onClose();
+        }
+      } catch (error) {
+        console.error('Error loading customer context:', error);
+        hapticFeedback.notification('error');
+      }
     }
   };
 
   const handleSaveCustomer = async () => {
     if (!selectedCustomer || !user?.tech_uuid) return;
 
+    hapticFeedback.impact('medium');
+    
     try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('VC USAGE')
-        .update({
+      const { success, error } = await customerService.updateCustomerDetails(
+        selectedCustomer.session_id,
+        user.tech_uuid,
+        {
           customer_name: editData.customer_name,
           customer_address: editData.customer_address,
           customer_email: editData.customer_email,
           customer_number: editData.customer_number
-        })
-        .eq('session_id', selectedCustomer.session_id)
-        .eq('tech_id', user.tech_uuid);
+        }
+      );
 
-      if (error) {
+      if (!success) {
         console.error('Error updating customer:', error);
+        hapticFeedback.notification('error');
         return;
+      }
+
+      // Track edit interaction for smart ordering
+      if (editData.customer_name) {
+        setRecentlyViewedCustomers(prev => new Set([editData.customer_name, ...Array.from(prev)]));
       }
 
       // Update local state
@@ -138,8 +272,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
 
       setShowEditModal(false);
       setSelectedCustomer(null);
+      hapticFeedback.notification('success');
+
+      // Refresh customer list to get updated ordering
+      await fetchCustomers();
     } catch (error) {
       console.error('Error updating customer:', error);
+      hapticFeedback.notification('error');
     }
   };
 
@@ -232,31 +371,68 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
           </div>
         </div>
 
-        {/* Search Input */}
-        <div className="relative">
-          <Icons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" 
-                       style={{ color: visualConfig.colors.text.secondary }} />
-          <input
-            type="text"
-            placeholder="Search customers by name, email, phone, or address"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-lg border focus:outline-none focus:ring-2 transition-all duration-200"
-            style={{
-              backgroundColor: visualConfig.colors.surface,
-              borderColor: theme === 'light' ? '#d1d5db' : '#4b5563',
-              color: visualConfig.colors.text.primary,
-              focusRingColor: visualConfig.colors.primary
-            }}
-            onFocus={(e) => e.target.style.borderColor = visualConfig.colors.primary}
-            onBlur={(e) => e.target.style.borderColor = theme === 'light' ? '#d1d5db' : '#4b5563'}
-          />
-        </div>
-      </div>
+              {/* Search Input */}
+              <div className="relative">
+                <Icons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" 
+                             style={{ color: visualConfig.colors.text.secondary }} />
+                <input
+                  type="text"
+                  placeholder="Search customers by name, email, phone, or address"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-12 rounded-lg border focus:outline-none focus:ring-2 transition-all duration-200"
+                  style={{
+                    minHeight: `${touchTargetSize.recommendedSize}px`,
+                    padding: `${Math.max(12, (touchTargetSize.recommendedSize - 20) / 2)}px 12px ${Math.max(12, (touchTargetSize.recommendedSize - 20) / 2)}px 40px`,
+                    backgroundColor: visualConfig.colors.surface,
+                    borderColor: searchQuery ? visualConfig.colors.primary : (theme === 'light' ? '#d1d5db' : '#4b5563'),
+                    color: visualConfig.colors.text.primary,
+                    fontSize: isMobile ? '16px' : '14px' // Prevent iOS zoom
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = visualConfig.colors.primary;
+                    e.target.style.boxShadow = `0 0 0 3px ${visualConfig.colors.primary}20`;
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = searchQuery ? visualConfig.colors.primary : (theme === 'light' ? '#d1d5db' : '#4b5563');
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      hapticFeedback.selection();
+                    }}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 rounded-full transition-colors duration-200"
+                    style={{
+                      width: `${touchTargetSize.minSize}px`,
+                      height: `${touchTargetSize.minSize}px`,
+                      backgroundColor: 'transparent',
+                      color: visualConfig.colors.text.secondary
+                    }}
+                    onTouchStart={() => hapticFeedback.selection()}
+                  >
+                    <Icons.X className="h-4 w-4 mx-auto" />
+                  </button>
+                )}
+              </div>
+            </div>
 
       {/* Customer List */}
       <div className="flex-1 overflow-y-auto p-4">
-        {filteredCustomers.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <SkeletonCustomerCard 
+                key={`skeleton-${index}`}
+                visualConfig={visualConfig}
+                theme={theme}
+                delay={index * 0.1}
+              />
+            ))}
+          </div>
+        ) : filteredCustomers.length === 0 ? (
           <div className="text-center py-12">
             <Icons.Users className="mx-auto h-12 w-12 mb-4" 
                         style={{ color: visualConfig.colors.text.secondary }} />
@@ -272,16 +448,24 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
           </div>
         ) : (
           <div className="space-y-3">
-            {filteredCustomers.map((customer) => (
-              <CustomerCard
+            {filteredCustomers.map((customer, index) => (
+              <div 
                 key={customer.session_id}
-                customer={customer}
-                visualConfig={visualConfig}
-                theme={theme}
-                isEditMode={isEditMode}
-                onClick={() => handleCustomerClick(customer)}
-                searchQuery={searchQuery}
-              />
+                className="stagger-item"
+                style={{ animationDelay: `${index * 0.05}s` }}
+              >
+                <CustomerCard
+                  customer={customer}
+                  visualConfig={visualConfig}
+                  theme={theme}
+                  isEditMode={isEditMode}
+                  onClick={() => handleCustomerClick(customer)}
+                  searchQuery={searchQuery}
+                  touchTargetSize={touchTargetSize}
+                  isMobile={isMobile}
+                  isRecentlyViewed={recentlyViewedCustomers.has(customer.customer_name || '')}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -314,8 +498,14 @@ const CustomerCard: React.FC<{
   isEditMode: boolean;
   onClick: () => void;
   searchQuery: string;
-}> = ({ customer, visualConfig, theme, isEditMode, onClick, searchQuery }) => {
+  touchTargetSize: { minSize: number; recommendedSize: number };
+  isMobile: boolean;
+  isRecentlyViewed: boolean;
+}> = ({ customer, visualConfig, theme, isEditMode, onClick, searchQuery, touchTargetSize, isMobile, isRecentlyViewed }) => {
   const [isVisible, setIsVisible] = useState(true);
+  const [isPressed, setIsPressed] = useState(false);
+  const swipeDetector = useMemo(() => new SwipeGestureDetector({ minDistance: 60 }), []);
+  const longPressDetector = useMemo(() => new LongPressDetector({ duration: 600 }), []);
 
   // Check if customer matches search query
   React.useEffect(() => {
@@ -336,32 +526,97 @@ const CustomerCard: React.FC<{
 
   return (
     <div
-      className={`p-4 rounded-lg border cursor-pointer transition-all duration-300 ${
+      className={`rounded-lg border cursor-pointer transition-all duration-300 ${
         isEditMode ? 'hover:shadow-lg' : ''
+      } ${isPressed ? 'scale-98' : 'scale-100'} ${
+        isRecentlyViewed ? 'ring-1' : ''
       }`}
       style={{
-        backgroundColor: visualConfig.colors.surface,
-        borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
+        backgroundColor: isPressed ? visualConfig.colors.primary + '10' : (
+          isRecentlyViewed ? visualConfig.colors.primary + '05' : visualConfig.colors.surface
+        ),
+        borderColor: isPressed || isEditMode || isRecentlyViewed ? visualConfig.colors.primary : (theme === 'light' ? '#e5e7eb' : '#374151'),
         opacity: isVisible ? 1 : 0.3,
-        transform: isVisible ? 'translateY(0)' : 'translateY(-10px)'
+        transform: `${isVisible ? 'translateY(0)' : 'translateY(-10px)'} ${isPressed ? 'scale(0.98)' : 'scale(1)'}`,
+        minHeight: `${touchTargetSize.recommendedSize}px`,
+        padding: `${Math.max(12, (touchTargetSize.recommendedSize - 40) / 2)}px 16px`,
+        ...(isRecentlyViewed && {
+          ringColor: visualConfig.colors.primary + '30'
+        })
       }}
-      onClick={isEditMode ? onClick : undefined}
+      onClick={onClick}
+      onTouchStart={(e) => {
+        if (!isEditMode) {
+          longPressDetector.onTouchStart(e.nativeEvent, () => {
+            hapticFeedback.impact('medium');
+            // Could trigger context menu here
+          });
+        }
+        swipeDetector.onTouchStart(e.nativeEvent);
+        setIsPressed(true);
+      }}
+      onTouchMove={(e) => {
+        longPressDetector.onTouchMove(e.nativeEvent);
+        // Reset pressed state if moving significantly
+        const touch = e.touches[0];
+        const rect = e.currentTarget.getBoundingClientRect();
+        const isOutside = touch.clientX < rect.left || touch.clientX > rect.right || 
+                         touch.clientY < rect.top || touch.clientY > rect.bottom;
+        if (isOutside) {
+          setIsPressed(false);
+        }
+      }}
+      onTouchEnd={(e) => {
+        longPressDetector.onTouchEnd();
+        swipeDetector.onTouchEnd(e.nativeEvent, (direction, distance) => {
+          if (direction === 'right' && distance > 80) {
+            hapticFeedback.impact('light');
+            // Could trigger edit mode here
+          }
+        });
+        setIsPressed(false);
+      }}
       onMouseOver={(e) => {
-        if (isEditMode) {
+        if (!isMobile && (isEditMode || !isEditMode)) {
           e.currentTarget.style.borderColor = visualConfig.colors.primary;
+          e.currentTarget.style.backgroundColor = visualConfig.colors.primary + '05';
         }
       }}
       onMouseOut={(e) => {
-        if (isEditMode) {
+        if (!isMobile) {
           e.currentTarget.style.borderColor = theme === 'light' ? '#e5e7eb' : '#374151';
+          e.currentTarget.style.backgroundColor = visualConfig.colors.surface;
         }
       }}
     >
-      {isEditMode && (
-        <div className="flex justify-end mb-2">
-          <Icons.Edit3 className="h-4 w-4" style={{ color: visualConfig.colors.primary }} />
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          {!isEditMode && (
+            <>
+              <div className="w-2 h-2 rounded-full" 
+                   style={{ backgroundColor: isRecentlyViewed ? visualConfig.colors.primary : visualConfig.colors.text.secondary + '40' }} />
+              {isRecentlyViewed && (
+                <div className="flex items-center gap-1">
+                  <Icons.Clock className="h-3 w-3" style={{ color: visualConfig.colors.primary }} />
+                  <span className="text-xs font-medium" style={{ color: visualConfig.colors.primary }}>Recently viewed</span>
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+        {isEditMode && (
+          <div className="flex items-center gap-1">
+            <Icons.Edit3 className="h-4 w-4" style={{ color: visualConfig.colors.primary }} />
+            <span className="text-xs" style={{ color: visualConfig.colors.primary }}>Tap to edit</span>
+          </div>
+        )}
+        {!isEditMode && (
+          <div className="flex items-center gap-1">
+            <Icons.MessageCircle className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
+            <span className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>Tap to load</span>
+          </div>
+        )}
+      </div>
       
       <h3 className="text-lg font-semibold mb-2" style={{ color: visualConfig.colors.text.primary }}>
         {customer.customer_name || 'Unnamed Customer'}
@@ -567,5 +822,89 @@ const EditCustomerModal: React.FC<{
         </div>
       </div>
     </>
+  );
+};
+
+// Skeleton Customer Card for Loading States
+const SkeletonCustomerCard: React.FC<{
+  visualConfig: any;
+  theme: 'light' | 'dark';
+  delay: number;
+}> = ({ visualConfig, theme, delay }) => {
+  return (
+    <div
+      className="rounded-lg border p-4 animate-bounce-in-mobile"
+      style={{
+        backgroundColor: visualConfig.colors.surface,
+        borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
+        animationDelay: `${delay}s`
+      }}
+    >
+      {/* Header with indicator and action hint */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-2 h-2 rounded-full skeleton-shimmer"
+            style={{ backgroundColor: visualConfig.colors.primary + '30' }}
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <div 
+            className="w-4 h-4 rounded skeleton-shimmer"
+            style={{ backgroundColor: visualConfig.colors.text.secondary + '20' }}
+          />
+          <div 
+            className="w-12 h-3 rounded skeleton-shimmer"
+            style={{ backgroundColor: visualConfig.colors.text.secondary + '20' }}
+          />
+        </div>
+      </div>
+      
+      {/* Customer Name */}
+      <div 
+        className="h-6 rounded skeleton-shimmer mb-3"
+        style={{ 
+          backgroundColor: visualConfig.colors.text.primary + '20',
+          width: `${60 + Math.random() * 30}%`
+        }}
+      />
+      
+      {/* Interaction Summary */}
+      <div className="space-y-2 mb-3">
+        <div 
+          className="h-4 rounded skeleton-shimmer"
+          style={{ 
+            backgroundColor: visualConfig.colors.text.secondary + '15',
+            width: `${80 + Math.random() * 15}%`
+          }}
+        />
+        <div 
+          className="h-4 rounded skeleton-shimmer"
+          style={{ 
+            backgroundColor: visualConfig.colors.text.secondary + '15',
+            width: `${50 + Math.random() * 30}%`
+          }}
+        />
+      </div>
+      
+      {/* Contact Details */}
+      <div className="space-y-2">
+        {Array.from({ length: Math.floor(Math.random() * 3) + 1 }).map((_, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded skeleton-shimmer"
+              style={{ backgroundColor: visualConfig.colors.text.secondary + '20' }}
+            />
+            <div 
+              className="h-3 rounded skeleton-shimmer"
+              style={{ 
+                backgroundColor: visualConfig.colors.text.secondary + '15',
+                width: `${40 + Math.random() * 40}%`
+              }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
