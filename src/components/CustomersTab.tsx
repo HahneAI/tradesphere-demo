@@ -285,7 +285,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
             ))}
           </div>
         )}
-          </div>
+      </div>
           
           {/* Edit Modal */}
           {showEditModal && selectedCustomer && (
@@ -299,6 +299,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose }) =
               onClose={closeEditModal}
             />
           )}
+          </div>
         </div>
       </div>
     </>
