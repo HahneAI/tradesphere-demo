@@ -26,6 +26,7 @@ import { sendFeedback } from '../utils/feedback-webhook';
 import { Message } from '../types/message';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
+import { CustomersTab } from './CustomersTab';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
 const coreConfig = getCoreConfig();
@@ -316,6 +317,7 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showCustomersPopup, setShowCustomersPopup] = useState(false);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -1639,6 +1641,7 @@ const ChatInterface = () => {
         onFeedbackClick={() => setShowFeedbackPopup(true)}
         onNotesClick={() => setShowNotesPopup(true)}
         onAvatarClick={() => setShowAvatarPopup(true)}
+        onCustomersClick={() => setShowCustomersPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
@@ -2265,6 +2268,12 @@ const ChatInterface = () => {
         onClose={() => setShowNotesPopup(false)}
         isAdmin={isAdmin}
         userName={user?.first_name || 'Anonymous'}
+      />
+
+      {/* Customers Popup */}
+      <CustomersTab
+        isOpen={showCustomersPopup}
+        onClose={() => setShowCustomersPopup(false)}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">

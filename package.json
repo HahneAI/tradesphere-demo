@@ -31,6 +31,7 @@
     "test:sheets-inspector": "tsx -r dotenv/config src/tests/sheets-inspector.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
