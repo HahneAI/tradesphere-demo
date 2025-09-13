@@ -27,6 +27,7 @@ import { Message } from '../types/message';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
+import { ServicesTab } from './ServicesTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -246,6 +247,7 @@ const ChatInterface = () => {
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
 
   const [showNotesPopup, setShowNotesPopup] = useState(false);
+  const [showServicesPopup, setShowServicesPopup] = useState(false);
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1708,6 +1710,7 @@ const ChatInterface = () => {
         onNotesClick={() => setShowNotesPopup(true)}
         onAvatarClick={() => setShowAvatarPopup(true)}
         onCustomersClick={() => setShowCustomersPopup(true)}
+        onServicesClick={() => setShowServicesPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
@@ -2341,6 +2344,12 @@ const ChatInterface = () => {
         isOpen={showCustomersPopup}
         onClose={() => setShowCustomersPopup(false)}
         onLoadCustomer={handleLoadCustomer}
+      />
+
+      {/* Services Popup */}
+      <ServicesTab
+        isOpen={showServicesPopup}
+        onClose={() => setShowServicesPopup(false)}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
