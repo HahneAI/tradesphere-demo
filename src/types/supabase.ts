@@ -356,7 +356,7 @@ export interface Database {
           }
         ]
       }
-      "VC USAGE": {
+      "VC Usage": {
         Row: {
           id: string
           session_id: string

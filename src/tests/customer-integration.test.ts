@@ -183,7 +183,7 @@ describe('Customer Integration Tests', () => {
       );
 
       expect(result.success).toBe(true);
-      expect(mockSupabase.from).toHaveBeenCalledWith('VC USAGE');
+      expect(mockSupabase.from).toHaveBeenCalledWith('VC Usage');
     });
 
     test('should retrieve customer details by name or session', async () => {
@@ -193,7 +193,7 @@ describe('Customer Integration Tests', () => {
       );
 
       expect(result.customer).toBeDefined();
-      expect(mockSupabase.from).toHaveBeenCalledWith('VC USAGE');
+      expect(mockSupabase.from).toHaveBeenCalledWith('VC Usage');
     });
   });
 

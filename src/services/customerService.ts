@@ -6,7 +6,7 @@
 import { getSupabase, handleSupabaseError } from './supabase';
 import { Database } from '../types/supabase';
 
-type VCUsageTable = Database['public']['Tables']['VC USAGE'];
+type VCUsageTable = Database['public']['Tables']['VC Usage'];
 type VCUsageRow = VCUsageTable['Row'];
 type VCUsageInsert = VCUsageTable['Insert'];
 type VCUsageUpdate = VCUsageTable['Update'];
@@ -23,7 +23,6 @@ export interface CustomerSummary {
   customer_address: string | null;
   customer_email: string | null;
   customer_phone: string | null;
-  customer_number: string | null;
   interaction_summary: string | null;
   last_interaction_at: string;
   last_viewed_at: string | null;
@@ -58,35 +57,25 @@ export class CustomerService {
     filters: CustomerSearchFilters = {}
   ): Promise<{ customers: CustomerSummary[]; error?: string }> {
     try {
-      let query = this.supabase
-        .from('customer_list_view')
-        .select('*')
+      // Since customer_list_view doesn't exist, query VC Usage table directly
+      // and aggregate customer data with smart ordering
+      const { data: rawData, error } = await this.supabase
+        .from('VC Usage')
+        .select(`
+          customer_name,
+          user_tech_id,
+          session_id,
+          customer_address,
+          customer_email,
+          customer_phone,
+          interaction_summary,
+          created_at,
+          last_viewed_at,
+          view_count
+        `)
         .eq('user_tech_id', techId)
-        .order('sort_priority', { ascending: false })
-        .order('last_interaction_at', { ascending: false })
-        .order('customer_name', { ascending: true });
-
-      // Apply search filter if provided
-      if (filters.searchQuery && filters.searchQuery.trim()) {
-        const searchTerm = `%${filters.searchQuery.trim()}%`;
-        query = query.or(
-          `customer_name.ilike.${searchTerm},` +
-          `customer_email.ilike.${searchTerm},` +
-          `customer_phone.ilike.${searchTerm},` +
-          `customer_number.ilike.${searchTerm},` +
-          `customer_address.ilike.${searchTerm}`
-        );
-      }
-
-      // Apply pagination
-      if (filters.limit) {
-        query = query.limit(filters.limit);
-      }
-      if (filters.offset) {
-        query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
-      }
-
-      const { data, error } = await query;
+        .not('customer_name', 'is', null)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('CustomerService: Error fetching customer list:', error);
@@ -96,7 +85,96 @@ export class CustomerService {
         };
       }
 
-      return { customers: data || [] };
+      // Group by customer and aggregate data
+      const customerMap = new Map<string, CustomerSummary>();
+      
+      rawData?.forEach(record => {
+        const customerKey = record.customer_name!;
+        
+        if (!customerMap.has(customerKey)) {
+          const lastViewedAt = record.last_viewed_at;
+          const viewCount = record.view_count || 0;
+          
+          // Calculate smart sorting priority
+          let sortPriority = 1; // Base priority
+          
+          if (lastViewedAt) {
+            const daysSinceViewed = Math.floor(
+              (Date.now() - new Date(lastViewedAt).getTime()) / (1000 * 60 * 60 * 24)
+            );
+            
+            if (daysSinceViewed <= 7) {
+              sortPriority = 1000; // Recently viewed (within 7 days)
+            } else if (daysSinceViewed <= 30) {
+              sortPriority = 500; // Viewed within 30 days
+            }
+          }
+          
+          // Add boost for view count and recent activity
+          sortPriority += Math.min(viewCount * 2, 50);
+          
+          customerMap.set(customerKey, {
+            customer_name: record.customer_name!,
+            user_tech_id: record.user_tech_id,
+            latest_session_id: record.session_id,
+            customer_address: record.customer_address,
+            customer_email: record.customer_email,
+            customer_phone: record.customer_phone,
+            interaction_summary: record.interaction_summary,
+            last_interaction_at: record.created_at,
+            last_viewed_at: record.last_viewed_at,
+            interaction_count: 1,
+            view_count: viewCount,
+            sort_priority: sortPriority
+          });
+        } else {
+          // Update existing customer with latest data
+          const existing = customerMap.get(customerKey)!;
+          existing.interaction_count++;
+          
+          // Keep the most recent session and interaction data
+          if (new Date(record.created_at) > new Date(existing.last_interaction_at)) {
+            existing.latest_session_id = record.session_id;
+            existing.last_interaction_at = record.created_at;
+            existing.interaction_summary = record.interaction_summary;
+          }
+        }
+      });
+
+      let customers = Array.from(customerMap.values());
+
+      // Apply search filter if provided
+      if (filters.searchQuery && filters.searchQuery.trim()) {
+        const searchTerm = filters.searchQuery.trim().toLowerCase();
+        customers = customers.filter(customer => 
+          customer.customer_name.toLowerCase().includes(searchTerm) ||
+          customer.customer_email?.toLowerCase().includes(searchTerm) ||
+          customer.customer_phone?.toLowerCase().includes(searchTerm) ||
+          customer.customer_address?.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Sort by priority, then by last interaction, then by name
+      customers.sort((a, b) => {
+        if (a.sort_priority !== b.sort_priority) {
+          return b.sort_priority - a.sort_priority;
+        }
+        
+        const dateA = new Date(a.last_interaction_at).getTime();
+        const dateB = new Date(b.last_interaction_at).getTime();
+        if (dateA !== dateB) {
+          return dateB - dateA;
+        }
+        
+        return a.customer_name.localeCompare(b.customer_name);
+      });
+
+      // Apply pagination
+      const offset = filters.offset || 0;
+      const limit = filters.limit || 50;
+      customers = customers.slice(offset, offset + limit);
+
+      return { customers };
 
     } catch (error) {
       console.error('CustomerService: Unexpected error in getCustomerList:', error);
@@ -118,7 +196,7 @@ export class CustomerService {
   ): Promise<{ conversations: CustomerConversationHistory[]; error?: string }> {
     try {
       let query = this.supabase
-        .from('VC USAGE')
+        .from('VC Usage')
         .select('id, user_input, ai_response, interaction_number, created_at, session_id')
         .eq('user_tech_id', techId)
         .eq('customer_name', customerName)
@@ -165,7 +243,7 @@ export class CustomerService {
     try {
       // Start transaction by updating all records for this customer
       const { error: updateError } = await this.supabase
-        .from('VC USAGE')
+        .from('VC Usage')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -229,9 +307,9 @@ export class CustomerService {
         // Non-critical error, don't throw
       }
 
-      // Update view count in VC USAGE table for this customer
+      // Update view count in VC Usage table for this customer
       const { error: updateError } = await this.supabase
-        .from('VC USAGE')
+        .from('VC Usage')
         .update({
           last_viewed_at: new Date().toISOString(),
           view_count: this.supabase.raw('COALESCE(view_count, 0) + 1')
@@ -260,7 +338,7 @@ export class CustomerService {
   ): Promise<{ customer: VCUsageRow | null; error?: string }> {
     try {
       let query = this.supabase
-        .from('VC USAGE')
+        .from('VC Usage')
         .select('*')
         .eq('user_tech_id', techId)
         .order('created_at', { ascending: false })
@@ -335,20 +413,44 @@ export class CustomerService {
     error?: string;
   }> {
     try {
-      const { data, error } = await this.supabase
-        .from('customer_list_view')
-        .select('customer_name, view_count, interaction_count')
-        .eq('user_tech_id', techId);
+      // Query VC Usage table directly since customer_list_view doesn't exist
+      const { data: rawData, error } = await this.supabase
+        .from('VC Usage')
+        .select('customer_name, view_count')
+        .eq('user_tech_id', techId)
+        .not('customer_name', 'is', null);
 
-      if (error) {
+      if (error || !rawData) {
         console.error('CustomerService: Error fetching customer stats:', error);
         return {
           totalCustomers: 0,
           recentlyViewed: 0,
           totalInteractions: 0,
-          error: `Failed to fetch customer stats: ${error.message}`
+          error: `Failed to fetch customer stats: ${error?.message || 'No data'}`
         };
       }
+
+      // Group by customer to get unique counts
+      const customerMap = new Map<string, { viewCount: number; interactionCount: number }>();
+      
+      rawData.forEach(record => {
+        const customerName = record.customer_name!;
+        if (!customerMap.has(customerName)) {
+          customerMap.set(customerName, {
+            viewCount: record.view_count || 0,
+            interactionCount: 1
+          });
+        } else {
+          const existing = customerMap.get(customerName)!;
+          existing.interactionCount++;
+        }
+      });
+
+      const data = Array.from(customerMap.entries()).map(([name, stats]) => ({
+        customer_name: name,
+        view_count: stats.viewCount,
+        interaction_count: stats.interactionCount
+      }));
 
       const stats = data?.reduce((acc, customer) => {
         acc.totalCustomers++;

@@ -23,8 +23,8 @@ ON customer_interactions(user_tech_id, customer_name);
 CREATE INDEX IF NOT EXISTS idx_customer_interactions_viewed_at 
 ON customer_interactions(viewed_at DESC);
 
--- Add missing columns to existing VC USAGE table (if they don't exist)
-ALTER TABLE "VC USAGE" 
+-- Add missing columns to existing VC Usage table (if they don't exist)
+ALTER TABLE "VC Usage" 
 ADD COLUMN IF NOT EXISTS last_viewed_at TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
@@ -35,19 +35,19 @@ ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Primary index for customer list queries
 CREATE INDEX IF NOT EXISTS idx_vc_usage_customer_list 
-ON "VC USAGE"(user_tech_id, customer_name, interaction_number DESC);
+ON "VC Usage"(user_tech_id, customer_name, interaction_number DESC);
 
 -- Search index for customer filtering
 CREATE INDEX IF NOT EXISTS idx_vc_usage_search 
-ON "VC USAGE"(user_tech_id, customer_name, customer_email, customer_phone, customer_address);
+ON "VC Usage"(user_tech_id, customer_name, customer_email, customer_phone, customer_address);
 
 -- Recently viewed index
 CREATE INDEX IF NOT EXISTS idx_vc_usage_recent_activity 
-ON "VC USAGE"(user_tech_id, last_viewed_at DESC NULLS LAST, created_at DESC);
+ON "VC Usage"(user_tech_id, last_viewed_at DESC NULLS LAST, created_at DESC);
 
 -- Conversation history index
 CREATE INDEX IF NOT EXISTS idx_vc_usage_conversation 
-ON "VC USAGE"(user_tech_id, customer_name, interaction_number DESC)
+ON "VC Usage"(user_tech_id, customer_name, interaction_number DESC)
 WHERE user_input IS NOT NULL AND ai_response IS NOT NULL;
 
 -- ========================================
@@ -70,7 +70,7 @@ WITH customer_stats AS (
         MAX(v.last_viewed_at) AS last_viewed_at,
         COUNT(*) AS interaction_count,
         COALESCE(MAX(v.view_count), 0) AS view_count
-    FROM "VC USAGE" v
+    FROM "VC Usage" v
     WHERE v.customer_name IS NOT NULL
     GROUP BY v.user_tech_id, v.customer_name
 ),
