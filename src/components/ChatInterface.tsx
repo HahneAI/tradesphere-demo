@@ -26,6 +26,8 @@ import { sendFeedback } from '../utils/feedback-webhook';
 import { Message } from '../types/message';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
+import { CustomersTab } from './CustomersTab';
+import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
 const coreConfig = getCoreConfig();
@@ -316,13 +318,35 @@ const ChatInterface = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showCustomersPopup, setShowCustomersPopup] = useState(false);
+  const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
+  const [loadingCustomerName, setLoadingCustomerName] = useState<string | null>(null);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // 🏢 PHASE 3: Customer Details State
+  const [customerDetails, setCustomerDetails] = useState<{
+    name: string;
+    address: string;
+    email: string;
+    phone: string;
+  } | null>(null);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+
+  // 🔄 PHASE 2D: Conversation preloading states
+  const [isPreloadingContext, setIsPreloadingContext] = useState(false);
+  const [preloadProgress, setPreloadProgress] = useState(0);
+  const [preloadMessage, setPreloadMessage] = useState('');
 
   const MAKE_WEBHOOK_URL = coreConfig.makeWebhookUrl;
   const NETLIFY_API_URL = `/.netlify/functions/chat-messages/${sessionIdRef.current}`;
   const NATIVE_PRICING_AGENT_URL = '/.netlify/functions/pricing-agent';
   const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
+  const USE_NATIVE_PRIMARY = import.meta.env.VITE_USE_NATIVE_PRIMARY === 'true';
+  const CUSTOMER_DETAILS_ENABLED = import.meta.env.VITE_ENABLE_CUSTOMER_DETAILS === 'true';
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -575,6 +599,16 @@ const ChatInterface = () => {
     console.group(`${debugPrefix} Starting native pipeline request`);
     console.log('📤 Message:', userMessageText.substring(0, 100) + (userMessageText.length > 100 ? '...' : ''));
     
+    // 🏢 PHASE 4: Log customer context when present
+    if (customerDetails) {
+      console.log('👤 Customer Context:', {
+        name: customerDetails.name,
+        hasAddress: !!customerDetails.address,
+        hasEmail: !!customerDetails.email,
+        hasPhone: !!customerDetails.phone
+      });
+    }
+    
     // Validate user authentication
     if (!user) {
       console.error('❌ No user data available for native pipeline');
@@ -590,7 +624,12 @@ const ChatInterface = () => {
       techId: user.tech_uuid,
       firstName: user.first_name,
       jobTitle: user.job_title,
-      betaCodeId: user.beta_code_id
+      betaCodeId: user.beta_code_id,
+      // 🏢 PHASE 4: Include customer details when available
+      customerName: customerDetails?.name || null,
+      customerAddress: customerDetails?.address || null,
+      customerEmail: customerDetails?.email || null,
+      customerPhone: customerDetails?.phone || null
     };
 
     const startTime = performance.now();
@@ -1034,8 +1073,13 @@ const ChatInterface = () => {
           throw new Error('Both Make.com and Native pipeline failed');
         }
         
+      } else if (USE_NATIVE_PRIMARY) {
+        // 🚀 PHASE 1: Native-first pipeline (new default)
+        console.log('🚀 NATIVE PRIMARY: Using native pipeline as primary');
+        await sendUserMessageToNative(userMessageText);
       } else {
-        // Original single webhook behavior
+        // Fallback to Make.com for backward compatibility
+        console.log('🔗 MAKE.COM FALLBACK: Using Make.com pipeline');
         await sendUserMessageToMake(userMessageText);
       }
     } catch (error) {
@@ -1361,6 +1405,274 @@ const ChatInterface = () => {
     }
   };
 
+  // Handle customer loading from CustomersTab
+  const handleLoadCustomer = async (customer: any, historicalMessages: Message[]) => {
+    if (!user?.tech_uuid || !customer.customer_name) {
+      console.error('Cannot load customer: missing tech_uuid or customer name');
+      return;
+    }
+
+    setIsLoadingCustomer(true);
+    setLoadingCustomerName(customer.customer_name);
+
+    try {
+      // Load customer context using the service
+      const response = await customerContextService.loadCustomerContext(
+        customer.customer_name,
+        user.tech_uuid,
+        customer.session_id
+      );
+
+      if (response.success) {
+        // Clear existing messages and add customer context
+        const customerInfoId = uuidv4();
+        const historySummaryId = uuidv4();
+        
+        const contextMessages = customerContextService.prepareMessagesForChat(
+          response.customerDetails,
+          response.conversationHistory,
+          customerInfoId,
+          historySummaryId
+        );
+
+        // Update messages state with customer context and history
+        setMessages(contextMessages);
+        
+        // Update session data
+        if (response.customerDetails) {
+          setCurrentCustomer(response.customerDetails.name);
+          setSessionData(prev => ({
+            ...prev,
+            sessionId: customer.session_id || uuidv4(),
+            customerName: response.customerDetails.name,
+            customerContext: {
+              address: response.customerDetails.address,
+              email: response.customerDetails.email,
+              phone: response.customerDetails.phone,
+            }
+          }));
+        }
+
+        console.log(`✅ Customer context loaded: ${customer.customer_name} (${response.conversationHistory.length} messages)`);
+      } else {
+        console.error('Failed to load customer context:', response.error);
+        // Could show error message to user here
+      }
+
+    } catch (error) {
+      console.error('Error loading customer context:', error);
+      // Could show error message to user here
+    } finally {
+      setIsLoadingCustomer(false);
+      setLoadingCustomerName(null);
+    }
+  };
+
+  // 🏢 PHASE 5: Load recent customer sessions using existing infrastructure
+  const loadRecentCustomers = async () => {
+    if (!user?.tech_uuid || isLoadingCustomers) return;
+    
+    setIsLoadingCustomers(true);
+    console.log('👤 Loading recent customers for tech:', user.tech_uuid);
+    
+    try {
+      // Use existing chat-messages endpoint with customer lookup flag
+      const response = await fetch(
+        `/.netlify/functions/chat-messages?recent_customers=true&tech_id=${user.tech_uuid}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Customer lookup failed: ${response.status}`);
+      }
+      
+      const customers = await response.json();
+      console.log('👤 Recent customers loaded:', customers.length);
+      
+      setRecentCustomerSessions(customers);
+      
+    } catch (error) {
+      console.error('❌ Failed to load recent customers:', error);
+      setRecentCustomerSessions([]);
+    } finally {
+      setIsLoadingCustomers(false);
+    }
+  };
+
+  // 🏢 PHASE 5: Handle customer selection from recent customers
+  const handleCustomerSelect = async (customer: any) => {
+    console.log('👤 Selected customer:', customer.customerName);
+    
+    setCustomerDetails({
+      name: customer.customerName || '',
+      address: customer.customerAddress || '',
+      email: customer.customerEmail || '',
+      phone: customer.customerPhone || ''
+    });
+    
+    setShowCustomerForm(false); // Hide form when selecting existing customer
+    setShowCustomerDropdown(false);
+    
+    // 🔄 PHASE 2D: Load conversation context with preloading animation
+    if (customer.sessionId) {
+      await preloadCustomerContext(customer.customerName, customer.sessionId);
+    }
+  };
+
+  // 🔄 PHASE 2D: Preload customer conversation context with smooth UX
+  const preloadCustomerContext = async (customerName: string, sessionId?: string) => {
+    if (!user?.tech_uuid) return;
+
+    try {
+      setIsPreloadingContext(true);
+      setPreloadProgress(0);
+      setPreloadMessage('Remembering previous conversation...');
+
+      // Simulate smooth progress for better UX
+      const progressInterval = setInterval(() => {
+        setPreloadProgress(prev => {
+          if (prev < 80) return prev + 5;
+          return prev;
+        });
+      }, 50);
+
+      console.log('🔄 Preloading customer context:', { customerName, sessionId });
+
+      // Build query URL
+      const queryParams = new URLSearchParams({
+        tech_id: user.tech_uuid
+      });
+      if (sessionId) {
+        queryParams.set('session_id', sessionId);
+      }
+
+      const response = await fetch(
+        `/.netlify/functions/customer-context/${encodeURIComponent(customerName)}?${queryParams}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+
+      clearInterval(progressInterval);
+      setPreloadProgress(90);
+      setPreloadMessage('Loading conversation history...');
+
+      if (!response.ok) {
+        throw new Error(`Context preload failed: ${response.status}`);
+      }
+
+      const contextData = await response.json();
+      console.log('🔄 Context data loaded:', {
+        recordsFound: contextData.contextMetadata?.recordsFound,
+        customerName: contextData.customerName
+      });
+
+      setPreloadProgress(100);
+      setPreloadMessage('Ready to continue conversation');
+
+      // Populate conversation history with error boundaries
+      if (contextData.conversationHistory && Array.isArray(contextData.conversationHistory) && contextData.conversationHistory.length > 0) {
+        // Add previous messages to current chat (with visual indicators)
+        const previousMessages = contextData.conversationHistory
+          .filter((msg: any) => msg && typeof msg === 'object') // Filter out null/invalid messages
+          .map((msg: any) => ({
+            id: msg.id || `preload_${Date.now()}_${Math.random()}`,
+            text: msg.text || '',
+            sender: msg.sender || 'user',
+            timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
+            sessionId: msg.sessionId || sessionId,
+            isPreviousSession: true,
+            interactionNumber: msg.interactionNumber || 0
+          }));
+
+        setMessages((prev) => [
+          ...previousMessages,
+          ...prev.filter(m => !m.isPreviousSession) // Keep current session messages
+        ]);
+
+        console.log('✅ Conversation history populated:', previousMessages.length, 'messages');
+      }
+
+      // Update customer details if available
+      if (contextData.customerDetails) {
+        setCustomerDetails({
+          name: contextData.customerDetails.name || '',
+          address: contextData.customerDetails.address || '',
+          email: contextData.customerDetails.email || '',
+          phone: contextData.customerDetails.phone || ''
+        });
+      }
+
+      // Smooth completion
+      setTimeout(() => {
+        setIsPreloadingContext(false);
+        setPreloadProgress(0);
+        setPreloadMessage('');
+      }, 500);
+
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error('❌ Failed to preload customer context:', error);
+      setPreloadMessage('Failed to load conversation history');
+      
+      setTimeout(() => {
+        setIsPreloadingContext(false);
+        setPreloadProgress(0);
+        setPreloadMessage('');
+      }, 2000);
+    }
+  };
+
+  // 📊 PHASE 2A: Save customer details and update session records
+  const saveCustomerDetails = async () => {
+    if (!customerDetails?.name) {
+      console.warn('⚠️ Cannot save customer without name');
+      return;
+    }
+
+    try {
+      console.log('👤 Saving customer details for session:', sessionIdRef.current);
+      
+      // Update all VC Usage records for this session
+      const response = await fetch('/.netlify/functions/customer-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current,
+          customerName: customerDetails.name,
+          customerAddress: customerDetails.address,
+          customerEmail: customerDetails.email,
+          customerPhone: customerDetails.phone
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Customer update failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Customer details updated for entire session:', result);
+      
+      setShowCustomerDropdown(false);
+      
+    } catch (error) {
+      console.error('❌ Failed to save customer details:', error);
+      // Don't throw - allow UI to close, but log the error
+    }
+  };
+
   // 🔧 ADMIN DIAGNOSTICS: Run comprehensive backend tests
   const runSystemDiagnostics = async () => {
     if (!isAdmin) return;
@@ -1395,15 +1707,16 @@ const ChatInterface = () => {
         onFeedbackClick={() => setShowFeedbackPopup(true)}
         onNotesClick={() => setShowNotesPopup(true)}
         onAvatarClick={() => setShowAvatarPopup(true)}
+        onCustomersClick={() => setShowCustomersPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
       />
       <header className="flex-shrink-0 border-b transition-colors duration-300" style={{ borderBottomColor: theme === 'light' ? '#e5e7eb' : '#374151', backgroundColor: visualConfig.colors.surface }}>
         <div className="px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between w-full">
             {/* Left side: Hamburger, Logo */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 flex-1">
               <button
                 onClick={() => setIsMenuOpen(true)}
                 className="p-2 rounded-md transition-colors"
@@ -1432,8 +1745,316 @@ const ChatInterface = () => {
               </div>
             </div>
 
+            {/* 🏢 PHASE 3: Center - Customer Details Button */}
+            {CUSTOMER_DETAILS_ENABLED && (
+              <div className="flex-1 flex justify-center relative">
+                <button
+                  onClick={() => {
+                    const newState = !showCustomerDropdown;
+                    setShowCustomerDropdown(newState);
+                    // 🏢 PHASE 5: Load recent customers when dropdown opens
+                    if (newState && recentCustomerSessions.length === 0) {
+                      loadRecentCustomers();
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  style={{
+                    backgroundColor: customerDetails ? visualConfig.colors.secondary : visualConfig.colors.surface,
+                    color: customerDetails ? visualConfig.colors.text.onPrimary : visualConfig.colors.text.primary,
+                    border: `1px solid ${visualConfig.colors.secondary}`,
+                    '--tw-ring-color': visualConfig.colors.secondary,
+                  }}
+                  title={customerDetails ? `Customer: ${customerDetails.name}` : "Add Customer Details"}
+                >
+                  <DynamicIcon name="User" className="h-4 w-4" />
+                  <span className="hidden sm:inline text-sm font-medium">
+                    {customerDetails ? `Customer: ${customerDetails.name}` : "Add Customer Details"}
+                  </span>
+                  
+                  {/* Quick Clear Customer Button - Only show when customer selected */}
+                  {customerDetails && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent dropdown from opening
+                        setCustomerDetails(null);
+                        setShowCustomerForm(false);
+                        console.log('🗑️ Customer cleared via badge X button');
+                      }}
+                      className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
+                      style={{ color: '#EF4444' }}
+                      title="Clear customer"
+                    >
+                      <DynamicIcon name="X" className="h-3 w-3" />
+                    </button>
+                  )}
+                  
+                  <DynamicIcon 
+                    name={showCustomerDropdown ? "ChevronUp" : "ChevronDown"} 
+                    className="h-4 w-4" 
+                  />
+                </button>
+
+                {/* Customer Dropdown */}
+                {showCustomerDropdown && (
+                  <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 z-50">
+                    <div 
+                      className="w-96 rounded-lg shadow-xl border"
+                      style={{ 
+                        backgroundColor: visualConfig.colors.surface,
+                        borderColor: visualConfig.colors.secondary
+                      }}
+                    >
+                      {/* Top Action Section */}
+                      <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                        {!customerDetails ? (
+                          // Show "Add New Customer" when no customer selected
+                          <button
+                            onClick={() => {
+                              setShowCustomerForm(true);
+                              setCustomerDetails({ name: '', address: '', email: '', phone: '' });
+                            }}
+                            className="w-full p-3 rounded-lg border-2 border-dashed transition-colors hover:bg-opacity-50"
+                            style={{ 
+                              borderColor: visualConfig.colors.primary,
+                              backgroundColor: 'transparent',
+                              color: visualConfig.colors.text.primary
+                            }}
+                          >
+                            <div className="flex items-center justify-center space-x-2">
+                              <DynamicIcon name="Plus" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
+                              <span className="font-medium">Add New Customer</span>
+                            </div>
+                          </button>
+                        ) : (
+                          // Show both "Clear Customer" and "Edit Current Customer" when customer loaded
+                          <div className="space-y-3">
+                            {/* Clear Customer & Start Fresh */}
+                            <button
+                              onClick={() => {
+                                // Clear customer and start completely fresh
+                                setCustomerDetails(null);
+                                setShowCustomerForm(false);
+                                setShowCustomerDropdown(false);
+                                // Also refresh the chat to start completely fresh
+                                handleRefreshChat();
+                              }}
+                              className="w-full p-3 rounded-lg border-2 border-dashed transition-colors hover:bg-opacity-10"
+                              style={{ 
+                                borderColor: '#EF4444',
+                                backgroundColor: 'transparent',
+                                color: '#EF4444'
+                              }}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <DynamicIcon name="UserX" className="h-5 w-5" />
+                                <span className="font-medium">Clear Customer & Start Fresh</span>
+                              </div>
+                            </button>
+
+                            {/* Edit Current Customer */}
+                            <button
+                              onClick={() => {
+                                setShowCustomerForm(!showCustomerForm);
+                              }}
+                              className="w-full p-3 rounded-lg border transition-colors hover:shadow-sm"
+                              style={{ 
+                                borderColor: visualConfig.colors.secondary,
+                                backgroundColor: visualConfig.colors.elevated,
+                                color: visualConfig.colors.text.primary
+                              }}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <DynamicIcon name="Edit" className="h-5 w-5" style={{ color: visualConfig.colors.primary }} />
+                                <span className="font-medium">Edit Current Customer: {customerDetails.name}</span>
+                              </div>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Section Separator & Recent Customers */}
+                      {recentCustomerSessions.length > 0 && (
+                        <>
+                          <div className="px-4 py-2" style={{ backgroundColor: visualConfig.colors.background }}>
+                            <div className="h-px" style={{ backgroundColor: visualConfig.colors.secondary }}></div>
+                          </div>
+                          
+                          <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                            <h4 className="text-sm font-semibold mb-3 flex items-center space-x-2" style={{ color: visualConfig.colors.text.primary }}>
+                              <DynamicIcon name="Clock" className="h-4 w-4" />
+                              <span>Recent Customers</span>
+                            </h4>
+                            <div className="space-y-2">
+                              {recentCustomerSessions.slice(0, 2).map((customer, index) => (
+                                <button
+                                  key={customer.id || index}
+                                  onClick={() => handleCustomerSelect(customer)}
+                                  className="w-full text-left p-3 rounded-lg border hover:shadow-sm transition-all duration-200"
+                                  style={{ 
+                                    backgroundColor: visualConfig.colors.elevated,
+                                    borderColor: visualConfig.colors.secondary
+                                  }}
+                                >
+                                  <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                                      {customer.customerName}
+                                    </div>
+                                    {customer.customerEmail && (
+                                      <div className="text-xs mt-1 flex items-center space-x-1" style={{ color: visualConfig.colors.text.secondary }}>
+                                        <DynamicIcon name="Mail" className="h-3 w-3" />
+                                        <span>{customer.customerEmail}</span>
+                                      </div>
+                                    )}
+                                    {customer.summary && (
+                                      <div className="text-xs mt-1" style={{ color: visualConfig.colors.text.secondary }}>
+                                        {customer.summary.substring(0, 60)}...
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                                    {new Date(customer.lastInteraction).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        </>
+                      )}
+
+                      {/* Loading State */}
+                      {isLoadingCustomers && (
+                        <div className="p-4 border-b" style={{ borderColor: visualConfig.colors.secondary }}>
+                          <div className="flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2" 
+                                 style={{ borderColor: visualConfig.colors.primary }}></div>
+                            <span className="ml-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                              Loading recent customers...
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Customer Form - Only show when form is active */}
+                      {showCustomerForm && (
+                        <div className="p-4">
+                        <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
+                          {recentCustomerSessions.length > 0 ? 'New Customer Details' : 'Customer Details'}
+                        </h3>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Name *
+                            </label>
+                            <input
+                              type="text"
+                              value={customerDetails?.name || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, name: e.target.value, address: prev?.address || '', email: prev?.email || '', phone: prev?.phone || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="Customer name"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Address
+                            </label>
+                            <input
+                              type="text"
+                              value={customerDetails?.address || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, address: e.target.value, name: prev?.name || '', email: prev?.email || '', phone: prev?.phone || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="Customer address"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Email
+                            </label>
+                            <input
+                              type="email"
+                              value={customerDetails?.email || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, email: e.target.value, name: prev?.name || '', address: prev?.address || '', phone: prev?.phone || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="customer@email.com"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                              Phone
+                            </label>
+                            <input
+                              type="tel"
+                              value={customerDetails?.phone || ''}
+                              onChange={(e) => setCustomerDetails(prev => ({ ...prev, phone: e.target.value, name: prev?.name || '', address: prev?.address || '', email: prev?.email || '' }))}
+                              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                borderColor: visualConfig.colors.secondary,
+                                color: visualConfig.colors.text.primary,
+                                '--tw-ring-color': visualConfig.colors.primary
+                              }}
+                              placeholder="(555) 123-4567"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-3 mt-4">
+                          <button
+                            onClick={() => {
+                              setShowCustomerForm(false);
+                              setShowCustomerDropdown(false);
+                            }}
+                            className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                            style={{
+                              borderColor: visualConfig.colors.secondary,
+                              color: visualConfig.colors.text.secondary,
+                              backgroundColor: 'transparent'
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={saveCustomerDetails}
+                            disabled={!customerDetails?.name}
+                            className="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-white disabled:opacity-50"
+                            style={{ backgroundColor: visualConfig.colors.primary }}
+                          >
+                            Save Customer
+                          </button>
+                        </div>
+                      </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Right side: Controls */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2 flex-1 justify-end">
               {/* User info in header - Desktop only */}
               <div className="hidden md:flex items-center space-x-3 mr-4 px-3 py-2 rounded-lg" style={{ backgroundColor: visualConfig.colors.surface }}>
                 <div
@@ -1464,10 +2085,17 @@ const ChatInterface = () => {
                   color: visualConfig.colors.text.onPrimary,
                   '--tw-ring-color': visualConfig.colors.primary,
                 }}
-                title="Start a new chat session"
+                title={customerDetails ? `New chat with ${customerDetails.name}` : "Start a new chat session"}
               >
                 <DynamicIcon name="RotateCcw" className="h-4 w-4" />
-                <span className="hidden sm:inline text-sm font-medium">New Chat</span>
+                <span className="hidden sm:inline text-sm font-medium">
+                  {customerDetails ? "New Chat" : "New Chat"}
+                </span>
+                {customerDetails && (
+                  <span className="hidden lg:inline text-xs opacity-75 ml-1">
+                    (Keep Customer)
+                  </span>
+                )}
               </button>
 
               {isAdmin && (
@@ -1706,6 +2334,13 @@ const ChatInterface = () => {
         onClose={() => setShowNotesPopup(false)}
         isAdmin={isAdmin}
         userName={user?.first_name || 'Anonymous'}
+      />
+
+      {/* Customers Popup */}
+      <CustomersTab
+        isOpen={showCustomersPopup}
+        onClose={() => setShowCustomersPopup(false)}
+        onLoadCustomer={handleLoadCustomer}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
@@ -1954,6 +2589,55 @@ const ChatInterface = () => {
         isOpen={showAvatarPopup}
         onClose={() => setShowAvatarPopup(false)}
       />
+
+      {/* 🔄 PHASE 2D: Conversation Preloading Overlay */}
+      {isPreloadingContext && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Dimmed background */}
+          <div 
+            className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
+          ></div>
+          
+          {/* Loading content */}
+          <div 
+            className="relative bg-white rounded-lg shadow-xl p-8 max-w-md mx-4"
+            style={{ 
+              backgroundColor: visualConfig.colors.surface,
+              color: visualConfig.colors.text.primary 
+            }}
+          >
+            <div className="text-center">
+              {/* Main message */}
+              <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
+                {preloadMessage}
+              </h3>
+              
+              {/* Progress bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2 mb-4" style={{ backgroundColor: visualConfig.colors.background }}>
+                <div 
+                  className="h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ 
+                    width: `${preloadProgress}%`,
+                    backgroundColor: visualConfig.colors.primary 
+                  }}
+                ></div>
+              </div>
+              
+              {/* Progress percentage */}
+              <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                {preloadProgress}% complete
+              </p>
+              
+              {/* Animated icon */}
+              <div className="mt-4 flex justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2" 
+                     style={{ borderColor: visualConfig.colors.primary }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

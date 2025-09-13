@@ -21,7 +21,16 @@
       "Bash(npm install:*)",
       "Bash(TEST_INPUT=\"15 mulch, 100 patio, and an outdoor kitchen of 36 feet\" npx tsx src/services/ai-engine/GPTServiceSplitter.ts)",
       "mcp__sequential-thinking__sequentialthinking",
-      "mcp__filesystem__list_directory"
+      "mcp__filesystem__list_directory",
+      "mcp__puppeteer__puppeteer_screenshot",
+      "mcp__puppeteer-stealth__puppeteer_screenshot",
+      "mcp__puppeteer-stealth__puppeteer_type",
+      "mcp__puppeteer-stealth__puppeteer_evaluate",
+      "mcp__filesystem__search_files",
+      "mcp__puppeteer-stealth__puppeteer_wait_for_selector",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

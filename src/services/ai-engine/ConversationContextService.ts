@@ -50,6 +50,11 @@ interface AIResponse {
   content: string;
   requiresClarification?: boolean;
   suggestedQuestions?: string[];
+  tokenUsage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
 }
 
 // Utility function for safe environment variable access
@@ -490,13 +495,24 @@ Remember: You have access to previous conversation history - reference it natura
 
       const data = await response.json();
       const content = data.content[0]?.text || 'I apologize, but I could not generate a response.';
+      
+      // Extract token usage from Claude API response
+      const tokenUsage = data.usage ? {
+        promptTokens: data.usage.input_tokens || 0,
+        completionTokens: data.usage.output_tokens || 0,
+        totalTokens: (data.usage.input_tokens || 0) + (data.usage.output_tokens || 0)
+      } : undefined;
 
       console.log(`✅ Claude response generated successfully for session ${context.sessionId}`);
+      if (tokenUsage) {
+        console.log(`📊 Token usage: ${tokenUsage.promptTokens} prompt + ${tokenUsage.completionTokens} completion = ${tokenUsage.totalTokens} total`);
+      }
 
       return {
         content,
         requiresClarification: this.detectClarificationNeeds(content),
-        suggestedQuestions: this.extractSuggestedQuestions(content)
+        suggestedQuestions: this.extractSuggestedQuestions(content),
+        tokenUsage
       };
 
     } catch (error) {

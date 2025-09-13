@@ -10,6 +10,11 @@ export interface WebhookPayload {
   firstName?: string;
   techId?: string;
   betaCodeId?: number;
+  // 🏢 PHASE 2: Customer details fields (optional)
+  customerName?: string;
+  customerAddress?: string;
+  customerEmail?: string;
+  customerPhone?: string;
 }
 
 export interface StorageMetadata {
@@ -19,6 +24,21 @@ export interface StorageMetadata {
   confidence?: number;
   source: 'native_pricing_agent' | 'make_com_webhook';
   calculation_time?: number;
+  // 📊 PHASE 2A: Analytics tracking fields
+  token_usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+  ai_model?: string;
+  response_length?: number;
+  performance_metrics?: {
+    gpt_splitting_time?: number;
+    parameter_collection_time?: number;
+    pricing_calculation_time?: number;
+    ai_generation_time?: number;
+    total_processing_time?: number;
+  };
 }
 
 export interface StorageCredentials {
@@ -210,6 +230,124 @@ export class MessageStorageService {
       
       // Re-throw the error so the calling function can handle it
       throw error;
+    }
+  }
+
+  /**
+   * Store permanent record in VC Usage table with customer data
+   * This is separate from demo_messages which is just for polling
+   */
+  static async storeVCUsageRecord(
+    payload: WebhookPayload,
+    userInput: string,
+    aiResponse: string,
+    interactionNumber: number,
+    metadata: Partial<StorageMetadata> = {}
+  ): Promise<void> {
+    try {
+      console.log('🏢 [VC_USAGE] Storing permanent usage record...');
+      console.log(`📝 [VC_USAGE] Session: ${payload.sessionId}, Interaction: ${interactionNumber}`);
+      
+      const { url, key } = this.getEnvironmentCredentials();
+      
+      // Clean responses
+      let cleanedUserInput = userInput;
+      let cleanedAiResponse = aiResponse;
+      
+      if (cleanedUserInput.length > 2000) {
+        cleanedUserInput = cleanedUserInput.substring(0, 1997) + '...';
+      }
+      if (cleanedAiResponse.length > 2000) {
+        cleanedAiResponse = cleanedAiResponse.substring(0, 1997) + '...';
+      }
+      
+      // Clean problematic characters
+      cleanedUserInput = cleanedUserInput.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      cleanedAiResponse = cleanedAiResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      
+      // 🏢 PHASE 2: VC Usage record with customer fields + analytics
+      const vcUsageData = {
+        user_name: payload.firstName || null,
+        user_tech_id: payload.techId || null,
+        session_id: payload.sessionId,
+        beta_code_id: payload.betaCodeId || null,
+        user_input: cleanedUserInput,
+        ai_response: cleanedAiResponse,
+        interaction_number: interactionNumber,
+        interaction_summary: `User asked about: ${cleanedUserInput.substring(0, 100)}${cleanedUserInput.length > 100 ? '...' : ''}`,
+        created_at: new Date().toISOString(),
+        // 🏢 CUSTOMER FIELDS: Include when provided
+        customer_name: payload.customerName || null,
+        customer_address: payload.customerAddress || null,
+        customer_email: payload.customerEmail || null,
+        customer_phone: payload.customerPhone || null,
+        // 📊 PHASE 2A: Analytics fields
+        processing_time_ms: metadata.processing_time || null,
+        ai_model: metadata.ai_model || 'claude-sonnet-3.5',
+        prompt_tokens: metadata.token_usage?.prompt_tokens || null,
+        completion_tokens: metadata.token_usage?.completion_tokens || null,
+        total_tokens: metadata.token_usage?.total_tokens || null,
+        response_length: metadata.response_length || cleanedAiResponse.length,
+        services_count: metadata.services_count || null,
+        confidence_score: metadata.confidence || null,
+        gpt_splitting_time_ms: metadata.performance_metrics?.gpt_splitting_time || null,
+        parameter_collection_time_ms: metadata.performance_metrics?.parameter_collection_time || null,
+        pricing_calculation_time_ms: metadata.performance_metrics?.pricing_calculation_time || null,
+        ai_generation_time_ms: metadata.performance_metrics?.ai_generation_time || null
+      };
+
+      console.log('🏢 [VC_USAGE] Record structure:', {
+        sessionId: vcUsageData.session_id,
+        interactionNumber: vcUsageData.interaction_number,
+        hasCustomerData: !!(payload.customerName || payload.customerEmail),
+        customerName: vcUsageData.customer_name,
+        userInputLength: vcUsageData.user_input.length,
+        aiResponseLength: vcUsageData.ai_response.length
+      });
+
+      const endpoint = `${url}/rest/v1/VC Usage`;
+      console.log('🌐 [VC_USAGE] Request endpoint:', endpoint);
+
+      const supabaseResponse = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'apikey': key,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(vcUsageData)
+      });
+
+      console.log('📥 [VC_USAGE] HTTP response:', {
+        status: supabaseResponse.status,
+        statusText: supabaseResponse.statusText,
+        ok: supabaseResponse.ok
+      });
+
+      if (!supabaseResponse.ok) {
+        const errorText = await supabaseResponse.text();
+        console.error('❌ [VC_USAGE] Supabase HTTP error:', {
+          status: supabaseResponse.status,
+          statusText: supabaseResponse.statusText,
+          errorBody: errorText,
+          endpoint: endpoint,
+          requestData: vcUsageData
+        });
+        throw new Error(`VC Usage storage failed: ${supabaseResponse.status} - ${errorText}`);
+      }
+
+      console.log('✅ [VC_USAGE] Permanent record stored successfully');
+
+    } catch (error) {
+      console.error('❌ [VC_USAGE] Storage failed:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // Don't throw - storage failure shouldn't break the main response
+      console.log('⚠️ [VC_USAGE] Continuing without VC Usage storage (non-blocking error)');
     }
   }
 

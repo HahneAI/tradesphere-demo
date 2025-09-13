@@ -106,13 +106,33 @@ export const handler = async (event, context) => {
     console.log('🧠 STEP 3: MAIN CHAT AGENT ORCHESTRATION');
     const chatAgentStart = Date.now();
     
+    // 📋 PHASE 2C: Query previous interaction context for customer continuity
+    let previousContext = null;
+    if (payload.customerName) {
+      console.log('📋 Querying previous interaction context for customer:', payload.customerName);
+      try {
+        previousContext = await queryCustomerContext(payload.customerName, payload.techId);
+        if (previousContext) {
+          console.log('📋 Previous context found:', {
+            summary: previousContext.interaction_summary?.substring(0, 100) + '...',
+            lastInteraction: previousContext.created_at
+          });
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to query customer context:', error.message);
+      }
+    }
+
     const chatAgentInput = {
       originalMessage: payload.message,
       sessionId: payload.sessionId,
       firstName: payload.firstName,
       collectionResult,
       pricingResult,
-      betaCodeId: payload.betaCodeId
+      betaCodeId: payload.betaCodeId,
+      // 📋 PHASE 2C: Include previous interaction context
+      customerName: payload.customerName,
+      previousContext: previousContext
     };
 
     const chatAgentResponse = await MainChatAgentService.generateResponse(chatAgentInput);
@@ -125,12 +145,24 @@ export const handler = async (event, context) => {
 
     const totalTime = Date.now() - startTime;
 
-    console.log('📊 PERFORMANCE METRICS:');
-    console.log(`  GPT Splitting: ${Date.now() - gptSplitStart}ms`);
-    console.log(`  Parameter Collection: ${parameterCollectionTime}ms`);
-    console.log(`  Pricing Calculation: ${pricingCalculationTime}ms`);
-    console.log(`  Main Chat Agent: ${chatAgentTime}ms`);
-    console.log(`  TOTAL: ${totalTime}ms (vs Make.com 30-50s)`);
+    // 📊 PHASE 2A: Enhanced performance metrics logging
+    console.log('📊 COMPREHENSIVE PERFORMANCE ANALYTICS:');
+    console.log(`  🤖 GPT Splitting: ${Date.now() - gptSplitStart}ms | Services: ${splitResult.service_count}`);
+    console.log(`  🎯 Parameter Collection: ${parameterCollectionTime}ms | Complete: ${collectionResult.services.length} | Incomplete: ${collectionResult.incompleteServices.length}`);
+    console.log(`  💰 Pricing Calculation: ${pricingCalculationTime}ms | Success: ${!!pricingResult?.success}`);
+    console.log(`  🧠 Main Chat Agent: ${chatAgentTime}ms | Response: ${chatAgentResponse.message.length} chars`);
+    console.log(`  ⚡ TOTAL PIPELINE: ${totalTime}ms | Grade: ${totalTime < 3000 ? 'A' : totalTime < 5000 ? 'B' : 'C'} | vs Make.com: ${((30000 - totalTime) / 1000).toFixed(1)}s faster`);
+    
+    // 👤 Customer context analytics
+    if (payload.customerName || payload.customerEmail) {
+      console.log('👤 CUSTOMER CONTEXT ANALYTICS:', {
+        customerName: payload.customerName || 'Not provided',
+        hasEmail: !!payload.customerEmail,
+        hasPhone: !!payload.customerPhone,
+        hasAddress: !!payload.customerAddress,
+        sessionId: payload.sessionId
+      });
+    }
 
     // Create final response
     const response = {
@@ -146,21 +178,86 @@ export const handler = async (event, context) => {
       }
     };
 
-    // ✅ SIMPLIFIED: Store ALL responses with minimal metadata
+    // 📊 PHASE 2A: Comprehensive analytics metadata
     const storageMetadata = {
-      source: 'native_pricing_agent' // Simplified - no complex metadata
+      source: 'native_pricing_agent',
+      // Performance metrics collected during execution
+      performance_metrics: {
+        gpt_splitting_time: Date.now() - gptSplitStart,
+        parameter_collection_time: parameterCollectionTime,
+        pricing_calculation_time: pricingCalculationTime,
+        ai_generation_time: chatAgentTime,
+        total_processing_time: totalTime
+      },
+      // Service analysis metrics
+      services_count: collectionResult.services.length + collectionResult.incompleteServices.length,
+      confidence: collectionResult.confidence,
+      // Response analytics
+      response_length: chatAgentResponse.message.length,
+      ai_model: 'claude-sonnet-3.5',
+      // Token usage from Claude/OpenAI API response
+      token_usage: {
+        prompt_tokens: chatAgentResponse.tokenUsage?.promptTokens || null,
+        completion_tokens: chatAgentResponse.tokenUsage?.completionTokens || null,
+        total_tokens: chatAgentResponse.tokenUsage?.totalTokens || null
+      },
+      // Processing context
+      processing_time: totalTime,
+      calculation_time: pricingResult?.calculationTime || null
     };
 
-    console.log('💾 ABOUT TO STORE RESPONSE (ALL RESPONSES):', {
+    console.log('💾 ABOUT TO STORE RESPONSE WITH ANALYTICS:', {
       sessionId: payload.sessionId,
-      responseLength: response.response.length,
+      responseLength: chatAgentResponse.message.length,
       source: storageMetadata.source,
-      responseType: pricingResult ? 'pricing' : 'clarification'
+      responseType: pricingResult ? 'pricing' : 'clarification',
+      // 📊 PHASE 2A: Analytics summary
+      analytics: {
+        totalProcessingTime: storageMetadata.processing_time,
+        servicesFound: storageMetadata.services_count,
+        confidence: storageMetadata.confidence,
+        hasCustomerData: !!(payload.customerName || payload.customerEmail),
+        performanceGrade: totalTime < 3000 ? 'A' : totalTime < 5000 ? 'B' : 'C'
+      }
     });
 
     try {
+      // 💾 DUAL STORAGE: Store in both demo_messages (polling) AND VC Usage (permanent)
+      
+      // 1. Store in demo_messages for polling (existing behavior)
       await MessageStorageService.storeAIResponse(payload, response.response, storageMetadata);
-      console.log('✅ STORAGE CONFIRMED: Record written to database');
+      console.log('✅ DEMO_MESSAGES STORAGE: Polling record stored');
+      
+      // 2. 🏢 PHASE 2: Store in VC Usage for permanent records with customer data
+      console.log(`🔢 [INTERACTION_DEBUG] About to get interaction number for session: ${payload.sessionId}`);
+      const interactionNumber = await getNextInteractionNumber(payload.sessionId);
+      console.log(`🔢 [INTERACTION_DEBUG] Retrieved interaction number: ${interactionNumber} for session: ${payload.sessionId}`);
+      
+      console.log(`💾 [STORAGE_DEBUG] About to store VC Usage record:`, {
+        sessionId: payload.sessionId,
+        interactionNumber: interactionNumber,
+        userInput: payload.message.substring(0, 50) + '...',
+        aiResponse: response.response.substring(0, 50) + '...'
+      });
+      
+      await MessageStorageService.storeVCUsageRecord(
+        payload, 
+        payload.message, 
+        response.response, 
+        interactionNumber, 
+        storageMetadata
+      );
+      console.log('✅ VC_USAGE STORAGE: Permanent record stored with customer data');
+      
+      // 3. 🧠 PHASE 2B: Trigger dedicated summary function (synchronous, waits for completion)
+      console.log('🚀 SUMMARY_TRIGGER: Calling dedicated generate-interaction-summary function');
+      try {
+        await triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.firstName, payload.message, response.response, previousContext);
+        console.log('✅ SUMMARY_TRIGGER: Summary function completed successfully');
+      } catch (error) {
+        console.error('❌ SUMMARY_TRIGGER: Summary trigger failed:', error.message);
+      }
+      
     } catch (storageError) {
       console.error('❌ STORAGE FAILED:', storageError.message);
       console.error('🔍 STORAGE ERROR DETAILS:', storageError);
@@ -237,7 +334,7 @@ function parseWebhookPayload(body) {
     }
   }
 
-  return {
+  const parsedPayload = {
     message: payload.message,
     timestamp: payload.timestamp,
     sessionId: payload.sessionId,
@@ -245,8 +342,25 @@ function parseWebhookPayload(body) {
     techId: payload.techId,
     firstName: payload.firstName,
     jobTitle: payload.jobTitle,
-    betaCodeId: parseInt(payload.betaCodeId)
+    betaCodeId: parseInt(payload.betaCodeId),
+    // 🏢 PHASE 2: Optional customer fields (backward compatible)
+    customerName: payload.customerName || null,
+    customerAddress: payload.customerAddress || null,
+    customerEmail: payload.customerEmail || null,
+    customerPhone: payload.customerPhone || null
   };
+
+  // 🔍 DEBUG: Log all customer fields
+  console.log('🏢 [PAYLOAD_DEBUG] Customer fields in payload:', {
+    hasCustomerName: !!parsedPayload.customerName,
+    hasCustomerAddress: !!parsedPayload.customerAddress,
+    hasCustomerEmail: !!parsedPayload.customerEmail,
+    hasCustomerPhone: !!parsedPayload.customerPhone,
+    customerName: parsedPayload.customerName,
+    customerEmail: parsedPayload.customerEmail?.substring(0, 20) + '...'
+  });
+
+  return parsedPayload;
 }
 
 /**
@@ -267,6 +381,162 @@ function extractSessionId(body) {
  */
 function debugEnvironmentVariables() {
   MessageStorageService.debugEnvironment();
+}
+
+/**
+ * Get next interaction number for session (auto-incrementing)
+ * Queries VC Usage table to find highest interaction_number for session and increments by 1
+ */
+async function getNextInteractionNumber(sessionId) {
+  console.log(`🔢 [INTERACTION_DEBUG] Getting next interaction number for session: ${sessionId}`);
+  console.log(`🔢 [INTERACTION_DEBUG] SessionId type: ${typeof sessionId}, length: ${sessionId?.length}`);
+  
+  try {
+    // Get Supabase credentials
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://acdudelebwrzewxqmwnc.supabase.co';
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
+    
+    // Query for max interaction number in this session
+    const queryParams = new URLSearchParams({
+      'session_id': `eq.${sessionId}`,
+      'select': 'interaction_number,session_id,created_at',
+      'order': 'interaction_number.desc',
+      'limit': '10'
+    });
+    
+    const queryUrl = `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`;
+    console.log(`🔢 [INTERACTION_DEBUG] Query URL: ${queryUrl}`);
+    
+    const response = await fetch(queryUrl, {
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log(`🔢 [INTERACTION_DEBUG] Response status: ${response.status}, ok: ${response.ok}`);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`🔢 [INTERACTION_DEBUG] Query failed: ${response.status} - ${errorText}`);
+      console.warn(`⚠️ Failed to query interaction number, defaulting to 1: ${response.status}`);
+      return 1;
+    }
+    
+    const records = await response.json();
+    console.log(`🔢 [INTERACTION_DEBUG] Found ${records.length} existing records for session ${sessionId}`);
+    
+    if (records.length > 0) {
+      console.log(`🔢 [INTERACTION_DEBUG] Existing interactions:`, records.map(r => ({ 
+        interaction_number: r.interaction_number, 
+        session_id: r.session_id,
+        created_at: r.created_at 
+      })));
+    }
+    
+    const nextNumber = records.length > 0 ? (records[0].interaction_number + 1) : 1;
+    
+    console.log(`🔢 [INTERACTION_DEBUG] Calculated next interaction number: ${nextNumber}`);
+    console.log(`🔢 [INTERACTION_DEBUG] Previous max: ${records.length > 0 ? records[0].interaction_number : 'none'}`);
+    
+    return nextNumber;
+    
+  } catch (error) {
+    console.error('🔢 [INTERACTION_DEBUG] Error getting interaction number:', {
+      error: error.message,
+      stack: error.stack,
+      sessionId: sessionId
+    });
+    console.error('❌ Error getting interaction number, defaulting to 1:', error);
+    return 1;
+  }
+}
+
+/**
+ * Trigger dedicated interaction summary function
+ */
+async function triggerSummaryFunction(sessionId, interactionNumber, customerName, userName, userInput, aiResponse, previousContext) {
+  console.log('🔍 [DEBUG] triggerSummaryFunction ENTERED');
+  console.log('🔍 [DEBUG] Function parameters:', {
+    sessionId: sessionId,
+    interactionNumber: interactionNumber,
+    customerName: customerName || null,
+    userName: userName || null,  // NEW: logged-in user's name
+    userInputLength: userInput?.length,
+    aiResponseLength: aiResponse?.length,
+    hasPreviousContext: !!previousContext
+  });
+  
+  try {
+    console.log('🔍 [DEBUG] Building summary function URL...');
+    console.log('🔍 [DEBUG] process.env.URL:', process.env.URL);
+    
+    const summaryUrl = process.env.URL ? 
+      `${process.env.URL}/.netlify/functions/generate-interaction-summary` :
+      'https://tradesphere-demo.netlify.app/.netlify/functions/generate-interaction-summary';
+    
+    console.log('📤 SUMMARY_CALL: Triggering summary at:', summaryUrl);
+    
+    const payload = {
+      sessionId,
+      interactionNumber,
+      customerName: customerName || null,  // Fix: null instead of undefined
+      userName: userName || null,  // NEW: logged-in user's name
+      userInput,    // Fix: actual content, not just length
+      aiResponse,   // Fix: actual content, not just length
+      previousContext
+    };
+    
+    console.log('🔍 [DEBUG] Payload being sent:', {
+      sessionId: payload.sessionId,
+      interactionNumber: payload.interactionNumber,
+      customerName: payload.customerName || null,
+      userName: payload.userName || null,  // NEW: logged-in user's name
+      userInputLength: payload.userInput?.length,
+      aiResponseLength: payload.aiResponse?.length,
+      hasPreviousContext: !!payload.previousContext,
+      actualUserInput: payload.userInput?.substring(0, 50) + '...',
+      actualAiResponse: payload.aiResponse?.substring(0, 50) + '...'
+    });
+    
+    console.log('🔍 [DEBUG] About to make fetch call with 8-second timeout...');
+    
+    // Add 8-second timeout protection so it doesn't block pricing agent indefinitely
+    const response = await Promise.race([
+      fetch(summaryUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Summary function call timeout after 8 seconds')), 8000)
+      )
+    ]);
+    
+    console.log('🔍 [DEBUG] Fetch call completed');
+    console.log('📥 SUMMARY_RESPONSE: Status:', response.status, response.statusText);
+    console.log('📥 SUMMARY_RESPONSE: Headers:', Object.fromEntries(response.headers));
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ SUMMARY_CALL: Summary generated successfully');
+      console.log('✅ SUMMARY_RESULT:', result);
+    } else {
+      const errorText = await response.text().catch(() => 'Unable to read error');
+      console.error('❌ SUMMARY_CALL: Failed with status:', response.status);
+      console.error('❌ SUMMARY_ERROR_BODY:', errorText);
+      console.error('❌ SUMMARY_ERROR_HEADERS:', Object.fromEntries(response.headers));
+    }
+    
+  } catch (error) {
+    console.error('❌ SUMMARY_CALL: Caught exception in triggerSummaryFunction:', error);
+    console.error('❌ SUMMARY_ERROR_TYPE:', typeof error);
+    console.error('❌ SUMMARY_ERROR_MESSAGE:', error.message);
+    console.error('❌ SUMMARY_ERROR_STACK:', error.stack);
+  }
+  
+  console.log('🔍 [DEBUG] triggerSummaryFunction EXITING');
 }
 
 /**
@@ -343,6 +613,50 @@ async function storeExactChatResponseFormat(sessionId, responseText, techId) {
     console.error('🔄 EXACT FORMAT ERROR:', error.message);
     console.error('🔄 EXACT FORMAT STACK:', error.stack);
     return false;
+  }
+}
+
+/**
+ * 📋 PHASE 2C: Query customer's last interaction for context continuity
+ */
+async function queryCustomerContext(customerName, techId) {
+  try {
+    console.log('📋 CUSTOMER CONTEXT: Querying last interaction for:', customerName);
+    
+    const supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
+    
+    const queryParams = new URLSearchParams({
+      'customer_name': `eq.${customerName}`,
+      'user_tech_id': `eq.${techId}`,
+      'order': 'interaction_number.desc',
+      'limit': '1',
+      'select': 'interaction_summary,user_input,ai_response,created_at,interaction_number'
+    });
+    
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': supabaseKey,
+          'Accept': 'application/json'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Query failed: ${response.status}`);
+    }
+    
+    const results = await response.json();
+    console.log('📋 CUSTOMER CONTEXT: Query results:', results.length, 'records found');
+    
+    return results.length > 0 ? results[0] : null;
+    
+  } catch (error) {
+    console.error('📋 CUSTOMER CONTEXT ERROR:', error.message);
+    return null;
   }
 }
 

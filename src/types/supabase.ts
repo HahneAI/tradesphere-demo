@@ -356,9 +356,110 @@ export interface Database {
           }
         ]
       }
+      "VC Usage": {
+        Row: {
+          id: string
+          session_id: string
+          user_tech_id: string
+          customer_name: string | null
+          customer_address: string | null
+          customer_email: string | null
+          customer_phone: string | null
+          user_input: string | null
+          ai_response: string | null
+          interaction_number: number
+          interaction_summary: string | null
+          created_at: string
+          updated_at: string | null
+          last_viewed_at: string | null
+          view_count: number | null
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          user_tech_id: string
+          customer_name?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          user_input?: string | null
+          ai_response?: string | null
+          interaction_number: number
+          interaction_summary?: string | null
+          created_at?: string
+          updated_at?: string | null
+          last_viewed_at?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          user_tech_id?: string
+          customer_name?: string | null
+          customer_address?: string | null
+          customer_email?: string | null
+          customer_phone?: string | null
+          user_input?: string | null
+          ai_response?: string | null
+          interaction_number?: number
+          interaction_summary?: string | null
+          created_at?: string
+          updated_at?: string | null
+          last_viewed_at?: string | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
+      customer_interactions: {
+        Row: {
+          id: string
+          user_tech_id: string
+          customer_name: string
+          session_id: string | null
+          interaction_type: string
+          viewed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_tech_id: string
+          customer_name: string
+          session_id?: string | null
+          interaction_type: string
+          viewed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_tech_id?: string
+          customer_name?: string
+          session_id?: string | null
+          interaction_type?: string
+          viewed_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      customer_list_view: {
+        Row: {
+          customer_name: string
+          user_tech_id: string
+          latest_session_id: string
+          customer_address: string | null
+          customer_email: string | null
+          customer_phone: string | null
+          customer_number: string | null
+          interaction_summary: string | null
+          last_interaction_at: string
+          last_viewed_at: string | null
+          interaction_count: number
+          view_count: number
+          sort_priority: number
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

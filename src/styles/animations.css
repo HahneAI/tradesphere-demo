@@ -263,3 +263,255 @@
 .mic-button-transition:hover {
   transition-duration: 150ms;
 }
+
+/* === MODAL ANIMATIONS === */
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes scale-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-scale-out {
+  animation: scale-out 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* === MOBILE-SPECIFIC ANIMATIONS === */
+@keyframes mobile-tap-feedback {
+  0% {
+    transform: scale(1);
+    background-color: currentColor;
+  }
+  50% {
+    transform: scale(0.98);
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    transform: scale(1);
+    background-color: currentColor;
+  }
+}
+
+@keyframes pull-to-refresh {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translateY(-10px) rotate(180deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+@keyframes touch-ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+@keyframes bounce-in-mobile {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(50px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05) translateY(-10px);
+  }
+  70% {
+    transform: scale(0.95) translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes swipe-indicator {
+  0%, 100% {
+    transform: translateX(0) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(10px) scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* === MOBILE ANIMATION CLASSES === */
+.mobile-tap-feedback {
+  animation: mobile-tap-feedback 0.15s ease-out;
+}
+
+.animate-pull-refresh {
+  animation: pull-to-refresh 1s ease-in-out infinite;
+}
+
+.touch-ripple {
+  animation: touch-ripple 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200px 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+.animate-bounce-in-mobile {
+  animation: bounce-in-mobile 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+}
+
+.swipe-indicator {
+  animation: swipe-indicator 2s ease-in-out infinite;
+}
+
+/* === TOUCH FEEDBACK STATES === */
+.touch-active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease-out;
+}
+
+.touch-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* === MOBILE LIST ANIMATIONS === */
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stagger-item {
+  animation: stagger-fade-in 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0.05s; }
+.stagger-item:nth-child(2) { animation-delay: 0.1s; }
+.stagger-item:nth-child(3) { animation-delay: 0.15s; }
+.stagger-item:nth-child(4) { animation-delay: 0.2s; }
+.stagger-item:nth-child(5) { animation-delay: 0.25s; }
+.stagger-item:nth-child(6) { animation-delay: 0.3s; }
+.stagger-item:nth-child(7) { animation-delay: 0.35s; }
+.stagger-item:nth-child(8) { animation-delay: 0.4s; }
+.stagger-item:nth-child(n+9) { animation-delay: 0.45s; }
+
+/* === KEYBOARD AVOIDANCE === */
+@keyframes keyboard-push-up {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-50vh);
+  }
+}
+
+@keyframes keyboard-slide-down {
+  from {
+    transform: translateY(-50vh);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.keyboard-avoiding {
+  animation: keyboard-push-up 0.3s ease-out forwards;
+}
+
+.keyboard-restoring {
+  animation: keyboard-slide-down 0.3s ease-out forwards;
+}
+
+/* === MOBILE MODAL IMPROVEMENTS === */
+@keyframes modal-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100vh);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modal-slide-down {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100vh);
+  }
+}
+
+.modal-slide-up {
+  animation: modal-slide-up 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.modal-slide-down {
+  animation: modal-slide-down 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* === LOADING STATES === */
+@keyframes customer-loading-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+.customer-loading {
+  animation: customer-loading-pulse 1.5s ease-in-out infinite;
+}
