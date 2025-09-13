@@ -310,7 +310,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
       >
         <div
           className="w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
-          style={{ backgroundColor: visualConfig.colors.surface }}
+          style={{ backgroundColor: '#00FF00' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header */}
