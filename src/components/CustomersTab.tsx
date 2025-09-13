@@ -21,7 +21,7 @@ interface Customer {
   customer_name: string | null;
   customer_address: string | null;
   customer_email: string | null;
-  customer_number: string | null;
+  customer_phone: string | null;
   interaction_summary: string | null;
   created_at: string;
 }
@@ -30,7 +30,7 @@ interface EditCustomerData {
   customer_name: string;
   customer_address: string;
   customer_email: string;
-  customer_number: string;
+  customer_phone: string;
 }
 
 interface CustomersTabProps {
@@ -57,7 +57,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
     customer_name: '',
     customer_address: '',
     customer_email: '',
-    customer_number: ''
+    customer_phone: ''
   });
 
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -118,7 +118,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
       processedCustomers = processedCustomers.filter(customer =>
         customer.customer_name?.toLowerCase().includes(query) ||
         customer.customer_email?.toLowerCase().includes(query) ||
-        customer.customer_number?.toLowerCase().includes(query) ||
+        customer.customer_phone?.toLowerCase().includes(query) ||
         customer.customer_address?.toLowerCase().includes(query)
       );
     }
@@ -167,7 +167,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
         customer_name: customer.customer_name,
         customer_address: customer.customer_address,
         customer_email: customer.customer_email,
-        customer_number: customer.customer_number || customer.customer_phone,
+        customer_phone: customer.customer_phone,
         interaction_summary: customer.interaction_summary,
         created_at: customer.last_interaction_at
       }));
@@ -197,7 +197,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
         customer_name: customer.customer_name || '',
         customer_address: customer.customer_address || '',
         customer_email: customer.customer_email || '',
-        customer_number: customer.customer_number || ''
+        customer_phone: customer.customer_phone || ''
       });
       setShowEditModal(true);
     } else if (onLoadCustomer && customer.customer_name && user?.tech_uuid) {
@@ -246,7 +246,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
           customer_name: editData.customer_name,
           customer_address: editData.customer_address,
           customer_email: editData.customer_email,
-          customer_number: editData.customer_number
+          customer_phone: editData.customer_phone
         }
       );
 
@@ -289,7 +289,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
       customer_name: '',
       customer_address: '',
       customer_email: '',
-      customer_number: ''
+      customer_phone: ''
     });
   };
 
@@ -518,7 +518,7 @@ const CustomerCard: React.FC<{
     const matches = 
       customer.customer_name?.toLowerCase().includes(query) ||
       customer.customer_email?.toLowerCase().includes(query) ||
-      customer.customer_number?.toLowerCase().includes(query) ||
+      customer.customer_phone?.toLowerCase().includes(query) ||
       customer.customer_address?.toLowerCase().includes(query);
     
     setIsVisible(matches);
@@ -643,10 +643,10 @@ const CustomerCard: React.FC<{
           </div>
         )}
         
-        {customer.customer_number && (
+        {customer.customer_phone && (
           <div className="flex items-center gap-2">
             <Icons.Phone className="h-3 w-3 flex-shrink-0" style={{ color: visualConfig.colors.text.secondary }} />
-            <span style={{ color: visualConfig.colors.text.secondary }}>{customer.customer_number}</span>
+            <span style={{ color: visualConfig.colors.text.secondary }}>{customer.customer_phone}</span>
           </div>
         )}
       </div>
@@ -770,8 +770,8 @@ const EditCustomerModal: React.FC<{
               </label>
               <input
                 type="tel"
-                value={editData.customer_number}
-                onChange={(e) => setEditData({ ...editData, customer_number: e.target.value })}
+                value={editData.customer_phone}
+                onChange={(e) => setEditData({ ...editData, customer_phone: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 transition-all"
                 style={{
                   backgroundColor: visualConfig.colors.background,

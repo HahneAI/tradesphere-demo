@@ -365,7 +365,6 @@ export interface Database {
           customer_address: string | null
           customer_email: string | null
           customer_phone: string | null
-          customer_number: string | null
           user_input: string | null
           ai_response: string | null
           interaction_number: number
@@ -383,7 +382,6 @@ export interface Database {
           customer_address?: string | null
           customer_email?: string | null
           customer_phone?: string | null
-          customer_number?: string | null
           user_input?: string | null
           ai_response?: string | null
           interaction_number: number
@@ -401,7 +399,6 @@ export interface Database {
           customer_address?: string | null
           customer_email?: string | null
           customer_phone?: string | null
-          customer_number?: string | null
           user_input?: string | null
           ai_response?: string | null
           interaction_number?: number

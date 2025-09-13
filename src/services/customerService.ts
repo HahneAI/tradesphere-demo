@@ -160,7 +160,7 @@ export class CustomerService {
   async updateCustomerDetails(
     sessionId: string,
     techId: string,
-    updates: Partial<Pick<VCUsageRow, 'customer_name' | 'customer_address' | 'customer_email' | 'customer_phone' | 'customer_number'>>
+    updates: Partial<Pick<VCUsageRow, 'customer_name' | 'customer_address' | 'customer_email' | 'customer_phone'>>
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Start transaction by updating all records for this customer
