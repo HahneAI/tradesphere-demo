@@ -3,8 +3,7 @@ import * as Icons from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../config/industry';
-import { PaverPatioManager } from './services/PaverPatioManager';
-import { PaverPatioReadOnly } from './services/PaverPatioReadOnly';
+import { ServicesDatabaseView } from './services/ServicesDatabaseView';
 
 interface ServicesTabProps {
   isOpen: boolean;
@@ -55,19 +54,13 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ isOpen, onClose }) => 
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Render Admin or Employee Interface */}
-              {user?.is_admin ? (
-                <PaverPatioManager 
-                  visualConfig={visualConfig}
-                  theme={theme}
-                />
-              ) : (
-                <PaverPatioReadOnly 
-                  visualConfig={visualConfig}
-                  theme={theme}
-                  userName={user?.first_name || 'User'}
-                />
-              )}
+              {/* Services Database View */}
+              <ServicesDatabaseView 
+                visualConfig={visualConfig}
+                theme={theme}
+                isAdmin={user?.is_admin || false}
+                userName={user?.first_name || 'User'}
+              />
             </div>
           </div>
         </div>

@@ -1,10 +1,45 @@
 {
   "service": "Paver Patio (SQFT)",
   "serviceId": "paver_patio_sqft",
+  "category": "Hardscaping",
   "version": "1.0.0",
   "lastModified": "2025-01-14",
   "modifiedBy": "system",
   "description": "Master formula configuration for paver patio pricing variables",
+  "baseSettings": {
+    "baseLaborRate": {
+      "value": 0.12,
+      "unit": "hrs/sqft",
+      "label": "Base Labor Rate",
+      "description": "Foundation labor hours per square foot",
+      "adminEditable": true,
+      "validation": { "min": 0.05, "max": 0.50, "step": 0.01 }
+    },
+    "baseMaterialCost": {
+      "value": 4.50,
+      "unit": "$/sqft",
+      "label": "Base Material Cost",
+      "description": "Foundation material cost per square foot",
+      "adminEditable": true,
+      "validation": { "min": 2.00, "max": 15.00, "step": 0.25 }
+    },
+    "manHourRate": {
+      "value": 75,
+      "unit": "$/hr",
+      "label": "Man Hour Rate",
+      "description": "Dollar charge per 1 man per 1 hour of work",
+      "adminEditable": true,
+      "validation": { "min": 25, "max": 150, "step": 5 }
+    },
+    "profitMarginTarget": {
+      "value": 0.35,
+      "unit": "percentage",
+      "label": "Profit Margin Target",
+      "description": "Target profit margin percentage",
+      "adminEditable": true,
+      "validation": { "min": 0.15, "max": 0.60, "step": 0.05 }
+    }
+  },
   "variables": {
     "excavation": {
       "label": "Excavation & Site Preparation",
@@ -279,8 +314,11 @@
     }
   },
   "formula": {
-    "description": "Base calculation: (basePrice * excavation * siteAccess * materials * labor * complexity) + equipment + obstacles",
+    "description": "Calculation uses base settings (labor rate, material cost, service charge) modified by multipliers and additional costs",
     "basePrice": 15.50,
-    "calculation": "basePrice * tearoutMultiplier * accessDifficulty * paverStyle * cuttingComplexity * degree45Factor * teamSize * teamEfficiency * projectComplexity + equipmentCategory + obstacleRemoval"
+    "basePriceCalculation": "(baseLaborRate * avgLaborHours + baseMaterialCost) * (1 + profitMarginTarget) + baseServiceCharge",
+    "finalCalculation": "calculatedBasePrice * tearoutMultiplier * accessDifficulty * paverStyle * cuttingComplexity * degree45Factor * teamSize * teamEfficiency * projectComplexity + equipmentCategory + obstacleRemoval",
+    "avgLaborHours": 8.5,
+    "notes": "basePrice will be dynamically calculated from baseSettings when admin makes changes"
   }
 }

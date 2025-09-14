@@ -65,13 +65,33 @@ const saveStoredValues = (values: PaverPatioValues) => {
   }
 };
 
+// Calculate dynamic base price from base settings
+const calculateDynamicBasePrice = (config: any): number => {
+  if (!config.baseSettings) {
+    return config.formula.basePrice; // Fallback to original static price
+  }
+  
+  const laborHoursPerSqft = config.baseSettings.baseLaborRate?.value || 0.12;
+  const materialCost = config.baseSettings.baseMaterialCost?.value || 4.50;
+  const manHourRate = config.baseSettings.manHourRate?.value || 75;
+  const profitMargin = config.baseSettings.profitMarginTarget?.value || 0.35;
+  
+  // Formula: (laborHoursPerSqft * manHourRate + materialCost) * (1 + profitMargin)
+  // This calculates: (hours per sqft * dollar per hour) + material cost, then applies profit margin
+  const laborCostPerSqft = laborHoursPerSqft * manHourRate;
+  const totalCostPerSqft = laborCostPerSqft + materialCost;
+  const calculatedPrice = totalCostPerSqft * (1 + profitMargin);
+  
+  return Number(calculatedPrice.toFixed(2));
+};
+
 // Calculate price based on current values
 const calculatePrice = (
   config: PaverPatioConfig, 
   values: PaverPatioValues, 
   sqft: number = 1
 ): PaverPatioCalculationResult => {
-  const basePrice = config.formula.basePrice;
+  const basePrice = calculateDynamicBasePrice(config);
   
   // Get multiplier values
   const tearout = config.variables.excavation.tearoutMultiplier?.options[values.excavation.tearoutMultiplier]?.value || 1;
@@ -124,21 +144,37 @@ export const usePaverPatioStore = (): PaverPatioStore => {
   const [error, setError] = useState<string | null>(null);
   const [lastCalculation, setLastCalculation] = useState<PaverPatioCalculationResult | null>(null);
 
-  // Load configuration
+  // Load configuration with base settings integration
   const loadConfig = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
       
       // Cast the imported JSON to our type
-      const configData = paverPatioConfigJson as PaverPatioConfig;
+      let configData = paverPatioConfigJson as any;
+      
+      // Check for base settings overrides from Services tab
+      const serviceConfigOverride = localStorage.getItem('service_config_paver_patio_sqft');
+      if (serviceConfigOverride) {
+        try {
+          const override = JSON.parse(serviceConfigOverride);
+          configData = {
+            ...configData,
+            baseSettings: { ...configData.baseSettings, ...override.baseSettings },
+            lastModified: override.lastModified || configData.lastModified
+          };
+        } catch (error) {
+          console.warn('Failed to apply base settings override:', error);
+        }
+      }
+      
       setConfig(configData);
       
       // Load or initialize values
       const initialValues = loadStoredValues(configData);
       setValues(initialValues);
       
-      // Calculate initial price
+      // Calculate initial price with potentially updated base settings
       const calculation = calculatePrice(configData, initialValues);
       setLastCalculation(calculation);
       
@@ -256,6 +292,37 @@ export const usePaverPatioStore = (): PaverPatioStore => {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  // Listen for base settings changes from Services tab
+  useEffect(() => {
+    const handleBaseSettingsChange = (e: StorageEvent) => {
+      if (e.key === 'service_config_paver_patio_sqft' && e.newValue && config) {
+        try {
+          const updatedServiceConfig = JSON.parse(e.newValue);
+          
+          // Update the config with new base settings
+          const updatedConfig = {
+            ...config,
+            baseSettings: { ...config.baseSettings, ...updatedServiceConfig.baseSettings },
+            lastModified: updatedServiceConfig.lastModified || config.lastModified
+          };
+          
+          setConfig(updatedConfig);
+          
+          // Recalculate price with new base settings
+          const calculation = calculatePrice(updatedConfig, values);
+          setLastCalculation(calculation);
+          
+          console.log('🔄 Base settings updated from Services tab, Quick Calculator refreshed');
+        } catch (error) {
+          console.error('Error applying base settings update:', error);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleBaseSettingsChange);
+    return () => window.removeEventListener('storage', handleBaseSettingsChange);
+  }, [config, values]);
 
   return {
     config,
