@@ -56,7 +56,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ isOpen, onClose }) => 
             {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto p-6">
               {/* Render Admin or Employee Interface */}
-              {user?.role === 'admin' ? (
+              {user?.is_admin ? (
                 <PaverPatioManager 
                   visualConfig={visualConfig}
                   theme={theme}
