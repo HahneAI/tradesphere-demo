@@ -28,6 +28,7 @@ import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
+import { QuickCalculatorTab } from './QuickCalculatorTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -248,6 +249,7 @@ const ChatInterface = () => {
 
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [showServicesPopup, setShowServicesPopup] = useState(false);
+  const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1711,6 +1713,7 @@ const ChatInterface = () => {
         onAvatarClick={() => setShowAvatarPopup(true)}
         onCustomersClick={() => setShowCustomersPopup(true)}
         onServicesClick={() => setShowServicesPopup(true)}
+        onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
@@ -2350,6 +2353,12 @@ const ChatInterface = () => {
       <ServicesTab
         isOpen={showServicesPopup}
         onClose={() => setShowServicesPopup(false)}
+      />
+
+      {/* Quick Calculator Popup */}
+      <QuickCalculatorTab
+        isOpen={showQuickCalculatorPopup}
+        onClose={() => setShowQuickCalculatorPopup(false)}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
