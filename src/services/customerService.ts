@@ -308,11 +308,21 @@ export class CustomerService {
       }
 
       // Update view count in VC Usage table for this customer
+      // First get current view_count, then increment
+      const { data: currentData } = await this.supabase
+        .from('VC Usage')
+        .select('view_count')
+        .eq('user_tech_id', techId)
+        .eq('customer_name', customerName)
+        .single();
+
+      const newViewCount = (currentData?.view_count || 0) + 1;
+
       const { error: updateError } = await this.supabase
         .from('VC Usage')
         .update({
           last_viewed_at: new Date().toISOString(),
-          view_count: this.supabase.raw('COALESCE(view_count, 0) + 1')
+          view_count: newViewCount
         })
         .eq('user_tech_id', techId)
         .eq('customer_name', customerName);

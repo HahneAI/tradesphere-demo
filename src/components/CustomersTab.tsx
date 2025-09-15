@@ -89,12 +89,19 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
     }
   }, [recentlyViewedCustomers, user?.tech_uuid]);
 
-  // Fetch customers on component mount
+  // Fetch customers on component mount and when modal opens
   useEffect(() => {
     if (user?.tech_uuid) {
       fetchCustomers();
     }
   }, [user?.tech_uuid]);
+
+  // Auto-refresh when modal opens
+  useEffect(() => {
+    if (isOpen && user?.tech_uuid) {
+      fetchCustomers();
+    }
+  }, [isOpen, user?.tech_uuid]);
 
   // Debounced search effect
   const debouncedSearch = useCallback(

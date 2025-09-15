@@ -1451,6 +1451,18 @@ const ChatInterface = () => {
               phone: response.customerDetails.phone,
             }
           }));
+
+          // Update customer details for header display
+          setCustomerDetails({
+            name: response.customerDetails.name,
+            address: response.customerDetails.address || '',
+            email: response.customerDetails.email || '',
+            phone: response.customerDetails.phone || ''
+          });
+
+          // Close customer dropdown and form
+          setShowCustomerDropdown(false);
+          setShowCustomerForm(false);
         }
 
         console.log(`✅ Customer context loaded: ${customer.customer_name} (${response.conversationHistory.length} messages)`);
@@ -1778,6 +1790,12 @@ const ChatInterface = () => {
                         e.stopPropagation(); // Prevent dropdown from opening
                         setCustomerDetails(null);
                         setShowCustomerForm(false);
+                        setCurrentCustomer(null);
+                        setSessionData(prev => ({
+                          ...prev,
+                          customerName: null,
+                          customerContext: null
+                        }));
                         console.log('🗑️ Customer cleared via badge X button');
                       }}
                       className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
@@ -1835,6 +1853,12 @@ const ChatInterface = () => {
                                 setCustomerDetails(null);
                                 setShowCustomerForm(false);
                                 setShowCustomerDropdown(false);
+                                setCurrentCustomer(null);
+                                setSessionData(prev => ({
+                                  ...prev,
+                                  customerName: null,
+                                  customerContext: null
+                                }));
                                 // Also refresh the chat to start completely fresh
                                 handleRefreshChat();
                               }}
