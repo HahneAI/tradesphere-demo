@@ -192,7 +192,7 @@ export class CustomerService {
     customerName: string,
     techId: string,
     sessionId?: string,
-    limit: number = 10
+    limit: number = 2
   ): Promise<{ conversations: CustomerConversationHistory[]; error?: string }> {
     try {
       let query = this.supabase

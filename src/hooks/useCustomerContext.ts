@@ -91,7 +91,7 @@ export const useCustomerContext = () => {
         customerName,
         user.tech_uuid,
         sessionId,
-        10
+        2
       );
 
       if (historyError) {

@@ -335,6 +335,7 @@ const ChatInterface = () => {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [previousCustomerName, setPreviousCustomerName] = useState<string | null>(null);
 
   // 🔄 PHASE 2D: Conversation preloading states
   const [isPreloadingContext, setIsPreloadingContext] = useState(false);
@@ -1435,7 +1436,19 @@ const ChatInterface = () => {
           historySummaryId
         );
 
-        // Update messages state with customer context and history
+        // Detect customer switching and reset chat for existing customer loads
+        const isCustomerSwitch = previousCustomerName && previousCustomerName !== customer.customer_name;
+        const isNewCustomerLoad = !previousCustomerName;
+
+        if (isCustomerSwitch || isNewCustomerLoad) {
+          console.log(`🔄 Loading customer ${customer.customer_name} - resetting chat first`);
+          setMessages([]); // Reset chat first
+        }
+
+        // Update previous customer tracking
+        setPreviousCustomerName(customer.customer_name);
+
+        // Then load customer context and history
         setMessages(contextMessages);
         
         // Update session data
@@ -1796,6 +1809,8 @@ const ChatInterface = () => {
                           customerName: null,
                           customerContext: null
                         }));
+                        setPreviousCustomerName(null); // Clear tracking
+                        handleRefreshChat(); // Reset chat when ejecting customer
                         console.log('🗑️ Customer cleared via badge X button');
                       }}
                       className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
@@ -1859,6 +1874,7 @@ const ChatInterface = () => {
                                   customerName: null,
                                   customerContext: null
                                 }));
+                                setPreviousCustomerName(null); // Clear tracking
                                 // Also refresh the chat to start completely fresh
                                 handleRefreshChat();
                               }}
