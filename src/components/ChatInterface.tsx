@@ -336,6 +336,20 @@ const ChatInterface = () => {
   const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [previousCustomerName, setPreviousCustomerName] = useState<string | null>(null);
+  const [currentCustomer, setCurrentCustomer] = useState<string | null>(null);
+  const [sessionData, setSessionData] = useState<{
+    sessionId: string;
+    customerName: string | null;
+    customerContext: {
+      address: string;
+      email: string;
+      phone: string;
+    } | null;
+  }>({
+    sessionId: sessionIdRef.current,
+    customerName: null,
+    customerContext: null
+  });
 
   // 🔄 PHASE 2D: Conversation preloading states
   const [isPreloadingContext, setIsPreloadingContext] = useState(false);
