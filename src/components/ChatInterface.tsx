@@ -28,6 +28,7 @@ import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
+import { ServicesPage } from './ServicesPage';
 import { QuickCalculatorTab } from './QuickCalculatorTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
@@ -250,6 +251,7 @@ const ChatInterface = () => {
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [showServicesPopup, setShowServicesPopup] = useState(false);
   const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
+  const [currentView, setCurrentView] = useState<'chat' | 'services'>('chat');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1712,7 +1714,7 @@ const ChatInterface = () => {
         onNotesClick={() => setShowNotesPopup(true)}
         onAvatarClick={() => setShowAvatarPopup(true)}
         onCustomersClick={() => setShowCustomersPopup(true)}
-        onServicesClick={() => setShowServicesPopup(true)}
+        onServicesClick={() => setCurrentView('services')}
         onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
@@ -2148,7 +2150,34 @@ const ChatInterface = () => {
       </header>
 
       {/* ORIGINAL: Main Chat Area - exact same structure */}
-      <main className="flex-1 flex flex-col overflow-hidden p-4">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {currentView === 'services' ? (
+          <div className="flex-1 flex flex-col">
+            {/* Services Page Header */}
+            <div className="flex items-center justify-between p-4 border-b"
+                 style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
+              <button
+                onClick={() => setCurrentView('chat')}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+                style={{ 
+                  color: visualConfig.colors.text.primary,
+                  backgroundColor: 'transparent'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                <Icons.ArrowLeft className="h-4 w-4" />
+                <span>Back to Chat</span>
+              </button>
+              <h1 className="text-xl font-semibold" style={{ color: visualConfig.colors.text.primary }}>
+                Services Database
+              </h1>
+              <div /> {/* Spacer for centering */}
+            </div>
+            <ServicesPage />
+          </div>
+        ) : (
+          <div className="p-4 flex-1 flex flex-col">
         <div
           className="flex-1 rounded-2xl shadow-lg flex flex-col overflow-hidden min-h-0 transition-all duration-300"
           style={{
@@ -2333,6 +2362,8 @@ const ChatInterface = () => {
             </div>
           </div>
         </div>
+          </div>
+        )}
       </main>
       {/* ADD NOTESPOPUP HERE */}
       <NotesPopup

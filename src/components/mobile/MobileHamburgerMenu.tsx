@@ -121,8 +121,8 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.Settings className="h-5 w-5" />
-            <span className="font-medium">Services</span>
+            <Icons.Database className="h-5 w-5" />
+            <span className="font-medium">Services Database</span>
           </button>
 
           <button
