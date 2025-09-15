@@ -179,17 +179,12 @@ export const handler = async (event, context) => {
         // 🏢 PHASE 5: Format customer lookup response
         console.log('👤 CUSTOMER LOOKUP - Raw customer data from DB:', responseData.length);
         
-        // Group by customer and get most recent session per customer
-        const customerMap = new Map();
-        responseData.forEach(record => {
-          const customerKey = record.customer_name;
-          if (!customerMap.has(customerKey) || 
-              new Date(record.created_at) > new Date(customerMap.get(customerKey).created_at)) {
-            customerMap.set(customerKey, record);
-          }
-        });
-        
-        const formattedCustomers = Array.from(customerMap.values()).map(customer => ({
+        // Take the 2 most recent customer sessions (regardless of customer name)
+        const sortedData = responseData.sort((a, b) =>
+          new Date(b.created_at) - new Date(a.created_at)
+        ).slice(0, 2);
+
+        const formattedCustomers = sortedData.map(customer => ({
           id: `customer_${customer.customer_name.replace(/\s+/g, '_')}_${Date.now()}`,
           customerName: customer.customer_name,
           customerEmail: customer.customer_email,
