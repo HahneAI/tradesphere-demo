@@ -308,16 +308,20 @@ export class CustomerService {
       }
 
       // Update view count in VC Usage table for this customer
-      // First get current view_count, then increment
-      const { data: currentData } = await this.supabase
+      // Use RPC call to avoid 406 errors with single() queries or direct count operations
+      // First try to get any record to check current view_count
+      const { data: existingRecords } = await this.supabase
         .from('VC Usage')
         .select('view_count')
         .eq('user_tech_id', techId)
         .eq('customer_name', customerName)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-      const newViewCount = (currentData?.view_count || 0) + 1;
+      const currentViewCount = existingRecords?.[0]?.view_count || 0;
+      const newViewCount = currentViewCount + 1;
 
+      // Update all records for this customer/tech combination
       const { error: updateError } = await this.supabase
         .from('VC Usage')
         .update({

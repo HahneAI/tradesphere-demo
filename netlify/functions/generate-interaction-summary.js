@@ -1,13 +1,17 @@
 /**
  * Dedicated Interaction Summary Generator
- * 
+ *
  * Generates intelligent business-focused summaries for customer interactions using OpenAI GPT-4o-mini
  * Called by pricing agent after each interaction is stored in VC Usage table
  * Uses session_id priority for database updates and comprehensive debug logging
- * 
+ *
+ * MIGRATED: Now uses Supabase client for consistent database access and 406 error prevention
+ *
  * Endpoint: POST /.netlify/functions/generate-interaction-summary
  * Payload: { sessionId, interactionNumber, customerName, userInput, aiResponse, previousContext? }
  */
+
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * Generate intelligent interaction summary using OpenAI GPT-4o-mini
@@ -224,39 +228,33 @@ async function updateInteractionSummary(sessionId, interactionNumber, summary) {
       keyLength: supabaseKey?.length
     });
     
-    // Update using session_id priority (matches pricing agent pattern)
-    const updateUrl = `${supabaseUrl}/rest/v1/VC Usage?session_id=eq.${sessionId}&interaction_number=eq.${interactionNumber}`;
-    console.log('📝 [DB_UPDATE] Update URL:', updateUrl);
-    
+    // 🔄 MIGRATION: Use Supabase client to prevent 406 errors
+    console.log('📝 [DB_UPDATE] Using Supabase client for VC Usage update...');
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
     const updatePayload = {
       interaction_summary: summary
     };
     console.log('📝 [DB_UPDATE] Update Payload:', JSON.stringify(updatePayload, null, 2));
-    
-    const response = await fetch(updateUrl, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify(updatePayload)
+
+    const { error } = await supabase
+      .from('VC Usage')
+      .update(updatePayload)
+      .eq('session_id', sessionId)
+      .eq('interaction_number', interactionNumber);
+
+    console.log('📝 [DB_UPDATE] Supabase client response:', {
+      success: !error,
+      error: error?.message || null
     });
-    
-    console.log(`📝 [DB_UPDATE] Response Status: ${response.status} ${response.statusText}`);
-    console.log(`🔍 [DEBUG] Database response received`);
-    
-    if (response.ok) {
+
+    if (!error) {
       console.log(`✅ [DB_UPDATE] ✅ SUCCESS ✅ Updated interaction ${interactionNumber} with intelligent summary`);
       console.log(`✅ [DB_UPDATE] ✅ SUCCESS ✅ Database update completed for session ${sessionId}`);
       console.log(`✅ [DB_UPDATE] Summary Length: ${summary.length} characters`);
     } else {
-      const errorText = await response.text().catch(() => 'Unable to read error');
-      console.error(`❌ [DB_UPDATE] ❌ FAILED ❌ Failed to update summary: ${response.status}`);
-      console.error(`❌ [DB_UPDATE] ❌ FAILED ❌ Error details:`, errorText);
-      console.error(`❌ [DB_UPDATE] ❌ FAILED ❌ Session: ${sessionId}, Interaction: ${interactionNumber}`);
-      throw new Error(`Database update failed: ${response.status} - ${errorText}`);
+      console.error('❌ [DB_UPDATE] Supabase client error:', error);
+      throw new Error(`Database update failed: ${error.message}`);
     }
     
   } catch (error) {
@@ -270,7 +268,7 @@ async function updateInteractionSummary(sessionId, interactionNumber, summary) {
 /**
  * Main handler function for the Netlify endpoint
  */
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   const startTime = Date.now();
   
   console.log('🚀🚀🚀 GENERATE_INTERACTION_SUMMARY FUNCTION HIT! 🚀🚀🚀');
