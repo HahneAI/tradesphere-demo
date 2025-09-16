@@ -1,13 +1,15 @@
 /**
  * Customer Update Function - Session-wide customer detail updates
- * 
+ *
  * Handles mid-chat customer detail confirmations and updates
  * Updates all VC Usage records for the current session
- * 
- * Phase 2A: Session-wide customer detail updates for mid-chat confirmations
+ *
+ * Phase 2A: Session-wide customer detail updates for mid-chat confirmations - Migrated to Supabase Client
  */
 
-exports.handler = async (event, context) => {
+import { createClient } from '@supabase/supabase-js';
+
+export const handler = async (event, context) => {
   const startTime = Date.now();
 
   // CORS headers
@@ -48,6 +50,9 @@ exports.handler = async (event, context) => {
     const supabaseUrl = process.env.SUPABASE_URL || 'https://acdudelebwrzewxqmwnc.supabase.co';
     const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
 
+    // 🔄 MIGRATION: Initialize Supabase client for consistent database access
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     // Update all VC Usage records for this session
     const updateData = {
       customer_name: payload.customerName,
@@ -64,35 +69,21 @@ exports.handler = async (event, context) => {
       hasAddress: !!updateData.customer_address
     });
 
-    // Update all records for this session
-    const updateResponse = await fetch(
-      `${supabaseUrl}/rest/v1/VC Usage?session_id=eq.${payload.sessionId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(updateData)
-      }
-    );
+    // Update all records for this session using Supabase client
+    const { error } = await supabase
+      .from('VC Usage')
+      .update(updateData)
+      .eq('session_id', payload.sessionId);
 
-    console.log('👤 UPDATE RESPONSE:', {
-      status: updateResponse.status,
-      statusText: updateResponse.statusText,
-      ok: updateResponse.ok
+    console.log('👤 SUPABASE CLIENT UPDATE:', {
+      sessionId: payload.sessionId,
+      success: !error,
+      error: error?.message || null
     });
 
-    if (!updateResponse.ok) {
-      const errorText = await updateResponse.text();
-      console.error('❌ Customer update failed:', {
-        status: updateResponse.status,
-        statusText: updateResponse.statusText,
-        errorBody: errorText
-      });
-      throw new Error(`Customer update failed: ${updateResponse.status} - ${errorText}`);
+    if (error) {
+      console.error('❌ Customer update failed:', error);
+      throw new Error(`Customer update failed: ${error.message}`);
     }
 
     const totalTime = Date.now() - startTime;

@@ -341,6 +341,21 @@ const ChatInterface = () => {
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [recentCustomerSessions, setRecentCustomerSessions] = useState<any[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [previousCustomerName, setPreviousCustomerName] = useState<string | null>(null);
+  const [currentCustomer, setCurrentCustomer] = useState<string | null>(null);
+  const [sessionData, setSessionData] = useState<{
+    sessionId: string;
+    customerName: string | null;
+    customerContext: {
+      address: string;
+      email: string;
+      phone: string;
+    } | null;
+  }>({
+    sessionId: sessionIdRef.current,
+    customerName: null,
+    customerContext: null
+  });
 
   // 🔄 PHASE 2D: Conversation preloading states
   const [isPreloadingContext, setIsPreloadingContext] = useState(false);
@@ -353,6 +368,14 @@ const ChatInterface = () => {
   const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
   const USE_NATIVE_PRIMARY = import.meta.env.VITE_USE_NATIVE_PRIMARY === 'true';
   const CUSTOMER_DETAILS_ENABLED = import.meta.env.VITE_ENABLE_CUSTOMER_DETAILS === 'true';
+
+  // 🔄 AUTH TIMING FIX: Load customers when auth becomes available and dropdown is open
+  useEffect(() => {
+    if (showCustomerDropdown && user?.tech_uuid && recentCustomerSessions.length === 0 && !isLoadingCustomers) {
+      console.log('🔄 Auth became available while dropdown open - loading customers');
+      loadRecentCustomers();
+    }
+  }, [showCustomerDropdown, user?.tech_uuid]);
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -1441,7 +1464,19 @@ const ChatInterface = () => {
           historySummaryId
         );
 
-        // Update messages state with customer context and history
+        // Detect customer switching and reset chat for existing customer loads
+        const isCustomerSwitch = previousCustomerName && previousCustomerName !== customer.customer_name;
+        const isNewCustomerLoad = !previousCustomerName;
+
+        if (isCustomerSwitch || isNewCustomerLoad) {
+          console.log(`🔄 Loading customer ${customer.customer_name} - resetting chat first`);
+          setMessages([]); // Reset chat first
+        }
+
+        // Update previous customer tracking
+        setPreviousCustomerName(customer.customer_name);
+
+        // Then load customer context and history
         setMessages(contextMessages);
         
         // Update session data
@@ -1457,6 +1492,18 @@ const ChatInterface = () => {
               phone: response.customerDetails.phone,
             }
           }));
+
+          // Update customer details for header display
+          setCustomerDetails({
+            name: response.customerDetails.name,
+            address: response.customerDetails.address || '',
+            email: response.customerDetails.email || '',
+            phone: response.customerDetails.phone || ''
+          });
+
+          // Close customer dropdown and form
+          setShowCustomerDropdown(false);
+          setShowCustomerForm(false);
         }
 
         console.log(`✅ Customer context loaded: ${customer.customer_name} (${response.conversationHistory.length} messages)`);
@@ -1476,8 +1523,15 @@ const ChatInterface = () => {
 
   // 🏢 PHASE 5: Load recent customer sessions using existing infrastructure
   const loadRecentCustomers = async () => {
-    if (!user?.tech_uuid || isLoadingCustomers) return;
-    
+    // Enhanced authentication and state guards
+    if (!user?.tech_uuid || isLoadingCustomers) {
+      console.log('⚠️ Skipping customer load - auth not ready or already loading:', {
+        hasTechUuid: !!user?.tech_uuid,
+        isLoading: isLoadingCustomers
+      });
+      return;
+    }
+
     setIsLoadingCustomers(true);
     console.log('👤 Loading recent customers for tech:', user.tech_uuid);
     
@@ -1489,7 +1543,10 @@ const ChatInterface = () => {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache'
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Cache-Control': 'no-cache',
+            'Accept': 'application/json'
           }
         }
       );
@@ -1760,9 +1817,12 @@ const ChatInterface = () => {
                   onClick={() => {
                     const newState = !showCustomerDropdown;
                     setShowCustomerDropdown(newState);
-                    // 🏢 PHASE 5: Load recent customers when dropdown opens
-                    if (newState && recentCustomerSessions.length === 0) {
+                    // 🏢 PHASE 5: Load recent customers when dropdown opens (with auth timing protection)
+                    if (newState && recentCustomerSessions.length === 0 && user?.tech_uuid) {
+                      console.log('🔄 Customer dropdown opened - loading customers with auth check');
                       loadRecentCustomers();
+                    } else if (newState && !user?.tech_uuid) {
+                      console.log('⚠️ Customer dropdown opened but auth not ready - skipping load');
                     }
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -1786,6 +1846,14 @@ const ChatInterface = () => {
                         e.stopPropagation(); // Prevent dropdown from opening
                         setCustomerDetails(null);
                         setShowCustomerForm(false);
+                        setCurrentCustomer(null);
+                        setSessionData(prev => ({
+                          ...prev,
+                          customerName: null,
+                          customerContext: null
+                        }));
+                        setPreviousCustomerName(null); // Clear tracking
+                        handleRefreshChat(); // Reset chat when ejecting customer
                         console.log('🗑️ Customer cleared via badge X button');
                       }}
                       className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
@@ -1843,6 +1911,13 @@ const ChatInterface = () => {
                                 setCustomerDetails(null);
                                 setShowCustomerForm(false);
                                 setShowCustomerDropdown(false);
+                                setCurrentCustomer(null);
+                                setSessionData(prev => ({
+                                  ...prev,
+                                  customerName: null,
+                                  customerContext: null
+                                }));
+                                setPreviousCustomerName(null); // Clear tracking
                                 // Also refresh the chat to start completely fresh
                                 handleRefreshChat();
                               }}
@@ -2186,7 +2261,26 @@ const ChatInterface = () => {
           }}
         >
           {/* 🔄 DUAL TESTING: Enhanced Messages Area with dual response support */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+            {/* Customer Loading Screen */}
+            {isLoadingCustomer && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-lg">
+                <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center space-y-4"
+                     style={{ backgroundColor: visualConfig.colors.surface }}>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2"
+                       style={{ borderColor: visualConfig.colors.primary }}></div>
+                  <div className="text-center">
+                    <div className="font-medium mb-1" style={{ color: visualConfig.colors.text.primary }}>
+                      Loading Customer
+                    </div>
+                    <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                      {loadingCustomerName && `Loading conversation with ${loadingCustomerName}...`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {groupMessagesForDualDisplay(messages).map((messageGroup, index) => (
               <div
                 key={

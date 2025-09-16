@@ -192,7 +192,7 @@ export class CustomerService {
     customerName: string,
     techId: string,
     sessionId?: string,
-    limit: number = 10
+    limit: number = 2
   ): Promise<{ conversations: CustomerConversationHistory[]; error?: string }> {
     try {
       let query = this.supabase
@@ -308,11 +308,25 @@ export class CustomerService {
       }
 
       // Update view count in VC Usage table for this customer
+      // Use RPC call to avoid 406 errors with single() queries or direct count operations
+      // First try to get any record to check current view_count
+      const { data: existingRecords } = await this.supabase
+        .from('VC Usage')
+        .select('view_count')
+        .eq('user_tech_id', techId)
+        .eq('customer_name', customerName)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const currentViewCount = existingRecords?.[0]?.view_count || 0;
+      const newViewCount = currentViewCount + 1;
+
+      // Update all records for this customer/tech combination
       const { error: updateError } = await this.supabase
         .from('VC Usage')
         .update({
           last_viewed_at: new Date().toISOString(),
-          view_count: this.supabase.raw('COALESCE(view_count, 0) + 1')
+          view_count: newViewCount
         })
         .eq('user_tech_id', techId)
         .eq('customer_name', customerName);

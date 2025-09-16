@@ -1,4 +1,6 @@
-// ENHANCED chat-messages.js - Adding enterprise performance ON TOP of existing functionality
+// ENHANCED chat-messages.js - Migrated to Supabase Client for 406 error fix
+import { createClient } from '@supabase/supabase-js';
+
 export const handler = async (event, context) => {
   // ⚡ ENTERPRISE: Performance tracking
   const startTime = Date.now();
@@ -69,127 +71,84 @@ export const handler = async (event, context) => {
     }
 
     console.log('📥 CONCURRENCY DEBUG - Starting Supabase query for session:', sessionId);
-    
+
     // ⚡ ENTERPRISE: Performance logging
     console.log(`🏢 ENTERPRISE REQUEST [${sessionId.slice(-8)}] Query start: ${Date.now() - startTime}ms`);
-    
+
+    // 🔄 MIGRATION: Initialize Supabase client to fix 406 errors
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://acdudelebwrzewxqmwnc.supabase.co';
+    const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     // EXISTING: Supabase query with ENHANCED timeout and performance tracking
     const queryStart = Date.now();
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // ⚡ ENTERPRISE: Reduced to 5s
-    
+
     try {
-      let supabaseUrl, queryParams;
-      
+      let responseData;
+
       if (customerLookup && techId) {
-        // 🏢 PHASE 5: Customer lookup from VC Usage table
-        console.log('👤 CUSTOMER LOOKUP: Querying recent customer sessions');
-        
-        supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/VC Usage';
-        queryParams = new URLSearchParams({
-          'user_tech_id': `eq.${techId}`,
-          'customer_name': 'not.is.null',
-          'order': 'created_at.desc',
-          'limit': '2', // 📊 PHASE 2B: Limit to 2 recent customers for cleaner UX
-          'select': 'session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary'
-        });
-        
-        console.log('👤 CUSTOMER LOOKUP - Query URL:', `${supabaseUrl}?${queryParams}`);
+        // 🏢 PHASE 5: Customer lookup from VC Usage table using Supabase client
+        console.log('👤 CUSTOMER LOOKUP: Querying recent customer sessions with Supabase client');
         console.log('👤 CUSTOMER LOOKUP - Query params:', {
           techId,
           selectFields: 'session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary'
         });
-        
+
+        const { data, error } = await supabase
+          .from('VC Usage')
+          .select('session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary')
+          .eq('user_tech_id', techId)
+          .not('customer_name', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(2); // 📊 PHASE 2B: Limit to 2 recent customers for cleaner UX
+
+        if (error) {
+          console.error('❌ SUPABASE CLIENT ERROR - Customer lookup:', error);
+          throw new Error(`Customer lookup failed: ${error.message}`);
+        }
+
+        responseData = data || [];
+
       } else {
-        // 🔍 EXISTING: Regular message polling from demo_messages
-        supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co/rest/v1/demo_messages';
-        queryParams = new URLSearchParams({
-          'session_id': `eq.${sessionId}`,
-          'sender': 'eq.ai',
-          'created_at': `gte.${since}`,
-          'order': 'created_at.asc',
-          'limit': '10', // ⚡ ENTERPRISE: Limit for performance
-          'select': 'id,message_text,sender,created_at,session_id,message_source' // ✅ RESTORED: Include source for visual differentiation
-        });
-        
-        console.log('🔍 DEBUG - Query URL:', `${supabaseUrl}?${queryParams}`);
+        // 🔍 EXISTING: Regular message polling from demo_messages using Supabase client
         console.log('🔍 DEBUG - Query params:', {
           sessionId,
           since,
           selectFields: 'id,message_text,sender,created_at,session_id,message_source'
         });
+
+        const { data, error } = await supabase
+          .from('demo_messages')
+          .select('id,message_text,sender,created_at,session_id,message_source') // ✅ RESTORED: Include source for visual differentiation
+          .eq('session_id', sessionId)
+          .eq('sender', 'ai')
+          .gte('created_at', since)
+          .order('created_at', { ascending: true })
+          .limit(10); // ⚡ ENTERPRISE: Limit for performance
+
+        if (error) {
+          console.error('❌ SUPABASE CLIENT ERROR - Message polling:', error);
+          throw new Error(`Message polling failed: ${error.message}`);
+        }
+
+        responseData = data || [];
       }
 
-      const supabaseResponse = await fetch(`${supabaseUrl}?${queryParams}`, {
-        headers: {
-          // EXISTING: Correct authorization and API key
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-          'Accept': 'application/json' // ⚡ ENTERPRISE: Explicit accept header
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
       // ⚡ ENTERPRISE: Performance tracking
       const queryDuration = Date.now() - queryStart;
-      console.log(`📥 CONCURRENCY DEBUG - Supabase response status:`, supabaseResponse.status);
+      console.log(`📥 CONCURRENCY DEBUG - Supabase client query completed successfully`);
       console.log(`🏢 ENTERPRISE SUCCESS [${sessionId.slice(-8)}]: ${queryDuration}ms query time`);
-      
-      if (!supabaseResponse.ok) {
-        const errorText = await supabaseResponse.text();
-        console.error('❌ SUPABASE 400 ERROR DETAILS:', {
-          status: supabaseResponse.status,
-          statusText: supabaseResponse.statusText,
-          errorBody: errorText,
-          queryUrl: `${supabaseUrl}?${queryParams}`,
-          sessionId,
-          since,
-          headers: Object.fromEntries(supabaseResponse.headers.entries())
-        });
-        
-        return {
-          statusCode: supabaseResponse.status >= 500 ? 500 : supabaseResponse.status,
-          headers: { 
-            'Access-Control-Allow-Origin': '*',
-            'X-Function-Duration': `${Date.now() - startTime}`,
-            'X-Query-Duration': `${queryDuration}`,
-            'X-Error-Type': 'database' // ⚡ ENTERPRISE: Error classification
-          },
-          body: JSON.stringify({ 
-            error: 'Database query failed', 
-            details: errorText,
-            debugInfo: {
-              queryUrl: `${supabaseUrl}?${queryParams}`,
-              sessionId,
-              since,
-              selectFields: 'id,message_text,sender,created_at,session_id,message_source'
-            },
-            retryAfter: 5 // ⚡ ENTERPRISE: Retry guidance
-          })
-        };
-      }
-
-      const responseData = await supabaseResponse.json();
       
       if (customerLookup) {
         // 🏢 PHASE 5: Format customer lookup response
         console.log('👤 CUSTOMER LOOKUP - Raw customer data from DB:', responseData.length);
         
-        // Group by customer and get most recent session per customer
-        const customerMap = new Map();
-        responseData.forEach(record => {
-          const customerKey = record.customer_name;
-          if (!customerMap.has(customerKey) || 
-              new Date(record.created_at) > new Date(customerMap.get(customerKey).created_at)) {
-            customerMap.set(customerKey, record);
-          }
-        });
-        
-        const formattedCustomers = Array.from(customerMap.values()).map(customer => ({
+        // Take the 2 most recent customer sessions (regardless of customer name)
+        const sortedData = responseData.sort((a, b) =>
+          new Date(b.created_at) - new Date(a.created_at)
+        ).slice(0, 2);
+
+        const formattedCustomers = sortedData.map(customer => ({
           id: `customer_${customer.customer_name.replace(/\s+/g, '_')}_${Date.now()}`,
           customerName: customer.customer_name,
           customerEmail: customer.customer_email,
@@ -256,27 +215,23 @@ export const handler = async (event, context) => {
         };
       }
       
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError.name === 'AbortError') {
-        console.error('❌ Supabase query timeout');
-        return {
-          statusCode: 408,
-          headers: { 
-            'Access-Control-Allow-Origin': '*',
-            'X-Function-Duration': `${Date.now() - startTime}`,
-            'X-Error-Type': 'timeout', // ⚡ ENTERPRISE: Error classification
-            'Retry-After': '3' // ⚡ ENTERPRISE: Retry guidance
-          },
-          body: JSON.stringify({ 
-            error: 'Database query timeout after 5s',
-            retryAfter: 3
-          })
-        };
-      }
-      
-      throw fetchError;
+    } catch (supabaseError) {
+      console.error('❌ SUPABASE CLIENT QUERY ERROR:', supabaseError);
+
+      return {
+        statusCode: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'X-Function-Duration': `${Date.now() - startTime}`,
+          'X-Query-Duration': `${Date.now() - queryStart}`,
+          'X-Error-Type': 'database' // ⚡ ENTERPRISE: Error classification
+        },
+        body: JSON.stringify({
+          error: 'Database query failed',
+          details: supabaseError.message,
+          retryAfter: 5 // ⚡ ENTERPRISE: Retry guidance
+        })
+      };
     }
     
   } catch (error) {
