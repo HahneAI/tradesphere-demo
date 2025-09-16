@@ -1,13 +1,15 @@
 /**
  * Customer Context Preloading Function
- * 
+ *
  * Loads conversation history and customer details for seamless conversation continuation
  * Returns last 2 interactions for a specific customer + session
- * 
- * Phase 2D: Customer Context Preloading
+ *
+ * Phase 2D: Customer Context Preloading - Migrated to Supabase Client
  */
 
-exports.handler = async (event, context) => {
+import { createClient } from '@supabase/supabase-js';
+
+export const handler = async (event, context) => {
   const startTime = Date.now();
 
   // CORS headers
@@ -66,45 +68,36 @@ exports.handler = async (event, context) => {
     const supabaseUrl = process.env.SUPABASE_URL || 'https://acdudelebwrzewxqmwnc.supabase.co';
     const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
 
-    // Build query parameters based on context type
-    const queryParams = new URLSearchParams({
-      'customer_name': `eq.${decodeURIComponent(customerName)}`,
-      'user_tech_id': `eq.${techId}`,
-      'order': 'interaction_number.desc',
-      'limit': '2', // Last 2 interactions for context
-      'select': 'user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone'
-    });
+    // 🔄 MIGRATION: Initialize Supabase client for consistent database access
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Query VC Usage table for conversation history using Supabase client
+    let query = supabase
+      .from('VC Usage')
+      .select('user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone')
+      .eq('customer_name', decodeURIComponent(customerName))
+      .eq('user_tech_id', techId)
+      .order('interaction_number', { ascending: false })
+      .limit(2); // Last 2 interactions for context
 
     // If session_id provided, get interactions from that specific session
     if (sessionId) {
-      queryParams.set('session_id', `eq.${sessionId}`);
+      query = query.eq('session_id', sessionId);
     }
 
-    console.log('🔄 QUERY PARAMS:', queryParams.toString());
+    console.log('🔄 SUPABASE CLIENT QUERY:', {
+      customerName: decodeURIComponent(customerName),
+      techId,
+      sessionId: sessionId || 'cross_session',
+      limit: 2
+    });
 
-    // Query VC Usage table for conversation history
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/VC Usage?${queryParams}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Accept': 'application/json'
-        }
-      }
-    );
+    const { data: conversationHistory, error } = await query;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Context preload query failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        errorBody: errorText
-      });
-      throw new Error(`Context preload failed: ${response.status} - ${errorText}`);
+    if (error) {
+      console.error('❌ Context preload query failed:', error);
+      throw new Error(`Context preload failed: ${error.message}`);
     }
-
-    const conversationHistory = await response.json();
     console.log('🔄 CONVERSATION HISTORY:', {
       recordsFound: conversationHistory.length,
       customerName: decodeURIComponent(customerName)
