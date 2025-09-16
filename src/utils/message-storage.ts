@@ -1,9 +1,13 @@
 /**
  * TradeSphere Shared Message Storage Service
- * 
+ *
  * Provides unified Supabase storage functionality for both Make.com and native functions
  * Handles environment variables, error logging, and data structure consistency
+ *
+ * MIGRATED: Now uses Supabase client for consistent database access and 406 error prevention
  */
+
+import { createClient } from '@supabase/supabase-js';
 
 export interface WebhookPayload {
   sessionId: string;
@@ -163,56 +167,40 @@ export class MessageStorageService {
       });
       console.log('🔍 [MessageStorage] Complete data structure:', messageData);
 
-      const endpoint = `${url}/rest/v1/demo_messages`;
-      console.log('🌐 [MessageStorage] Request endpoint:', endpoint);
-      console.log('📤 [MessageStorage] Starting HTTP request...');
+      // 🔄 MIGRATION: Use Supabase client instead of direct fetch for 406 error prevention
+      console.log('🌐 [MessageStorage] Using Supabase client for demo_messages...');
+      console.log('📤 [MessageStorage] Starting database insert...');
 
-      const supabaseResponse = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${key}`,
-          'apikey': key,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(messageData)
+      const supabase = createClient(url, key);
+      const { data, error } = await supabase
+        .from('demo_messages')
+        .insert(messageData)
+        .select();
+
+      console.log('📥 [MessageStorage] Supabase client response:', {
+        success: !error,
+        dataLength: data?.length || 0,
+        error: error?.message || null
       });
 
-      console.log('📥 [MessageStorage] HTTP response received:', {
-        status: supabaseResponse.status,
-        statusText: supabaseResponse.statusText,
-        ok: supabaseResponse.ok,
-        headers: Object.fromEntries(supabaseResponse.headers.entries())
-      });
-
-      if (!supabaseResponse.ok) {
-        const errorText = await supabaseResponse.text();
-        console.error('❌ [MessageStorage] Supabase HTTP error:', {
-          status: supabaseResponse.status,
-          statusText: supabaseResponse.statusText,
-          errorBody: errorText,
-          endpoint: endpoint,
+      if (error) {
+        console.error('❌ [MessageStorage] Supabase client error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
           requestData: messageData
         });
-        throw new Error(`Supabase HTTP error: ${supabaseResponse.status} - ${errorText}`);
+        throw new Error(`Supabase client error: ${error.message}`);
       }
 
-      // Handle response properly to avoid JSON parsing errors
-      console.log('📋 [MessageStorage] Processing response...');
-      const responseText = await supabaseResponse.text();
-      console.log('📋 [MessageStorage] Response text:', responseText || '(empty)');
-      
-      if (responseText && responseText.trim()) {
-        try {
-          const savedMessage = JSON.parse(responseText);
-          console.log('✅ [MessageStorage] Stored with ID:', savedMessage[0]?.id || 'success');
-          console.log('✅ [MessageStorage] Database write confirmed');
-        } catch (jsonError) {
-          console.log('✅ [MessageStorage] Stored successfully (non-JSON response)');
-          console.log('✅ [MessageStorage] Database write confirmed');
-        }
+      // Handle successful response
+      console.log('📋 [MessageStorage] Processing successful response...');
+      if (data && data.length > 0) {
+        console.log('✅ [MessageStorage] Stored with ID:', data[0]?.id || 'success');
+        console.log('✅ [MessageStorage] Database write confirmed');
       } else {
-        console.log('✅ [MessageStorage] Stored successfully (minimal response)');
+        console.log('✅ [MessageStorage] Stored successfully');
         console.log('✅ [MessageStorage] Database write confirmed');
       }
 
@@ -305,36 +293,30 @@ export class MessageStorageService {
         aiResponseLength: vcUsageData.ai_response.length
       });
 
-      const endpoint = `${url}/rest/v1/VC Usage`;
-      console.log('🌐 [VC_USAGE] Request endpoint:', endpoint);
+      // 🔄 MIGRATION: Use Supabase client for VC Usage table (consistent with other functions)
+      console.log('🌐 [VC_USAGE] Using Supabase client for VC Usage...');
 
-      const supabaseResponse = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${key}`,
-          'apikey': key,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(vcUsageData)
+      const supabase = createClient(url, key);
+      const { data, error } = await supabase
+        .from('VC Usage')
+        .insert(vcUsageData)
+        .select();
+
+      console.log('📥 [VC_USAGE] Supabase client response:', {
+        success: !error,
+        dataLength: data?.length || 0,
+        error: error?.message || null
       });
 
-      console.log('📥 [VC_USAGE] HTTP response:', {
-        status: supabaseResponse.status,
-        statusText: supabaseResponse.statusText,
-        ok: supabaseResponse.ok
-      });
-
-      if (!supabaseResponse.ok) {
-        const errorText = await supabaseResponse.text();
-        console.error('❌ [VC_USAGE] Supabase HTTP error:', {
-          status: supabaseResponse.status,
-          statusText: supabaseResponse.statusText,
-          errorBody: errorText,
-          endpoint: endpoint,
+      if (error) {
+        console.error('❌ [VC_USAGE] Supabase client error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
           requestData: vcUsageData
         });
-        throw new Error(`VC Usage storage failed: ${supabaseResponse.status} - ${errorText}`);
+        throw new Error(`VC Usage storage failed: ${error.message}`);
       }
 
       console.log('✅ [VC_USAGE] Permanent record stored successfully');

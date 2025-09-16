@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 interface BetaUser {
   id: string;
@@ -90,48 +91,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       console.log('✅ STEP 2: Supabase credentials validated');
 
-      // STEP 3: Construct and validate request URL
-      const requestUrl = `${supabaseUrl}/rest/v1/beta_codes?code=eq.${code}`;
-      console.log('🌐 STEP 3: Request URL -', requestUrl.replace(supabaseUrl, '[SUPABASE_URL]'));
+      // STEP 3: Initialize Supabase client for beta code validation
+      console.log('🌐 STEP 3: Using Supabase client for beta_codes query');
 
-      // STEP 4: Send request with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-      console.log('📡 STEP 4: Sending validation request...');
+      // STEP 4: Send request using Supabase client (prevents 406 errors)
+      console.log('📡 STEP 4: Sending validation request via Supabase client...');
       const startTime = performance.now();
 
-      const response = await fetch(requestUrl, {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json'
-        },
-        signal: controller.signal
-      });
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data: codes, error } = await supabase
+        .from('beta_codes')
+        .select('*')
+        .eq('code', code);
 
-      clearTimeout(timeoutId);
       const requestTime = performance.now() - startTime;
-      
+
       // STEP 5: Response validation
       console.log('📡 STEP 5: Response received -', {
-        status: response.status,
-        statusText: response.statusText,
-        latency: `${requestTime.toFixed(2)}ms`
+        success: !error,
+        codesFound: codes?.length || 0,
+        latency: `${requestTime.toFixed(2)}ms`,
+        error: error?.message || null
       });
 
-      if (!response.ok) {
-        console.error('❌ STEP 5 FAILED: HTTP error response');
+      if (error) {
+        console.error('❌ STEP 5 FAILED: Supabase client error');
         console.error('📄 Error details:', {
-          status: response.status,
-          statusText: response.statusText
+          message: error.message,
+          details: error.details,
+          hint: error.hint
         });
         console.groupEnd();
-        return { valid: false, error: 'Failed to validate code - server error' };
+        return { valid: false, error: 'Failed to validate code - database error' };
       }
 
       // STEP 6: Parse and validate response data
-      const codes = await response.json();
       console.log('✅ STEP 6: Response parsed -', `${codes.length} codes found`);
 
       if (!Array.isArray(codes)) {
@@ -222,74 +216,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Sending registration data:', registrationData);
 
-      // Step 1: Create user
-      const userResponse = await fetch(`${supabaseUrl}/rest/v1/beta_users`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(registrationData)
-      });
+      // Step 1: Create user using Supabase client (prevents 406 errors)
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data: newUser, error } = await supabase
+        .from('beta_users')
+        .insert(registrationData)
+        .select();
 
-      if (!userResponse.ok) {
-        const errorText = await userResponse.text();
-        console.error('User creation failed:', errorText);
-        return { success: false, error: 'Registration failed' };
+      if (error) {
+        console.error('User creation failed:', error);
+        return { success: false, error: 'Registration failed: ' + error.message };
       }
 
-      // Handle response parsing safely
-      let newUser;
-      try {
-        const responseText = await userResponse.text();
-        if (responseText.trim()) {
-          newUser = JSON.parse(responseText);
-          console.log('User created successfully:', newUser[0] || newUser);
-        } else {
-          // Empty response but 201/200 status means success
-          console.log('User created (empty response)');
-          newUser = [{ 
-            id: 'created', 
-            first_name: userData.firstName,
-            beta_code_id: betaCodeId,
-            tech_uuid: registrationData.tech_uuid
-          }];
-        }
-      } catch (parseError) {
-        console.log('Response parsing issue, assuming success');
-        newUser = [{ 
-          id: 'created',
-          first_name: userData.firstName,
-          beta_code_id: betaCodeId,
-          tech_uuid: registrationData.tech_uuid
-        }];
-      }
+      // Handle successful response
+      console.log('User created successfully:', newUser?.[0] || newUser);
 
-      // Step 2: Mark beta code as used (don't let this failure block success)
+      // Step 2: Mark beta code as used using Supabase client (don't let this failure block success)
       try {
         console.log('Marking beta code as used:', betaCodeId);
-      
-        const codeUpdateResponse = await fetch(`${supabaseUrl}/rest/v1/beta_codes?id=eq.${betaCodeId}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${supabaseKey}`,
-            'apikey': supabaseKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
+
+        const { error: updateError } = await supabase
+          .from('beta_codes')
+          .update({
             used: true,
             used_by_user_id: userData.firstName,
             used_at: new Date().toISOString()
           })
-        });
+          .eq('id', betaCodeId);
 
-        if (codeUpdateResponse.ok) {
+        if (!updateError) {
           console.log('Beta code marked as used successfully');
         } else {
-          const errorText = await codeUpdateResponse.text();
-          console.log('Beta code update failed but continuing:', errorText);
+          console.log('Beta code update failed but continuing:', updateError.message);
         }
       } catch (codeError) {
         console.log('Beta code update error but continuing:', codeError);
