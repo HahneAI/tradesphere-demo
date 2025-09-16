@@ -124,7 +124,7 @@ export class CustomerContextService {
 
     return {
       id: messageId,
-      text: `Customer context loaded:\n\n${customerInfo}`,
+      text: `📋 Customer Information Recap:\n\n${customerInfo}`,
       sender: 'ai',
       timestamp: new Date(),
       isHistorical: false,
@@ -146,7 +146,7 @@ export class CustomerContextService {
     if (conversationHistory.length === 0) {
       return {
         id: messageId,
-        text: 'No previous conversations found for this customer.',
+        text: '💬 This is your first conversation with this customer.',
         sender: 'ai',
         timestamp: new Date(),
         isHistorical: false,
@@ -162,7 +162,7 @@ export class CustomerContextService {
     const lastInteraction = conversationHistory[conversationHistory.length - 1];
     
     const summary = [
-      `Previous conversation history loaded:`,
+      `💬 Conversation History Recap:`,
       `• ${userMessages} customer questions`,
       `• ${aiMessages} AI responses`,
       `• Last interaction: ${new Date(lastInteraction.timestamp).toLocaleDateString()}`
@@ -188,6 +188,7 @@ export class CustomerContextService {
 
   /**
    * Prepare complete message array for chat loading
+   * IMPROVED: Shows actual conversation first, then context recap
    */
   prepareMessagesForChat(
     customerDetails: CustomerDetails | null,
@@ -197,17 +198,19 @@ export class CustomerContextService {
   ): Message[] {
     const messages: Message[] = [];
 
-    // Add customer info message if available
+    // CHANGE: Add historical conversation messages FIRST
+    // This shows users their actual conversation immediately
+    const historicalMessages = this.convertToMessages(conversationHistory);
+    messages.push(...historicalMessages);
+
+    // THEN add context recap messages (UI-only summary)
+    // These appear after the actual conversation as helpful context
     if (customerDetails) {
       messages.push(this.createCustomerInfoMessage(customerDetails, customerInfoId));
     }
 
-    // Add history summary
+    // Add history summary as final recap
     messages.push(this.createHistorySummaryMessage(conversationHistory, historySummaryId));
-
-    // Add historical conversation messages
-    const historicalMessages = this.convertToMessages(conversationHistory);
-    messages.push(...historicalMessages);
 
     return messages;
   }

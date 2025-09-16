@@ -18,7 +18,7 @@ const formatRelativeTime = (date: Date) => {
 // 🔄 DUAL TESTING: Get message source styling for visual differentiation
 const getMessageSourceStyle = (message: Message) => {
   const source = message.metadata?.source || message.source;
-  
+
   if (source === 'native_pricing_agent') {
     return {
       border: '2px solid #FCD34D', // Yellow outline for native
@@ -30,8 +30,22 @@ const getMessageSourceStyle = (message: Message) => {
       boxShadow: '0 0 8px rgba(16, 185, 129, 0.3)'
     };
   }
-  
+
   return {}; // Default styling for user messages
+};
+
+// 📋 CUSTOMER CONTEXT: Get system message styling for context recaps
+const getSystemMessageStyle = (message: Message, visualConfig: SmartVisualThemeConfig) => {
+  if (!message.isSystemMessage) return {};
+
+  // Create a subtle, distinct style for context recap messages
+  return {
+    backgroundColor: `${visualConfig.colors.surface}CC`, // Semi-transparent surface
+    border: `1px solid ${visualConfig.colors.border || '#E5E7EB'}`,
+    opacity: 0.9,
+    borderRadius: '0.75rem',
+    backdropFilter: 'blur(2px)'
+  };
 };
 
 // 🔄 DUAL TESTING: Get source badge for message identification
@@ -111,22 +125,32 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
 
   // ✅ LOGICAL STYLING: Apply source styling only for AI responses in dual testing
   const sourceStyle = (!removeSourceStyling && message.sender === 'ai') ? getMessageSourceStyle(message) : {};
+
+  // 📋 CUSTOMER CONTEXT: Apply system message styling for context recaps
+  const systemMessageStyle = getSystemMessageStyle(message, visualConfig);
+
   const bubbleStyles = {
     backgroundColor: message.sender === 'user'
       ? visualConfig.colors.primary
-      : visualConfig.colors.elevated,
+      : (message.isSystemMessage ? 'transparent' : visualConfig.colors.elevated),
     color: message.sender === 'user'
       ? visualConfig.colors.text.onPrimary
-      : visualConfig.colors.text.primary,
+      : (message.isSystemMessage ? visualConfig.colors.text.secondary : visualConfig.colors.text.primary),
     borderRadius: visualConfig.patterns.componentShape === 'organic' ? '1.5rem' : '0.75rem',
-    ...sourceStyle
+    ...sourceStyle,
+    ...systemMessageStyle
   };
 
   return (
-    <div className={`flex items-start ${compact ? 'gap-2' : 'gap-3'} ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-      {message.sender === 'ai' && !compact && <ThemeAwareAvatar sender="ai" visualConfig={visualConfig} />}
+    <div className={`flex items-start ${compact ? 'gap-2' : 'gap-3'} ${message.sender === 'user' ? 'justify-end' : 'justify-start'} ${message.isSystemMessage ? 'opacity-90' : ''}`}>
+      {message.sender === 'ai' && !compact && !message.isSystemMessage && <ThemeAwareAvatar sender="ai" visualConfig={visualConfig} />}
+      {message.isSystemMessage && (
+        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center">
+          <Icons.Info className="h-4 w-4 text-blue-600" />
+        </div>
+      )}
       <div
-        className={`${compact ? 'max-w-full px-3 py-2' : 'max-w-md lg:max-w-2xl px-5 py-3'} shadow-md message-bubble-animate ${animationClass} transition-all duration-300`}
+        className={`${compact ? 'max-w-full px-3 py-2' : 'max-w-md lg:max-w-2xl px-5 py-3'} ${message.isSystemMessage ? 'shadow-sm' : 'shadow-md'} message-bubble-animate ${animationClass} transition-all duration-300`}
         style={bubbleStyles}
       >
         {/* ✅ LOGICAL BADGES: Show source badge only for AI responses in dual testing */}

@@ -2226,7 +2226,26 @@ const ChatInterface = () => {
           }}
         >
           {/* 🔄 DUAL TESTING: Enhanced Messages Area with dual response support */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+            {/* Customer Loading Screen */}
+            {isLoadingCustomer && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-lg">
+                <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center space-y-4"
+                     style={{ backgroundColor: visualConfig.colors.surface }}>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2"
+                       style={{ borderColor: visualConfig.colors.primary }}></div>
+                  <div className="text-center">
+                    <div className="font-medium mb-1" style={{ color: visualConfig.colors.text.primary }}>
+                      Loading Customer
+                    </div>
+                    <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                      {loadingCustomerName && `Loading conversation with ${loadingCustomerName}...`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {groupMessagesForDualDisplay(messages).map((messageGroup, index) => (
               <div
                 key={

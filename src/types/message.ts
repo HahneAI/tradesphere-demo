@@ -12,8 +12,15 @@ export interface Message {
     total_cost?: number;
     confidence?: number;
     source?: string;
+    type?: 'customer_context' | 'history_summary';
+    customerDetails?: any;
+    conversationStats?: any;
+    interactionNumber?: number;
   };
   // 🔄 PHASE 2D: Previous session support
   isPreviousSession?: boolean;
   interactionNumber?: number;
+  // 📋 Customer Context: System and historical message support
+  isHistorical?: boolean;
+  isSystemMessage?: boolean;
 }
