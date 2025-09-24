@@ -32,24 +32,42 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => ({
   },
 });
 
-// Load values from localStorage
+// Load values from localStorage - Expert system compatible
 const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
   try {
     const stored = localStorage.getItem('paverPatioValues');
     if (stored) {
       const parsedValues = JSON.parse(stored);
-      // Merge with defaults to ensure all fields exist
       const defaults = getDefaultValues(config);
-      return {
-        excavation: { ...defaults.excavation, ...parsedValues.excavation },
-        siteAccess: { ...defaults.siteAccess, ...parsedValues.siteAccess },
-        materials: { ...defaults.materials, ...parsedValues.materials },
-        labor: { ...defaults.labor, ...parsedValues.labor },
-        complexity: { ...defaults.complexity, ...parsedValues.complexity },
+
+      // Validate structure and merge carefully
+      const validatedValues = {
+        excavation: {
+          tearoutComplexity: parsedValues.excavation?.tearoutComplexity || defaults.excavation.tearoutComplexity,
+          equipmentRequired: parsedValues.excavation?.equipmentRequired || defaults.excavation.equipmentRequired,
+        },
+        siteAccess: {
+          accessDifficulty: parsedValues.siteAccess?.accessDifficulty || defaults.siteAccess.accessDifficulty,
+          obstacleRemoval: parsedValues.siteAccess?.obstacleRemoval || defaults.siteAccess.obstacleRemoval,
+        },
+        materials: {
+          paverStyle: parsedValues.materials?.paverStyle || defaults.materials.paverStyle,
+          cuttingComplexity: parsedValues.materials?.cuttingComplexity || defaults.materials.cuttingComplexity,
+          patternComplexity: parsedValues.materials?.patternComplexity || defaults.materials.patternComplexity,
+        },
+        labor: {
+          teamSize: parsedValues.labor?.teamSize || defaults.labor.teamSize,
+        },
+        complexity: {
+          overallComplexity: parsedValues.complexity?.overallComplexity || defaults.complexity.overallComplexity,
+        },
       };
+
+      return validatedValues;
     }
   } catch (error) {
     console.warn('Failed to load stored paver patio values:', error);
+    throw error; // Let the caller handle it
   }
   return getDefaultValues(config);
 };
@@ -257,8 +275,21 @@ export const usePaverPatioStore = (): PaverPatioStore => {
       
       setConfig(configData);
       
-      // Load or initialize values
-      const initialValues = loadStoredValues(configData);
+      // Load or initialize values - clear old format if incompatible
+      let initialValues: PaverPatioValues;
+      try {
+        initialValues = loadStoredValues(configData);
+        // Validate that the values match the new structure
+        if (!initialValues.excavation?.tearoutComplexity || !initialValues.materials?.patternComplexity) {
+          console.log('🔄 Clearing incompatible stored values, using defaults');
+          localStorage.removeItem('paverPatioValues');
+          initialValues = getDefaultValues(configData);
+        }
+      } catch (error) {
+        console.warn('Error loading stored values, using defaults:', error);
+        localStorage.removeItem('paverPatioValues');
+        initialValues = getDefaultValues(configData);
+      }
       setValues(initialValues);
       
       // Calculate initial price with potentially updated base settings
