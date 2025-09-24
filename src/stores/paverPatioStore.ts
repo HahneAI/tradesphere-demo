@@ -118,14 +118,12 @@ const calculateExpertPricing = (
 
   // Apply base-independent variable system - each percentage applies to ORIGINAL base hours
   // This keeps each variable's effect independent and predictable
-  console.log(`🔧 Base-independent calculation: Starting with ${baseHours.toFixed(1)} base hours`);
 
   const tearoutVar = config?.variables?.excavation?.tearoutComplexity as PaverPatioVariable;
   const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
   if (tearoutOption?.value && tearoutOption.value > 0) {
     const tearoutHours = baseHours * (tearoutOption.value / 100);
     adjustedHours += tearoutHours;
-    console.log(`🔧 Tearout: +${tearoutOption.value}% of ${baseHours}h = +${tearoutHours.toFixed(1)}h`);
     breakdownSteps.push(`+Tearout complexity (+${tearoutOption.value}% of base): +${tearoutHours.toFixed(1)} hours`);
   }
 
@@ -250,7 +248,6 @@ const calculatePrice = (
 
   // Check if we have the new expert structure
   if (config.calculationSystem?.type === 'two_tier') {
-    console.log('✅ Using EXPERT two-tier calculation system with base-independent variables');
     return calculateExpertPricing(config, values, sqft);
   }
 
@@ -397,12 +394,25 @@ export const usePaverPatioStore = (): PaverPatioStore => {
   // Reset all values to defaults
   const resetToDefaults = useCallback(() => {
     if (!config) return;
-    
+
     const defaultValues = getDefaultValues(config);
     setValues(defaultValues);
     saveStoredValues(defaultValues);
-    
+
     const calculation = calculatePrice(config, defaultValues);
+    setLastCalculation(calculation);
+  }, [config]);
+
+  // Reset to defaults and set square footage to 100 (for Quick Calculator)
+  const resetToDefaults100 = useCallback(() => {
+    if (!config) return;
+
+    const defaultValues = getDefaultValues(config);
+    setValues(defaultValues);
+    saveStoredValues(defaultValues);
+
+    // Calculate with exactly 100 sqft
+    const calculation = calculatePrice(config, defaultValues, 100);
     setLastCalculation(calculation);
   }, [config]);
 
@@ -520,6 +530,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     loadConfig,
     updateValue,
     resetToDefaults,
+    resetToDefaults100,
     resetCategory,
     calculatePrice: calculatePriceForSqft,
     saveConfig,

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../config/industry';
 import { PaverPatioManager } from './services/PaverPatioManager';
 import { PaverPatioReadOnly } from './services/PaverPatioReadOnly';
+import { usePaverPatioStore } from '../stores/paverPatioStore';
 
 interface QuickCalculatorTabProps {
   isOpen: boolean;
@@ -15,6 +16,14 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
+  const store = usePaverPatioStore();
+
+  // Reset to defaults every time the Quick Calculator opens
+  useEffect(() => {
+    if (isOpen && store.resetToDefaults100) {
+      store.resetToDefaults100();
+    }
+  }, [isOpen, store.resetToDefaults100]);
 
   if (!isOpen) return null;
 

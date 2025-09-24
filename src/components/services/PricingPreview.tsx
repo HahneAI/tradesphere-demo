@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import type { PaverPatioCalculationResult } from '../../types/paverPatioFormula';
 
@@ -15,8 +15,16 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
   visualConfig,
   className = '',
 }) => {
-  const [sqft, setSqft] = useState<string>('300');
+  const [sqft, setSqft] = useState<string>('100');
   const [showBreakdown, setShowBreakdown] = useState(false);
+
+  // Reset square footage to 100 when calculation changes (i.e., when store resets)
+  useEffect(() => {
+    if (calculation && calculation.tier1Results?.totalManHours === 24) {
+      // This indicates a fresh calculation with defaults, so reset sqft to 100
+      setSqft('100');
+    }
+  }, [calculation]);
 
   const handleSqftChange = (value: string) => {
     setSqft(value);
