@@ -118,12 +118,14 @@ const calculateExpertPricing = (
 
   // Apply base-independent variable system - each percentage applies to ORIGINAL base hours
   // This keeps each variable's effect independent and predictable
+  console.log(`🔧 Base-independent calculation: Starting with ${baseHours.toFixed(1)} base hours`);
 
   const tearoutVar = config?.variables?.excavation?.tearoutComplexity as PaverPatioVariable;
   const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
   if (tearoutOption?.value && tearoutOption.value > 0) {
     const tearoutHours = baseHours * (tearoutOption.value / 100);
     adjustedHours += tearoutHours;
+    console.log(`🔧 Tearout: +${tearoutOption.value}% of ${baseHours}h = +${tearoutHours.toFixed(1)}h`);
     breakdownSteps.push(`+Tearout complexity (+${tearoutOption.value}% of base): +${tearoutHours.toFixed(1)} hours`);
   }
 
@@ -248,11 +250,12 @@ const calculatePrice = (
 
   // Check if we have the new expert structure
   if (config.calculationSystem?.type === 'two_tier') {
+    console.log('✅ Using EXPERT two-tier calculation system with base-independent variables');
     return calculateExpertPricing(config, values, sqft);
   }
 
   // Fallback to legacy calculation for backward compatibility
-  console.warn('Using legacy calculation system - consider updating to expert structure');
+  console.warn('⚠️ Using LEGACY calculation system - consider updating to expert structure');
 
   const basePrice = 15.50;
   const tearout = 1.2;
