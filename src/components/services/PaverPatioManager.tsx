@@ -100,6 +100,44 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
     return <div>Loading configuration...</div>;
   }
 
+  // Helper function following Tom's expert guidelines
+  const formatVariableDisplay = (variableKey: string, selectedOption: any) => {
+    if (!selectedOption) return 'N/A';
+
+    // Tier 1 variables (labor time factors) - show as percentages
+    if (['tearoutComplexity', 'accessDifficulty', 'teamSize'].includes(variableKey)) {
+      return selectedOption.value === 0 ? 'Baseline' : `+${selectedOption.value}%`;
+    }
+
+    // Equipment costs - show daily rates
+    if (variableKey === 'equipmentRequired') {
+      return selectedOption.value === 0 ? 'Hand tools' : `$${selectedOption.value}/day`;
+    }
+
+    // Obstacle costs - show flat fees
+    if (variableKey === 'obstacleRemoval') {
+      return selectedOption.value === 0 ? 'None' : `$${selectedOption.value}`;
+    }
+
+    // Material factors - show percentages
+    if (['paverStyle', 'patternComplexity'].includes(variableKey)) {
+      return selectedOption.value === 0 ? 'Standard' : `+${selectedOption.value}%`;
+    }
+
+    // Cutting complexity - show combined effects
+    if (variableKey === 'cuttingComplexity') {
+      if (selectedOption.fixedLaborHours && selectedOption.materialWaste) {
+        return `+${selectedOption.fixedLaborHours}h, +${selectedOption.materialWaste}% waste`;
+      } else if (selectedOption.fixedLaborHours) {
+        return `+${selectedOption.fixedLaborHours}h fixed`;
+      }
+      return selectedOption.value === 0 ? 'Minimal' : `+${selectedOption.value}%`;
+    }
+
+    // Default fallback
+    return selectedOption.value === 0 ? 'Default' : `${selectedOption.value}`;
+  };
+
   const renderVariableSection = (
     categoryKey: keyof PaverPatioValues,
     categoryConfig: any,

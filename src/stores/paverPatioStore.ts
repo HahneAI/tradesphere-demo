@@ -109,43 +109,50 @@ const calculateExpertPricing = (
   const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
   const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
 
-  // TIER 1: Man Hours Calculation
+  // TIER 1: Man Hours Calculation - Base-Independent Variable System
+  // Formula: (sqft ÷ daily_productivity) × team_size × 8_hours_per_day
+  // Baseline: 100 sqft ÷ 100 sqft/day × 3 people × 8 hours = 24 base hours
   const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
   let adjustedHours = baseHours;
-  const breakdownSteps: string[] = [`Base Hours: ${baseHours.toFixed(1)}`];
+  const breakdownSteps: string[] = [`Base: ${sqft} sqft ÷ ${baseProductivity} sqft/day × ${optimalTeamSize} people × 8 hours = ${baseHours.toFixed(1)} hours`];
 
-  // Apply Tier 1 variables with comprehensive null guards and fallbacks
+  // Apply base-independent variable system - each percentage applies to ORIGINAL base hours
+  // This keeps each variable's effect independent and predictable
+
   const tearoutVar = config?.variables?.excavation?.tearoutComplexity as PaverPatioVariable;
   const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
-  if (tearoutOption?.value) {
-    const tearoutHours = adjustedHours * (tearoutOption.value / 100);
+  if (tearoutOption?.value && tearoutOption.value > 0) {
+    const tearoutHours = baseHours * (tearoutOption.value / 100);
     adjustedHours += tearoutHours;
-    breakdownSteps.push(`+Tearout (${tearoutOption.value}%): +${tearoutHours.toFixed(1)} hours`);
+    breakdownSteps.push(`+Tearout complexity (+${tearoutOption.value}% of base): +${tearoutHours.toFixed(1)} hours`);
   }
 
   const accessVar = config?.variables?.siteAccess?.accessDifficulty as PaverPatioVariable;
   const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'moderate'];
-  if (accessOption?.value) {
-    const accessHours = adjustedHours * (accessOption.value / 100);
+  if (accessOption?.value && accessOption.value > 0) {
+    const accessHours = baseHours * (accessOption.value / 100);
     adjustedHours += accessHours;
-    breakdownSteps.push(`+Access (${accessOption.value}%): +${accessHours.toFixed(1)} hours`);
+    breakdownSteps.push(`+Access difficulty (+${accessOption.value}% of base): +${accessHours.toFixed(1)} hours`);
   }
 
   const teamVar = config?.variables?.labor?.teamSize as PaverPatioVariable;
-  const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'twoPerson'];
-  if (teamOption?.value) {
-    const teamHours = adjustedHours * (teamOption.value / 100);
+  const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'optimal'];
+  if (teamOption?.value && teamOption.value > 0) {
+    const teamHours = baseHours * (teamOption.value / 100);
     adjustedHours += teamHours;
-    breakdownSteps.push(`+Team Size (${teamOption.value}%): +${teamHours.toFixed(1)} hours`);
+    breakdownSteps.push(`+Team size adjustment (+${teamOption.value}% of base): +${teamHours.toFixed(1)} hours`);
   }
 
-  // Add fixed cutting hours with null guard
+  // Add fixed cutting hours (Tom's spec: fixed hours, not percentages)
   const cuttingVar = config?.variables?.materials?.cuttingComplexity as PaverPatioVariable;
-  const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'moderate'];
-  if (cuttingOption?.fixedLaborHours) {
+  const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+  if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
     adjustedHours += cuttingOption.fixedLaborHours;
-    breakdownSteps.push(`+Cutting: +${cuttingOption.fixedLaborHours} hours`);
+    breakdownSteps.push(`+Cutting complexity: +${cuttingOption.fixedLaborHours} fixed hours`);
   }
+
+  // Add final total to breakdown
+  breakdownSteps.push(`Total Man Hours: ${adjustedHours.toFixed(1)} hours`);
 
   const totalManHours = adjustedHours;
 
