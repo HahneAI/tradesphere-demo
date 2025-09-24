@@ -105,6 +105,11 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
     categoryConfig: any,
     categoryValues: any
   ) => {
+    // Comprehensive null guard at function start
+    if (!categoryConfig || typeof categoryConfig !== 'object') {
+      return null;
+    }
+
     const isExpanded = expandedSections.has(categoryKey);
     
     return (
@@ -128,10 +133,10 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
             />
             <div className="text-left">
               <h3 className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                {categoryConfig.label}
+                {categoryConfig.label || categoryKey}
               </h3>
               <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-                {categoryConfig.description}
+                {categoryConfig.description || ''}
               </p>
             </div>
           </div>
@@ -142,7 +147,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
                 handleResetCategory(categoryKey);
               }}
               className="p-1 rounded hover:opacity-70 transition-opacity"
-              title={`Reset ${categoryConfig.label} to defaults`}
+              title={`Reset ${categoryConfig.label || categoryKey} to defaults`}
               style={{ color: visualConfig.colors.text.secondary }}
             >
               <Icons.RotateCcw className="h-4 w-4" />
@@ -157,24 +162,30 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
         {/* Section Content */}
         {isExpanded && (
           <div className="px-4 pb-4 space-y-6">
-            {Object.entries(categoryConfig)
-              .filter(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null)
+            {Object.entries(categoryConfig || {})
+              .filter(([key, value]) =>
+                !['label', 'description'].includes(key) &&
+                value &&
+                typeof value === 'object' &&
+                value.type &&
+                value.options
+              )
               .map(([variableKey, variableConfig]: [string, any]) => {
-                const currentValue = categoryValues[variableKey];
-                
+                const currentValue = categoryValues?.[variableKey];
+
                 return (
                   <div key={variableKey}>
                     {variableConfig.type === 'slider' ? (
                       <VariableSlider
                         variable={variableConfig}
-                        value={currentValue}
+                        value={currentValue || variableConfig.default}
                         onChange={(value) => handleValueChange(categoryKey, variableKey, value)}
                         visualConfig={visualConfig}
                       />
                     ) : (
                       <VariableDropdown
                         variable={variableConfig}
-                        value={currentValue}
+                        value={currentValue || variableConfig.default}
                         onChange={(value) => handleValueChange(categoryKey, variableKey, value)}
                         visualConfig={visualConfig}
                       />
@@ -246,19 +257,32 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Configuration Panel */}
         <div className="lg:col-span-2 space-y-4">
-          {Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
-            // Only process if this is a complete category object with variables
-            const hasVariables = Object.entries(categoryConfig)
-              .some(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null);
+          {store.config && store.config.variables ?
+            Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
+              // Only process if this is a complete category object with variables
+              if (!categoryConfig || typeof categoryConfig !== 'object') {
+                return null;
+              }
 
-            if (!hasVariables) return null;
+              const hasVariables = Object.entries(categoryConfig)
+                .some(([key, value]) =>
+                  !['label', 'description'].includes(key) &&
+                  value &&
+                  typeof value === 'object' &&
+                  value.type &&
+                  value.options
+                );
 
-            return renderVariableSection(
-              categoryKey as keyof PaverPatioValues,
-              categoryConfig,
-              store.values[categoryKey as keyof PaverPatioValues]
-            );
-          })}
+              if (!hasVariables) return null;
+
+              return renderVariableSection(
+                categoryKey as keyof PaverPatioValues,
+                categoryConfig,
+                store.values[categoryKey as keyof PaverPatioValues]
+              );
+            }) :
+            <div>No configuration available</div>
+          }
         </div>
 
         {/* Pricing Preview Panel */}

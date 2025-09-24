@@ -70,6 +70,11 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
     categoryConfig: any,
     categoryValues: any
   ) => {
+    // Comprehensive null guard at function start
+    if (!categoryConfig || typeof categoryConfig !== 'object') {
+      return null;
+    }
+
     const isExpanded = expandedSections.has(categoryKey);
     
     return (
@@ -93,10 +98,10 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
             />
             <div className="text-left">
               <h3 className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                {categoryConfig.label}
+                {categoryConfig.label || categoryKey}
               </h3>
               <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-                {categoryConfig.description}
+                {categoryConfig.description || ''}
               </p>
             </div>
           </div>
@@ -109,58 +114,52 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
         {/* Section Content */}
         {isExpanded && (
           <div className="px-4 pb-4 space-y-4">
-            {Object.entries(categoryConfig)
-              .filter(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null)
+            {Object.entries(categoryConfig || {})
+              .filter(([key, value]) =>
+                !['label', 'description'].includes(key) &&
+                value &&
+                typeof value === 'object' &&
+                value.options
+              )
               .map(([variableKey, variableConfig]: [string, any]) => {
-                const currentValue = categoryValues[variableKey];
-                const selectedOption = variableConfig.options?.[currentValue];
-                
+                const currentValue = categoryValues?.[variableKey];
+                const selectedOption = variableConfig.options?.[currentValue] || variableConfig.options?.[variableConfig.default];
+
                 return (
-                  <div 
+                  <div
                     key={variableKey}
                     className="p-3 rounded-lg border-l-4"
-                    style={{ 
+                    style={{
                       backgroundColor: visualConfig.colors.background,
                       borderLeftColor: visualConfig.colors.primary,
                     }}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                        {variableConfig.label}
+                        {variableConfig.label || variableKey}
                       </h4>
-                      <span 
+                      <span
                         className="text-sm font-mono px-2 py-1 rounded"
-                        style={{ 
+                        style={{
                           backgroundColor: visualConfig.colors.primary + '20',
                           color: visualConfig.colors.primary,
                         }}
                       >
-                        {variableConfig.type === 'slider' 
-                          ? `×${currentValue?.toFixed(2) || 'N/A'}`
-                          : `×${selectedOption?.value || 'N/A'}`
+                        {variableConfig.type === 'slider'
+                          ? `×${(currentValue ?? 1.0).toFixed(2)}`
+                          : `×${selectedOption?.value ?? 0}`
                         }
                       </span>
                     </div>
-                    
-                    {selectedOption ? (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                          Current Setting: {selectedOption.label}
-                        </p>
-                        <p className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                          {selectedOption.description}
-                        </p>
+
+                    <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                      <div className="font-medium mb-1">
+                        Current: {selectedOption?.label || currentValue || 'Default'}
                       </div>
-                    ) : (
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                          Current Value: {currentValue}
-                        </p>
-                        <p className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                          {variableConfig.description}
-                        </p>
+                      <div className="text-xs">
+                        {selectedOption?.description || variableConfig.description || 'No description available'}
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
@@ -221,19 +220,31 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Configuration Display */}
         <div className="lg:col-span-2 space-y-4">
-          {Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
-            // Only process if this is a complete category object with variables
-            const hasVariables = Object.entries(categoryConfig)
-              .some(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null);
+          {store.config && store.config.variables ?
+            Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
+              // Only process if this is a complete category object with variables
+              if (!categoryConfig || typeof categoryConfig !== 'object') {
+                return null;
+              }
 
-            if (!hasVariables) return null;
+              const hasVariables = Object.entries(categoryConfig)
+                .some(([key, value]) =>
+                  !['label', 'description'].includes(key) &&
+                  value &&
+                  typeof value === 'object' &&
+                  value.options
+                );
 
-            return renderReadOnlySection(
-              categoryKey as keyof PaverPatioValues,
-              categoryConfig,
-              store.values[categoryKey as keyof PaverPatioValues]
-            );
-          })}
+              if (!hasVariables) return null;
+
+              return renderReadOnlySection(
+                categoryKey as keyof PaverPatioValues,
+                categoryConfig,
+                store.values[categoryKey as keyof PaverPatioValues]
+              );
+            }) :
+            <div>No configuration available</div>
+          }
         </div>
 
         {/* Pricing Calculator */}
