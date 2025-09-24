@@ -29,11 +29,43 @@ interface ServiceConfig {
   lastModified: string;
 }
 
+interface ServiceVariableUpdate {
+  equipmentCosts?: {
+    handTools?: number;
+    attachments?: number;
+    lightMachinery?: number;
+    heavyMachinery?: number;
+  };
+  cuttingComplexity?: {
+    minimal?: { fixedLaborHours?: number; materialWaste?: number };
+    moderate?: { fixedLaborHours?: number; materialWaste?: number };
+    complex?: { fixedLaborHours?: number; materialWaste?: number };
+  };
+  laborMultipliers?: {
+    tearoutGrass?: number;
+    tearoutConcrete?: number;
+    tearoutAsphalt?: number;
+    accessEasy?: number;
+    accessModerate?: number;
+    accessDifficult?: number;
+    teamTwoPerson?: number;
+    teamThreePlus?: number;
+  };
+  materialSettings?: {
+    economyGrade?: number;
+    premiumGrade?: number;
+    patternMinimal?: number;
+    patternSome?: number;
+    patternExtensive?: number;
+  };
+}
+
 interface ServiceBaseSettingsStore {
   services: ServiceConfig[];
   isLoading: boolean;
   error: string | null;
   updateBaseSetting: (serviceId: string, setting: string, value: number) => void;
+  updateServiceVariables: (serviceId: string, updates: ServiceVariableUpdate) => void;
   getService: (serviceId: string) => ServiceConfig | undefined;
 }
 
@@ -192,6 +224,113 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
     });
   }, []);
 
+  const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
+    setServices(prev => {
+      const updatedServices = prev.map(service => {
+        if (service.serviceId === serviceId) {
+          const updatedVariables = { ...service.variables };
+
+          // Update equipment costs
+          if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
+            const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
+            if (updates.equipmentCosts.handTools !== undefined) {
+              equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
+            }
+            if (updates.equipmentCosts.attachments !== undefined) {
+              equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
+            }
+            if (updates.equipmentCosts.lightMachinery !== undefined) {
+              equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
+            }
+            if (updates.equipmentCosts.heavyMachinery !== undefined) {
+              equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
+            }
+          }
+
+          // Update cutting complexity
+          if (updates.cuttingComplexity && updatedVariables.materials?.cuttingComplexity?.options) {
+            const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
+            Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
+              if (cuttingOptions[level] && values) {
+                if (values.fixedLaborHours !== undefined) {
+                  cuttingOptions[level].fixedLaborHours = values.fixedLaborHours;
+                }
+                if (values.materialWaste !== undefined) {
+                  cuttingOptions[level].materialWaste = values.materialWaste;
+                }
+              }
+            });
+          }
+
+          // Update labor multipliers
+          if (updates.laborMultipliers) {
+            if (updates.laborMultipliers.tearoutGrass !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.grass) {
+              updatedVariables.excavation.tearoutComplexity.options.grass.value = updates.laborMultipliers.tearoutGrass;
+            }
+            if (updates.laborMultipliers.tearoutConcrete !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.concrete) {
+              updatedVariables.excavation.tearoutComplexity.options.concrete.value = updates.laborMultipliers.tearoutConcrete;
+            }
+            if (updates.laborMultipliers.tearoutAsphalt !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.asphalt) {
+              updatedVariables.excavation.tearoutComplexity.options.asphalt.value = updates.laborMultipliers.tearoutAsphalt;
+            }
+            if (updates.laborMultipliers.accessEasy !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.easy) {
+              updatedVariables.siteAccess.accessDifficulty.options.easy.value = updates.laborMultipliers.accessEasy;
+            }
+            if (updates.laborMultipliers.accessModerate !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.moderate) {
+              updatedVariables.siteAccess.accessDifficulty.options.moderate.value = updates.laborMultipliers.accessModerate;
+            }
+            if (updates.laborMultipliers.accessDifficult !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.difficult) {
+              updatedVariables.siteAccess.accessDifficulty.options.difficult.value = updates.laborMultipliers.accessDifficult;
+            }
+            if (updates.laborMultipliers.teamTwoPerson !== undefined && updatedVariables.labor?.teamSize?.options?.twoPerson) {
+              updatedVariables.labor.teamSize.options.twoPerson.value = updates.laborMultipliers.teamTwoPerson;
+            }
+            if (updates.laborMultipliers.teamThreePlus !== undefined && updatedVariables.labor?.teamSize?.options?.threePlus) {
+              updatedVariables.labor.teamSize.options.threePlus.value = updates.laborMultipliers.teamThreePlus;
+            }
+          }
+
+          // Update material settings
+          if (updates.materialSettings) {
+            if (updates.materialSettings.economyGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.economy) {
+              updatedVariables.materials.paverStyle.options.economy.value = updates.materialSettings.economyGrade;
+            }
+            if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
+              updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
+            }
+            if (updates.materialSettings.patternMinimal !== undefined && updatedVariables.materials?.patternComplexity?.options?.minimal) {
+              updatedVariables.materials.patternComplexity.options.minimal.wastePercentage = updates.materialSettings.patternMinimal;
+            }
+            if (updates.materialSettings.patternSome !== undefined && updatedVariables.materials?.patternComplexity?.options?.some) {
+              updatedVariables.materials.patternComplexity.options.some.wastePercentage = updates.materialSettings.patternSome;
+            }
+            if (updates.materialSettings.patternExtensive !== undefined && updatedVariables.materials?.patternComplexity?.options?.extensive) {
+              updatedVariables.materials.patternComplexity.options.extensive.wastePercentage = updates.materialSettings.patternExtensive;
+            }
+          }
+
+          const updatedService = {
+            ...service,
+            variables: updatedVariables,
+            lastModified: new Date().toISOString().split('T')[0]
+          };
+
+          // Save to localStorage
+          try {
+            saveServiceConfig(serviceId, updatedService);
+          } catch (error) {
+            console.error('Failed to save service variables:', error);
+          }
+
+          return updatedService;
+        }
+        return service;
+      });
+
+      return updatedServices;
+    });
+  }, []);
+
   const getService = useCallback((serviceId: string): ServiceConfig | undefined => {
     return services.find(service => service.serviceId === serviceId);
   }, [services]);
@@ -201,6 +340,7 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
     isLoading,
     error,
     updateBaseSetting,
+    updateServiceVariables,
     getService
   };
 };

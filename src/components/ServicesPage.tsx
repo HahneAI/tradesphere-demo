@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../config/industry';
 import { useServiceBaseSettings } from '../stores/serviceBaseSettingsStore';
+import { ServiceSpecificsModal } from './services/ServiceSpecificsModal';
 
 export const ServicesPage: React.FC = () => {
   const { user } = useAuth();
@@ -14,21 +15,39 @@ export const ServicesPage: React.FC = () => {
   const [filter, setFilter] = useState('');
   const [editingCell, setEditingCell] = useState<{ serviceId: string, setting: string } | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
+  const [specificsModalOpen, setSpecificsModalOpen] = useState<{ serviceId: string; serviceName: string } | null>(null);
 
   const isAdmin = user?.is_admin || false;
 
   const handleCellEdit = (serviceId: string, setting: string, currentValue: number) => {
     if (!isAdmin) return;
     setEditingCell({ serviceId, setting });
-    setTempValue(currentValue.toString());
+
+    // Handle profit margin display in edit mode
+    if (setting === 'businessSettings.profitMarginTarget') {
+      setTempValue((currentValue * 100).toFixed(0));
+    } else {
+      setTempValue(currentValue.toString());
+    }
   };
 
   const handleCellSave = () => {
     if (!editingCell) return;
-    const numValue = parseFloat(tempValue);
-    if (!isNaN(numValue)) {
-      updateBaseSetting(editingCell.serviceId, editingCell.setting, numValue);
+    let numValue: number;
+
+    // Handle profit margin conversion
+    if (editingCell.setting === 'businessSettings.profitMarginTarget') {
+      numValue = parseProfitMarginInput(tempValue);
+      if (!validateProfitMargin(numValue)) {
+        alert('Profit margin must be between 5% and 50%');
+        return;
+      }
+    } else {
+      numValue = parseFloat(tempValue);
+      if (isNaN(numValue)) return;
     }
+
+    updateBaseSetting(editingCell.serviceId, editingCell.setting, numValue);
     setEditingCell(null);
     setTempValue('');
   };
@@ -67,18 +86,36 @@ export const ServicesPage: React.FC = () => {
     );
   }
 
-  const EditableCell = ({ 
-    serviceId, 
-    setting, 
-    value, 
-    unit, 
-    validation 
-  }: { 
-    serviceId: string; 
-    setting: string; 
-    value: number; 
+  const formatProfitMarginDisplay = (value: number) => {
+    return `${(value * 100).toFixed(0)}%`;
+  };
+
+  const parseProfitMarginInput = (input: string): number => {
+    // Remove % if present and convert to decimal
+    const cleanInput = input.replace('%', '');
+    const percentage = parseFloat(cleanInput);
+    return percentage / 100;
+  };
+
+  const validateProfitMargin = (value: number): boolean => {
+    const percentage = value * 100;
+    return percentage >= 5 && percentage <= 50;
+  };
+
+  const EditableCell = ({
+    serviceId,
+    setting,
+    value,
+    unit,
+    validation,
+    isProfitMargin = false
+  }: {
+    serviceId: string;
+    setting: string;
+    value: number;
     unit: string;
     validation?: { min: number; max: number; step: number };
+    isProfitMargin?: boolean;
   }) => {
     const isEditing = editingCell?.serviceId === serviceId && editingCell?.setting === setting;
     
@@ -121,7 +158,7 @@ export const ServicesPage: React.FC = () => {
         style={{ color: visualConfig.colors.text.primary }}
         disabled={!isAdmin}
       >
-        {value} {unit}
+        {isProfitMargin ? formatProfitMarginDisplay(value) : `${value} ${unit}`}
         {isAdmin && <Icons.Edit2 className="h-3 w-3 ml-1 inline opacity-40" />}
       </button>
     );
@@ -220,9 +257,13 @@ export const ServicesPage: React.FC = () => {
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Profit Margin
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Status
+              </th>
+              <th className="p-4 text-left font-medium border-b"
+                  style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
+                Configuration
               </th>
             </tr>
           </thead>
@@ -283,6 +324,7 @@ export const ServicesPage: React.FC = () => {
                     value={service.baseSettings.businessSettings.profitMarginTarget.value}
                     unit={service.baseSettings.businessSettings.profitMarginTarget.unit}
                     validation={service.baseSettings.businessSettings.profitMarginTarget.validation}
+                    isProfitMargin={true}
                   />
                 </td>
                 <td className="p-4">
@@ -290,6 +332,23 @@ export const ServicesPage: React.FC = () => {
                     <div className="w-2 h-2 rounded-full mr-1 bg-green-400" />
                     Active
                   </div>
+                </td>
+                <td className="p-4">
+                  <button
+                    onClick={() => setSpecificsModalOpen({
+                      serviceId: service.serviceId,
+                      serviceName: service.service
+                    })}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-opacity-10"
+                    style={{
+                      borderColor: visualConfig.colors.primary,
+                      color: visualConfig.colors.primary
+                    }}
+                    disabled={!isAdmin}
+                  >
+                    <Icons.Settings className="h-4 w-4" />
+                    Open Specifics
+                  </button>
                 </td>
               </tr>
             ))}
@@ -314,6 +373,18 @@ export const ServicesPage: React.FC = () => {
           <span>Last updated: {new Date().toLocaleTimeString()}</span>
         </div>
       </div>
+
+      {/* Service Specifics Modal */}
+      {specificsModalOpen && (
+        <ServiceSpecificsModal
+          isOpen={!!specificsModalOpen}
+          serviceId={specificsModalOpen.serviceId}
+          serviceName={specificsModalOpen.serviceName}
+          onClose={() => setSpecificsModalOpen(null)}
+          visualConfig={visualConfig}
+          theme={theme}
+        />
+      )}
     </div>
   );
 };
