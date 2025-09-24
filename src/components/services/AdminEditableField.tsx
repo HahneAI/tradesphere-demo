@@ -88,6 +88,15 @@ export const AdminEditableField: React.FC<AdminEditableFieldProps> = ({
     if (unit === '$/hr') {
       return `$${val.toFixed(0)}/hr`;
     }
+    if (unit === '$/hour/person') {
+      return `$${val.toFixed(0)}/hr/person`;
+    }
+    if (unit === 'people') {
+      return `${val.toFixed(0)} ${unit}`;
+    }
+    if (unit === 'sqft/day') {
+      return `${val.toFixed(0)} ${unit}`;
+    }
     return `${val} ${unit}`;
   };
 

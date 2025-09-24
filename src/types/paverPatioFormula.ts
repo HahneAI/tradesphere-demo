@@ -1,53 +1,74 @@
+export interface BaseSetting {
+  value: number;
+  unit: string;
+  label: string;
+  description: string;
+  adminEditable: boolean;
+  validation?: {
+    min: number;
+    max: number;
+    step: number;
+  };
+}
+
 export interface PaverPatioOption {
   label: string;
-  value: number;
-  description: string;
+  value?: number;
+  multiplier?: number;
+  laborMultiplier?: number;
+  materialWaste?: number;
+  fixedLaborHours?: number;
+  wastePercentage?: number;
+  description?: string;
 }
 
 export interface PaverPatioVariable {
   label: string;
-  description: string;
+  description?: string;
   type: 'select' | 'slider';
   default: string | number;
-  min?: number;
-  max?: number;
-  step?: number;
+  calculationTier: 1 | 2 | 'both';
+  effectType: string;
+  validation?: {
+    min: number;
+    max: number;
+    step: number;
+  };
   options: Record<string, PaverPatioOption>;
-}
-
-export interface PaverPatioVariableCategory {
-  label: string;
-  description: string;
-  [key: string]: PaverPatioVariable | string;
-}
-
-export interface PaverPatioFormula {
-  description: string;
-  basePrice: number;
-  calculation: string;
 }
 
 export interface PaverPatioConfig {
   service: string;
   serviceId: string;
+  category: string;
   version: string;
   lastModified: string;
   modifiedBy: string;
   description: string;
-  variables: {
-    excavation: PaverPatioVariableCategory;
-    siteAccess: PaverPatioVariableCategory;
-    materials: PaverPatioVariableCategory;
-    labor: PaverPatioVariableCategory;
-    complexity: PaverPatioVariableCategory;
+  baseSettings: {
+    laborSettings: Record<string, BaseSetting>;
+    materialSettings: Record<string, BaseSetting>;
+    businessSettings: Record<string, BaseSetting>;
   };
-  formula: PaverPatioFormula;
+  calculationSystem: {
+    type: string;
+    description: string;
+    tier1: string;
+    tier2: string;
+  };
+  variables: {
+    excavation: Record<string, PaverPatioVariable | string>;
+    siteAccess: Record<string, PaverPatioVariable | string>;
+    materials: Record<string, PaverPatioVariable | string>;
+    labor: Record<string, PaverPatioVariable | string>;
+    complexity: Record<string, PaverPatioVariable | string>;
+  };
 }
 
 export interface PaverPatioValues {
   excavation: {
-    tearoutMultiplier: string;
-    equipmentCategory: string;
+    tearoutComplexity: string;
+    equipmentRequired: string;
   };
   siteAccess: {
     accessDifficulty: string;
@@ -56,35 +77,35 @@ export interface PaverPatioValues {
   materials: {
     paverStyle: string;
     cuttingComplexity: string;
-    degree45Factor: string;
+    patternComplexity: string;
   };
   labor: {
     teamSize: string;
-    teamEfficiency: number;
   };
   complexity: {
-    projectComplexity: number;
+    overallComplexity: number;
   };
 }
 
 export interface PaverPatioCalculationResult {
-  basePrice: number;
-  multipliers: {
-    tearout: number;
-    access: number;
-    paverStyle: number;
-    cutting: number;
-    degree45: number;
-    teamSize: number;
-    teamEfficiency: number;
-    complexity: number;
+  tier1Results: {
+    baseHours: number;
+    adjustedHours: number;
+    totalManHours: number;
+    breakdown: string[];
   };
-  additionalCosts: {
-    equipment: number;
-    obstacles: number;
+  tier2Results: {
+    laborCost: number;
+    materialCostBase: number;
+    materialWasteCost: number;
+    totalMaterialCost: number;
+    equipmentCost: number;
+    obstacleCost: number;
+    subtotal: number;
+    profit: number;
+    total: number;
+    pricePerSqft: number;
   };
-  subtotal: number;
-  total: number;
   breakdown: string;
 }
 
@@ -94,7 +115,7 @@ export interface PaverPatioStore {
   isLoading: boolean;
   error: string | null;
   lastCalculation: PaverPatioCalculationResult | null;
-  
+
   // Actions
   loadConfig: () => Promise<void>;
   updateValue: (category: keyof PaverPatioValues, variable: string, value: string | number) => void;
@@ -103,4 +124,22 @@ export interface PaverPatioStore {
   calculatePrice: (sqft?: number) => PaverPatioCalculationResult;
   saveConfig: () => Promise<void>;
   createBackup: () => Promise<void>;
+}
+
+// Legacy support interfaces for backward compatibility
+export interface LegacyPaverPatioOption {
+  label: string;
+  value: number;
+  description: string;
+}
+
+export interface LegacyPaverPatioVariable {
+  label: string;
+  description: string;
+  type: 'select' | 'slider';
+  default: string | number;
+  min?: number;
+  max?: number;
+  step?: number;
+  options: Record<string, LegacyPaverPatioOption>;
 }

@@ -21,7 +21,9 @@ interface ServiceConfig {
   serviceId: string;
   category: string;
   baseSettings: {
-    [key: string]: BaseSetting;
+    laborSettings: Record<string, BaseSetting>;
+    materialSettings: Record<string, BaseSetting>;
+    businessSettings: Record<string, BaseSetting>;
   };
   variables?: any;
   lastModified: string;
@@ -93,10 +95,14 @@ const loadServiceWithOverrides = (defaultService: ServiceConfig): ServiceConfig 
     
     if (stored) {
       const storedConfig = JSON.parse(stored);
-      // Merge stored base settings with default config
+      // Merge stored base settings with default config - handle nested structure
       return {
         ...defaultService,
-        baseSettings: { ...defaultService.baseSettings, ...storedConfig.baseSettings },
+        baseSettings: {
+          laborSettings: { ...defaultService.baseSettings.laborSettings, ...storedConfig.baseSettings?.laborSettings },
+          materialSettings: { ...defaultService.baseSettings.materialSettings, ...storedConfig.baseSettings?.materialSettings },
+          businessSettings: { ...defaultService.baseSettings.businessSettings, ...storedConfig.baseSettings?.businessSettings }
+        },
         lastModified: storedConfig.lastModified || defaultService.lastModified
       };
     }
@@ -152,13 +158,19 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
     setServices(prev => {
       const updatedServices = prev.map(service => {
         if (service.serviceId === serviceId) {
+          // Handle nested settings path (e.g., "laborSettings.hourlyLaborRate")
+          const [category, settingKey] = setting.split('.');
+
           const updatedService = {
             ...service,
             baseSettings: {
               ...service.baseSettings,
-              [setting]: {
-                ...service.baseSettings[setting],
-                value: value
+              [category]: {
+                ...service.baseSettings[category],
+                [settingKey]: {
+                  ...service.baseSettings[category][settingKey],
+                  value: value
+                }
               }
             },
             lastModified: new Date().toISOString().split('T')[0]

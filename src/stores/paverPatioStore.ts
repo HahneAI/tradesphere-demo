@@ -9,27 +9,26 @@ import type {
 // Import the JSON configuration
 import paverPatioConfigJson from '../config/paver-patio-formula.json';
 
-// Default values based on the configuration
+// Default values based on the configuration - Expert system compatible
 const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => ({
   excavation: {
-    tearoutMultiplier: config.variables.excavation.tearoutMultiplier?.default as string || 'grass',
-    equipmentCategory: config.variables.excavation.equipmentCategory?.default as string || 'lightMachinery',
+    tearoutComplexity: config.variables.excavation.tearoutComplexity?.default as string || 'grass',
+    equipmentRequired: config.variables.excavation.equipmentRequired?.default as string || 'handTools',
   },
   siteAccess: {
     accessDifficulty: config.variables.siteAccess.accessDifficulty?.default as string || 'moderate',
     obstacleRemoval: config.variables.siteAccess.obstacleRemoval?.default as string || 'minor',
   },
   materials: {
-    paverStyle: config.variables.materials.paverStyle?.default as string || 'midGrade',
+    paverStyle: config.variables.materials.paverStyle?.default as string || 'economy',
     cuttingComplexity: config.variables.materials.cuttingComplexity?.default as string || 'moderate',
-    degree45Factor: config.variables.materials.degree45Factor?.default as string || 'some',
+    patternComplexity: config.variables.materials.patternComplexity?.default as string || 'minimal',
   },
   labor: {
     teamSize: config.variables.labor.teamSize?.default as string || 'twoPerson',
-    teamEfficiency: config.variables.labor.teamEfficiency?.default as number || 1.0,
   },
   complexity: {
-    projectComplexity: config.variables.complexity.projectComplexity?.default as number || 1.0,
+    overallComplexity: config.variables.complexity.overallComplexity?.default as number || 1.0,
   },
 });
 
@@ -65,74 +64,157 @@ const saveStoredValues = (values: PaverPatioValues) => {
   }
 };
 
-// Calculate dynamic base price from base settings
-const calculateDynamicBasePrice = (config: any): number => {
-  if (!config.baseSettings) {
-    return config.formula.basePrice; // Fallback to original static price
+// Expert-validated two-tier calculation system
+const calculateExpertPricing = (
+  config: PaverPatioConfig,
+  values: PaverPatioValues,
+  sqft: number = 100
+): PaverPatioCalculationResult => {
+  // Get base settings
+  const hourlyRate = config.baseSettings.laborSettings.hourlyLaborRate?.value || 25;
+  const optimalTeamSize = config.baseSettings.laborSettings.optimalTeamSize?.value || 3;
+  const baseProductivity = config.baseSettings.laborSettings.baseProductivity?.value || 100;
+  const baseMaterialCost = config.baseSettings.materialSettings.baseMaterialCost?.value || 5.84;
+  const profitMargin = config.baseSettings.businessSettings.profitMarginTarget?.value || 0.15;
+
+  // TIER 1: Man Hours Calculation
+  const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
+  let adjustedHours = baseHours;
+  const breakdownSteps: string[] = [`Base Hours: ${baseHours.toFixed(1)}`];
+
+  // Apply Tier 1 variables (labor time adjustments)
+  const tearout = config.variables.excavation.tearoutComplexity?.options[values.excavation.tearoutComplexity];
+  if (tearout?.value) {
+    const tearoutHours = adjustedHours * (tearout.value / 100);
+    adjustedHours += tearoutHours;
+    breakdownSteps.push(`+Tearout (${tearout.value}%): +${tearoutHours.toFixed(1)} hours`);
   }
-  
-  const laborHoursPerSqft = config.baseSettings.baseLaborRate?.value || 0.12;
-  const materialCost = config.baseSettings.baseMaterialCost?.value || 4.50;
-  const manHourRate = config.baseSettings.manHourRate?.value || 75;
-  const profitMargin = config.baseSettings.profitMarginTarget?.value || 0.35;
-  
-  // Formula: (laborHoursPerSqft * manHourRate + materialCost) * (1 + profitMargin)
-  // This calculates: (hours per sqft * dollar per hour) + material cost, then applies profit margin
-  const laborCostPerSqft = laborHoursPerSqft * manHourRate;
-  const totalCostPerSqft = laborCostPerSqft + materialCost;
-  const calculatedPrice = totalCostPerSqft * (1 + profitMargin);
-  
-  return Number(calculatedPrice.toFixed(2));
+
+  const access = config.variables.siteAccess.accessDifficulty?.options[values.siteAccess.accessDifficulty];
+  if (access?.value) {
+    const accessHours = adjustedHours * (access.value / 100);
+    adjustedHours += accessHours;
+    breakdownSteps.push(`+Access (${access.value}%): +${accessHours.toFixed(1)} hours`);
+  }
+
+  const team = config.variables.labor.teamSize?.options[values.labor.teamSize];
+  if (team?.value) {
+    const teamHours = adjustedHours * (team.value / 100);
+    adjustedHours += teamHours;
+    breakdownSteps.push(`+Team Size (${team.value}%): +${teamHours.toFixed(1)} hours`);
+  }
+
+  // Add fixed cutting hours
+  const cutting = config.variables.materials.cuttingComplexity?.options[values.materials.cuttingComplexity];
+  if (cutting?.fixedLaborHours) {
+    adjustedHours += cutting.fixedLaborHours;
+    breakdownSteps.push(`+Cutting: +${cutting.fixedLaborHours} hours`);
+  }
+
+  const totalManHours = adjustedHours;
+
+  // TIER 2: Cost Calculation
+  const laborCost = totalManHours * hourlyRate;
+
+  // Material costs with style multiplier
+  const paverStyle = config.variables.materials.paverStyle?.options[values.materials.paverStyle];
+  const styleMultiplier = paverStyle?.multiplier || 1.0;
+  const materialCostBase = sqft * baseMaterialCost * styleMultiplier;
+
+  // Material waste calculations
+  const cuttingWaste = (cutting?.materialWaste || 0) / 100;
+  const patternWaste = (config.variables.materials.patternComplexity?.options[values.materials.patternComplexity]?.wastePercentage || 0) / 100;
+  const materialWasteCost = materialCostBase * (cuttingWaste + patternWaste);
+  const totalMaterialCost = materialCostBase + materialWasteCost;
+
+  // Equipment cost (daily rate * project days)
+  const equipment = config.variables.excavation.equipmentRequired?.options[values.excavation.equipmentRequired];
+  const projectDays = totalManHours / (optimalTeamSize * 8);
+  const equipmentCost = (equipment?.value || 0) * projectDays;
+
+  // Obstacle flat costs
+  const obstacles = config.variables.siteAccess.obstacleRemoval?.options[values.siteAccess.obstacleRemoval];
+  const obstacleCost = obstacles?.value || 0;
+
+  // Calculate subtotal and apply complexity multiplier
+  const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
+  const profit = subtotal * profitMargin;
+  const beforeComplexity = subtotal + profit;
+  const complexityMultiplier = values.complexity.overallComplexity || 1.0;
+  const total = beforeComplexity * complexityMultiplier;
+
+  return {
+    tier1Results: {
+      baseHours,
+      adjustedHours,
+      totalManHours,
+      breakdown: breakdownSteps
+    },
+    tier2Results: {
+      laborCost,
+      materialCostBase,
+      materialWasteCost,
+      totalMaterialCost,
+      equipmentCost,
+      obstacleCost,
+      subtotal,
+      profit,
+      total,
+      pricePerSqft: total / sqft
+    },
+    breakdown: `Labor: $${laborCost.toFixed(2)} | Materials: $${totalMaterialCost.toFixed(2)} | Equipment: $${equipmentCost.toFixed(2)} | Total: $${total.toFixed(2)}`
+  };
 };
 
-// Calculate price based on current values
+// Calculate price based on current values - Uses expert two-tier system
 const calculatePrice = (
-  config: PaverPatioConfig, 
-  values: PaverPatioValues, 
-  sqft: number = 1
+  config: PaverPatioConfig,
+  values: PaverPatioValues,
+  sqft: number = 100
 ): PaverPatioCalculationResult => {
-  const basePrice = calculateDynamicBasePrice(config);
-  
-  // Get multiplier values
-  const tearout = config.variables.excavation.tearoutMultiplier?.options[values.excavation.tearoutMultiplier]?.value || 1;
-  const access = config.variables.siteAccess.accessDifficulty?.options[values.siteAccess.accessDifficulty]?.value || 1;
-  const paverStyle = config.variables.materials.paverStyle?.options[values.materials.paverStyle]?.value || 1;
-  const cutting = config.variables.materials.cuttingComplexity?.options[values.materials.cuttingComplexity]?.value || 1;
-  const degree45 = config.variables.materials.degree45Factor?.options[values.materials.degree45Factor]?.value || 1;
-  const teamSize = config.variables.labor.teamSize?.options[values.labor.teamSize]?.value || 1;
-  const teamEfficiency = values.labor.teamEfficiency;
-  const complexity = values.complexity.projectComplexity;
-  
-  // Get additional costs
-  const equipment = config.variables.excavation.equipmentCategory?.options[values.excavation.equipmentCategory]?.value || 0;
-  const obstacles = config.variables.siteAccess.obstacleRemoval?.options[values.siteAccess.obstacleRemoval]?.value || 0;
-  
-  // Calculate
-  const multipliedPrice = basePrice * tearout * access * paverStyle * cutting * degree45 * teamSize * teamEfficiency * complexity;
+  // Check if we have the new expert structure
+  if (config.calculationSystem?.type === 'two_tier') {
+    return calculateExpertPricing(config, values, sqft);
+  }
+
+  // Fallback to legacy calculation for backward compatibility
+  console.warn('Using legacy calculation system - consider updating to expert structure');
+
+  const basePrice = 15.50;
+  const tearout = 1.2;
+  const access = 1.5;
+  const paverStyle = 1.0;
+  const cutting = 1.2;
+  const teamSize = 1.4;
+  const complexity = 1.0;
+  const equipment = 250;
+  const obstacles = 500;
+
+  const multipliedPrice = basePrice * tearout * access * paverStyle * cutting * teamSize * complexity;
   const subtotal = multipliedPrice * sqft;
   const total = subtotal + equipment + obstacles;
-  
-  const breakdown = `($${basePrice} × ${tearout} × ${access} × ${paverStyle} × ${cutting} × ${degree45} × ${teamSize} × ${teamEfficiency} × ${complexity}) × ${sqft} sqft + $${equipment} equipment + $${obstacles} obstacles = $${total.toFixed(2)}`;
-  
+
+  // Convert legacy result to new format
   return {
-    basePrice,
-    multipliers: {
-      tearout,
-      access,
-      paverStyle,
-      cutting,
-      degree45,
-      teamSize,
-      teamEfficiency,
-      complexity,
+    tier1Results: {
+      baseHours: sqft / 100 * 24,
+      adjustedHours: sqft / 100 * 24 * 1.5,
+      totalManHours: sqft / 100 * 24 * 1.5,
+      breakdown: ['Legacy calculation - hours estimated']
     },
-    additionalCosts: {
-      equipment,
-      obstacles,
+    tier2Results: {
+      laborCost: multipliedPrice * sqft * 0.6,
+      materialCostBase: multipliedPrice * sqft * 0.4,
+      materialWasteCost: 0,
+      totalMaterialCost: multipliedPrice * sqft * 0.4,
+      equipmentCost: equipment,
+      obstacleCost: obstacles,
+      subtotal,
+      profit: subtotal * 0.15,
+      total,
+      pricePerSqft: total / sqft
     },
-    subtotal,
-    total,
-    breakdown,
+    breakdown: `Legacy calculation: $${total.toFixed(2)} total`
   };
 };
 

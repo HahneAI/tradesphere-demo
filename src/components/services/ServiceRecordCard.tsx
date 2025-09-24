@@ -108,21 +108,77 @@ export const ServiceRecordCard: React.FC<ServiceRecordCardProps> = ({
         </div>
       </div>
 
-      {/* Base Settings */}
-      <div className="p-4 space-y-4">
-        {Object.entries(service.baseSettings).map(([key, setting]) => (
-          <AdminEditableField
-            key={key}
-            label={setting.label}
-            value={setting.value}
-            unit={setting.unit}
-            description={setting.description}
-            isAdmin={isAdmin}
-            onSave={(value) => handleSettingUpdate(key, value)}
-            validation={setting.validation}
-            visualConfig={visualConfig}
-          />
-        ))}
+      {/* Base Settings - Expert Categorized Structure */}
+      <div className="p-4 space-y-6">
+
+        {/* Labor Settings */}
+        <div>
+          <h4 className="text-sm font-semibold mb-3 flex items-center" style={{ color: visualConfig.colors.text.primary }}>
+            <Icons.Users className="h-4 w-4 mr-2" style={{ color: visualConfig.colors.primary }} />
+            Labor Settings
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(service.baseSettings.laborSettings || {}).map(([key, setting]) => (
+              <AdminEditableField
+                key={`labor_${key}`}
+                label={setting.label}
+                value={setting.value}
+                unit={setting.unit}
+                description={setting.description}
+                isAdmin={isAdmin}
+                onSave={(value) => handleSettingUpdate(`laborSettings.${key}`, value)}
+                validation={setting.validation}
+                visualConfig={visualConfig}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Material Settings */}
+        <div>
+          <h4 className="text-sm font-semibold mb-3 flex items-center" style={{ color: visualConfig.colors.text.primary }}>
+            <Icons.Package className="h-4 w-4 mr-2" style={{ color: visualConfig.colors.primary }} />
+            Material Settings
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(service.baseSettings.materialSettings || {}).map(([key, setting]) => (
+              <AdminEditableField
+                key={`material_${key}`}
+                label={setting.label}
+                value={setting.value}
+                unit={setting.unit}
+                description={setting.description}
+                isAdmin={isAdmin}
+                onSave={(value) => handleSettingUpdate(`materialSettings.${key}`, value)}
+                validation={setting.validation}
+                visualConfig={visualConfig}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Business Settings */}
+        <div>
+          <h4 className="text-sm font-semibold mb-3 flex items-center" style={{ color: visualConfig.colors.text.primary }}>
+            <Icons.TrendingUp className="h-4 w-4 mr-2" style={{ color: visualConfig.colors.primary }} />
+            Business Settings
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(service.baseSettings.businessSettings || {}).map(([key, setting]) => (
+              <AdminEditableField
+                key={`business_${key}`}
+                label={setting.label}
+                value={setting.value}
+                unit={setting.unit}
+                description={setting.description}
+                isAdmin={isAdmin}
+                onSave={(value) => handleSettingUpdate(`businessSettings.${key}`, value)}
+                validation={setting.validation}
+                visualConfig={visualConfig}
+              />
+            ))}
+          </div>
+        </div>
 
         {/* Divider */}
         <div 
