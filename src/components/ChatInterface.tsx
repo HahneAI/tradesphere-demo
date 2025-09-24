@@ -28,6 +28,7 @@ import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
+import { ServicesPage } from './ServicesPage';
 import { QuickCalculatorTab } from './QuickCalculatorTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
@@ -248,9 +249,10 @@ const ChatInterface = () => {
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
 
   const [showNotesPopup, setShowNotesPopup] = useState(false);
-  const [showServicesPopup, setShowServicesPopup] = useState(false);
   const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
-  // Removed currentView state - services should be a separate page
+
+  // Full-page navigation system
+  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers'>('chat');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1805,8 +1807,8 @@ const ChatInterface = () => {
         onFeedbackClick={() => setShowFeedbackPopup(true)}
         onNotesClick={() => setShowNotesPopup(true)}
         onAvatarClick={() => setShowAvatarPopup(true)}
-        onCustomersClick={() => setShowCustomersPopup(true)}
-        onServicesClick={() => setShowServicesPopup(true)}
+        onCustomersClick={() => setCurrentPage('customers')}
+        onServicesClick={() => setCurrentPage('services')}
         onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
@@ -1841,6 +1843,22 @@ const ChatInterface = () => {
                   <h1 className="text-xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
                     {coreConfig.companyName}
                   </h1>
+                  {currentPage !== 'chat' && (
+                    <div className="flex items-center space-x-2 text-sm mt-1">
+                      <button
+                        onClick={() => setCurrentPage('chat')}
+                        className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
+                        style={{ color: visualConfig.colors.text.secondary }}
+                      >
+                        <Icons.Home className="h-4 w-4" />
+                        <span>Dashboard</span>
+                      </button>
+                      <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
+                      <span style={{ color: visualConfig.colors.text.primary }} className="capitalize">
+                        {currentPage}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2259,8 +2277,25 @@ const ChatInterface = () => {
         </div>
       </header>
 
-      {/* ORIGINAL: Main Chat Area - exact same structure */}
-      <main className="flex-1 flex flex-col overflow-hidden p-4">
+      {/* Page Content - Conditional rendering based on currentPage */}
+      {currentPage === 'services' && (
+        <ServicesPage />
+      )}
+
+      {currentPage === 'customers' && (
+        <div className="flex-1 p-4">
+          <CustomersTab
+            isOpen={true}
+            onClose={() => setCurrentPage('chat')}
+            onLoadCustomer={handleLoadCustomer}
+          />
+        </div>
+      )}
+
+      {currentPage === 'chat' && (
+        <>
+          {/* ORIGINAL: Main Chat Area - exact same structure */}
+          <main className="flex-1 flex flex-col overflow-hidden p-4">
         <div
           className="flex-1 rounded-2xl shadow-lg flex flex-col overflow-hidden min-h-0 transition-all duration-300"
           style={{
@@ -2460,6 +2495,9 @@ const ChatInterface = () => {
           </div>
         </div>
       </main>
+        </>
+      )}
+
       {/* ADD NOTESPOPUP HERE */}
       <NotesPopup
         isOpen={showNotesPopup}
@@ -2468,18 +2506,6 @@ const ChatInterface = () => {
         userName={user?.first_name || 'Anonymous'}
       />
 
-      {/* Customers Popup */}
-      <CustomersTab
-        isOpen={showCustomersPopup}
-        onClose={() => setShowCustomersPopup(false)}
-        onLoadCustomer={handleLoadCustomer}
-      />
-
-      {/* Services Popup */}
-      <ServicesTab
-        isOpen={showServicesPopup}
-        onClose={() => setShowServicesPopup(false)}
-      />
 
       {/* Quick Calculator Popup */}
       <QuickCalculatorTab

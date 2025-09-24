@@ -134,11 +134,13 @@ export const ServicesPage: React.FC = () => {
            style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
-            Services Settings
+            Services Configuration
           </h1>
           <div className="flex items-center gap-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-            <Icons.Settings className="h-4 w-4" />
+            <Icons.Database className="h-4 w-4" />
             <span>{filteredServices.length} services</span>
+            <span>•</span>
+            <span>Edit baseline values for your company</span>
           </div>
         </div>
         
@@ -198,19 +200,23 @@ export const ServicesPage: React.FC = () => {
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Category
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
-                Base Labor Rate
+                Hourly Labor Rate
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
-                Base Material Cost
+                Optimal Team Size
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
-                Man Hour Rate
+                Base Productivity
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="p-4 text-left font-medium border-b"
+                  style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
+                Material Cost
+              </th>
+              <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Profit Margin
               </th>
@@ -237,37 +243,46 @@ export const ServicesPage: React.FC = () => {
                 <td className="p-4">
                   <EditableCell
                     serviceId={service.serviceId}
-                    setting="baseLaborRate"
-                    value={service.baseSettings.baseLaborRate.value}
-                    unit={service.baseSettings.baseLaborRate.unit}
-                    validation={service.baseSettings.baseLaborRate.validation}
+                    setting="laborSettings.hourlyLaborRate"
+                    value={service.baseSettings.laborSettings.hourlyLaborRate.value}
+                    unit={service.baseSettings.laborSettings.hourlyLaborRate.unit}
+                    validation={service.baseSettings.laborSettings.hourlyLaborRate.validation}
                   />
                 </td>
                 <td className="p-4">
                   <EditableCell
                     serviceId={service.serviceId}
-                    setting="baseMaterialCost"
-                    value={service.baseSettings.baseMaterialCost.value}
-                    unit={service.baseSettings.baseMaterialCost.unit}
-                    validation={service.baseSettings.baseMaterialCost.validation}
+                    setting="laborSettings.optimalTeamSize"
+                    value={service.baseSettings.laborSettings.optimalTeamSize.value}
+                    unit={service.baseSettings.laborSettings.optimalTeamSize.unit}
+                    validation={service.baseSettings.laborSettings.optimalTeamSize.validation}
                   />
                 </td>
                 <td className="p-4">
                   <EditableCell
                     serviceId={service.serviceId}
-                    setting="manHourRate"
-                    value={service.baseSettings.manHourRate.value}
-                    unit={service.baseSettings.manHourRate.unit}
-                    validation={service.baseSettings.manHourRate.validation}
+                    setting="laborSettings.baseProductivity"
+                    value={service.baseSettings.laborSettings.baseProductivity.value}
+                    unit={service.baseSettings.laborSettings.baseProductivity.unit}
+                    validation={service.baseSettings.laborSettings.baseProductivity.validation}
                   />
                 </td>
                 <td className="p-4">
                   <EditableCell
                     serviceId={service.serviceId}
-                    setting="profitMarginTarget"
-                    value={service.baseSettings.profitMarginTarget.value}
-                    unit={service.baseSettings.profitMarginTarget.unit}
-                    validation={service.baseSettings.profitMarginTarget.validation}
+                    setting="materialSettings.baseMaterialCost"
+                    value={service.baseSettings.materialSettings.baseMaterialCost.value}
+                    unit={service.baseSettings.materialSettings.baseMaterialCost.unit}
+                    validation={service.baseSettings.materialSettings.baseMaterialCost.validation}
+                  />
+                </td>
+                <td className="p-4">
+                  <EditableCell
+                    serviceId={service.serviceId}
+                    setting="businessSettings.profitMarginTarget"
+                    value={service.baseSettings.businessSettings.profitMarginTarget.value}
+                    unit={service.baseSettings.businessSettings.profitMarginTarget.unit}
+                    validation={service.baseSettings.businessSettings.profitMarginTarget.validation}
                   />
                 </td>
                 <td className="p-4">
