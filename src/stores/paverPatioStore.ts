@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { 
-  PaverPatioConfig, 
-  PaverPatioValues, 
+import type {
+  PaverPatioConfig,
+  PaverPatioValues,
   PaverPatioCalculationResult,
-  PaverPatioStore 
+  PaverPatioStore,
+  PaverPatioVariable
 } from '../types/paverPatioFormula';
 
 // Import the JSON configuration
@@ -12,23 +13,23 @@ import paverPatioConfigJson from '../config/paver-patio-formula.json';
 // Default values based on the configuration - Expert system compatible
 const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => ({
   excavation: {
-    tearoutComplexity: config.variables.excavation.tearoutComplexity?.default as string || 'grass',
-    equipmentRequired: config.variables.excavation.equipmentRequired?.default as string || 'handTools',
+    tearoutComplexity: (config.variables.excavation.tearoutComplexity as PaverPatioVariable)?.default as string || 'grass',
+    equipmentRequired: (config.variables.excavation.equipmentRequired as PaverPatioVariable)?.default as string || 'handTools',
   },
   siteAccess: {
-    accessDifficulty: config.variables.siteAccess.accessDifficulty?.default as string || 'moderate',
-    obstacleRemoval: config.variables.siteAccess.obstacleRemoval?.default as string || 'minor',
+    accessDifficulty: (config.variables.siteAccess.accessDifficulty as PaverPatioVariable)?.default as string || 'moderate',
+    obstacleRemoval: (config.variables.siteAccess.obstacleRemoval as PaverPatioVariable)?.default as string || 'minor',
   },
   materials: {
-    paverStyle: config.variables.materials.paverStyle?.default as string || 'economy',
-    cuttingComplexity: config.variables.materials.cuttingComplexity?.default as string || 'moderate',
-    patternComplexity: config.variables.materials.patternComplexity?.default as string || 'minimal',
+    paverStyle: (config.variables.materials.paverStyle as PaverPatioVariable)?.default as string || 'economy',
+    cuttingComplexity: (config.variables.materials.cuttingComplexity as PaverPatioVariable)?.default as string || 'moderate',
+    patternComplexity: (config.variables.materials.patternComplexity as PaverPatioVariable)?.default as string || 'minimal',
   },
   labor: {
-    teamSize: config.variables.labor.teamSize?.default as string || 'twoPerson',
+    teamSize: (config.variables.labor.teamSize as PaverPatioVariable)?.default as string || 'twoPerson',
   },
   complexity: {
-    overallComplexity: config.variables.complexity.overallComplexity?.default as number || 1.0,
+    overallComplexity: (config.variables.complexity.overallComplexity as PaverPatioVariable)?.default as number || 1.0,
   },
 });
 
@@ -88,34 +89,34 @@ const calculateExpertPricing = (
   values: PaverPatioValues,
   sqft: number = 100
 ): PaverPatioCalculationResult => {
-  // Get base settings
-  const hourlyRate = config.baseSettings.laborSettings.hourlyLaborRate?.value || 25;
-  const optimalTeamSize = config.baseSettings.laborSettings.optimalTeamSize?.value || 3;
-  const baseProductivity = config.baseSettings.laborSettings.baseProductivity?.value || 100;
-  const baseMaterialCost = config.baseSettings.materialSettings.baseMaterialCost?.value || 5.84;
-  const profitMargin = config.baseSettings.businessSettings.profitMarginTarget?.value || 0.15;
+  // Get base settings with null guards
+  const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value || 25;
+  const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value || 3;
+  const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value || 100;
+  const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value || 5.84;
+  const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value || 0.15;
 
   // TIER 1: Man Hours Calculation
   const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
   let adjustedHours = baseHours;
   const breakdownSteps: string[] = [`Base Hours: ${baseHours.toFixed(1)}`];
 
-  // Apply Tier 1 variables (labor time adjustments)
-  const tearout = config.variables.excavation.tearoutComplexity?.options[values.excavation.tearoutComplexity];
+  // Apply Tier 1 variables (labor time adjustments) with null guards
+  const tearout = (config?.variables?.excavation?.tearoutComplexity as PaverPatioVariable)?.options?.[values?.excavation?.tearoutComplexity];
   if (tearout?.value) {
     const tearoutHours = adjustedHours * (tearout.value / 100);
     adjustedHours += tearoutHours;
     breakdownSteps.push(`+Tearout (${tearout.value}%): +${tearoutHours.toFixed(1)} hours`);
   }
 
-  const access = config.variables.siteAccess.accessDifficulty?.options[values.siteAccess.accessDifficulty];
+  const access = (config?.variables?.siteAccess?.accessDifficulty as PaverPatioVariable)?.options?.[values?.siteAccess?.accessDifficulty];
   if (access?.value) {
     const accessHours = adjustedHours * (access.value / 100);
     adjustedHours += accessHours;
     breakdownSteps.push(`+Access (${access.value}%): +${accessHours.toFixed(1)} hours`);
   }
 
-  const team = config.variables.labor.teamSize?.options[values.labor.teamSize];
+  const team = (config?.variables?.labor?.teamSize as PaverPatioVariable)?.options?.[values?.labor?.teamSize];
   if (team?.value) {
     const teamHours = adjustedHours * (team.value / 100);
     adjustedHours += teamHours;
@@ -123,7 +124,7 @@ const calculateExpertPricing = (
   }
 
   // Add fixed cutting hours
-  const cutting = config.variables.materials.cuttingComplexity?.options[values.materials.cuttingComplexity];
+  const cutting = (config?.variables?.materials?.cuttingComplexity as PaverPatioVariable)?.options?.[values?.materials?.cuttingComplexity];
   if (cutting?.fixedLaborHours) {
     adjustedHours += cutting.fixedLaborHours;
     breakdownSteps.push(`+Cutting: +${cutting.fixedLaborHours} hours`);
@@ -134,31 +135,31 @@ const calculateExpertPricing = (
   // TIER 2: Cost Calculation
   const laborCost = totalManHours * hourlyRate;
 
-  // Material costs with style multiplier
-  const paverStyle = config.variables.materials.paverStyle?.options[values.materials.paverStyle];
+  // Material costs with style multiplier and null guards
+  const paverStyle = (config?.variables?.materials?.paverStyle as PaverPatioVariable)?.options?.[values?.materials?.paverStyle];
   const styleMultiplier = paverStyle?.multiplier || 1.0;
   const materialCostBase = sqft * baseMaterialCost * styleMultiplier;
 
   // Material waste calculations
   const cuttingWaste = (cutting?.materialWaste || 0) / 100;
-  const patternWaste = (config.variables.materials.patternComplexity?.options[values.materials.patternComplexity]?.wastePercentage || 0) / 100;
+  const patternWaste = ((config?.variables?.materials?.patternComplexity as PaverPatioVariable)?.options?.[values?.materials?.patternComplexity]?.wastePercentage || 0) / 100;
   const materialWasteCost = materialCostBase * (cuttingWaste + patternWaste);
   const totalMaterialCost = materialCostBase + materialWasteCost;
 
   // Equipment cost (daily rate * project days)
-  const equipment = config.variables.excavation.equipmentRequired?.options[values.excavation.equipmentRequired];
+  const equipment = (config?.variables?.excavation?.equipmentRequired as PaverPatioVariable)?.options?.[values?.excavation?.equipmentRequired];
   const projectDays = totalManHours / (optimalTeamSize * 8);
   const equipmentCost = (equipment?.value || 0) * projectDays;
 
   // Obstacle flat costs
-  const obstacles = config.variables.siteAccess.obstacleRemoval?.options[values.siteAccess.obstacleRemoval];
+  const obstacles = (config?.variables?.siteAccess?.obstacleRemoval as PaverPatioVariable)?.options?.[values?.siteAccess?.obstacleRemoval];
   const obstacleCost = obstacles?.value || 0;
 
   // Calculate subtotal and apply complexity multiplier
   const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
   const profit = subtotal * profitMargin;
   const beforeComplexity = subtotal + profit;
-  const complexityMultiplier = values.complexity.overallComplexity || 1.0;
+  const complexityMultiplier = values?.complexity?.overallComplexity || 1.0;
   const total = beforeComplexity * complexityMultiplier;
 
   return {
@@ -191,7 +192,7 @@ const calculatePrice = (
   sqft: number = 100
 ): PaverPatioCalculationResult => {
   // Check if we have the new expert structure
-  if (config.calculationSystem?.type === 'two_tier') {
+  if (config?.calculationSystem?.type === 'two_tier') {
     return calculateExpertPricing(config, values, sqft);
   }
 

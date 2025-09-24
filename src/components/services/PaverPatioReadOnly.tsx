@@ -61,8 +61,8 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
     );
   }
 
-  if (!store.config) {
-    return null;
+  if (!store.config || !store.config.variables) {
+    return <div>Loading configuration...</div>;
   }
 
   const renderReadOnlySection = (
@@ -110,7 +110,7 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
         {isExpanded && (
           <div className="px-4 pb-4 space-y-4">
             {Object.entries(categoryConfig)
-              .filter(([key]) => !['label', 'description'].includes(key))
+              .filter(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null)
               .map(([variableKey, variableConfig]: [string, any]) => {
                 const currentValue = categoryValues[variableKey];
                 const selectedOption = variableConfig.options?.[currentValue];
@@ -221,13 +221,19 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Configuration Display */}
         <div className="lg:col-span-2 space-y-4">
-          {Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) =>
-            renderReadOnlySection(
+          {Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
+            // Only process if this is a complete category object with variables
+            const hasVariables = Object.entries(categoryConfig)
+              .some(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null);
+
+            if (!hasVariables) return null;
+
+            return renderReadOnlySection(
               categoryKey as keyof PaverPatioValues,
               categoryConfig,
               store.values[categoryKey as keyof PaverPatioValues]
-            )
-          )}
+            );
+          })}
         </div>
 
         {/* Pricing Calculator */}

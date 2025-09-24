@@ -96,8 +96,8 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
     );
   }
 
-  if (!store.config) {
-    return null;
+  if (!store.config || !store.config.variables) {
+    return <div>Loading configuration...</div>;
   }
 
   const renderVariableSection = (
@@ -158,7 +158,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
         {isExpanded && (
           <div className="px-4 pb-4 space-y-6">
             {Object.entries(categoryConfig)
-              .filter(([key]) => !['label', 'description'].includes(key))
+              .filter(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null)
               .map(([variableKey, variableConfig]: [string, any]) => {
                 const currentValue = categoryValues[variableKey];
                 
@@ -246,13 +246,19 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Configuration Panel */}
         <div className="lg:col-span-2 space-y-4">
-          {Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) =>
-            renderVariableSection(
+          {Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
+            // Only process if this is a complete category object with variables
+            const hasVariables = Object.entries(categoryConfig)
+              .some(([key, value]) => !['label', 'description'].includes(key) && typeof value === 'object' && value !== null);
+
+            if (!hasVariables) return null;
+
+            return renderVariableSection(
               categoryKey as keyof PaverPatioValues,
               categoryConfig,
               store.values[categoryKey as keyof PaverPatioValues]
-            )
-          )}
+            );
+          })}
         </div>
 
         {/* Pricing Preview Panel */}
