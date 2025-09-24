@@ -240,9 +240,14 @@ export const usePaverPatioStore = (): PaverPatioStore => {
       if (serviceConfigOverride) {
         try {
           const override = JSON.parse(serviceConfigOverride);
+          // Handle nested base settings structure properly
           configData = {
             ...configData,
-            baseSettings: { ...configData.baseSettings, ...override.baseSettings },
+            baseSettings: {
+              laborSettings: { ...configData.baseSettings?.laborSettings, ...override.baseSettings?.laborSettings },
+              materialSettings: { ...configData.baseSettings?.materialSettings, ...override.baseSettings?.materialSettings },
+              businessSettings: { ...configData.baseSettings?.businessSettings, ...override.baseSettings?.businessSettings }
+            },
             lastModified: override.lastModified || configData.lastModified
           };
         } catch (error) {
@@ -382,10 +387,14 @@ export const usePaverPatioStore = (): PaverPatioStore => {
         try {
           const updatedServiceConfig = JSON.parse(e.newValue);
           
-          // Update the config with new base settings
+          // Update the config with new base settings - handle nested structure
           const updatedConfig = {
             ...config,
-            baseSettings: { ...config.baseSettings, ...updatedServiceConfig.baseSettings },
+            baseSettings: {
+              laborSettings: { ...config.baseSettings?.laborSettings, ...updatedServiceConfig.baseSettings?.laborSettings },
+              materialSettings: { ...config.baseSettings?.materialSettings, ...updatedServiceConfig.baseSettings?.materialSettings },
+              businessSettings: { ...config.baseSettings?.businessSettings, ...updatedServiceConfig.baseSettings?.businessSettings }
+            },
             lastModified: updatedServiceConfig.lastModified || config.lastModified
           };
           
