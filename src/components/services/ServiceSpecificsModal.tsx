@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useServiceBaseSettings } from '../../stores/serviceBaseSettingsStore';
 
 interface ServiceSpecificsModalProps {
@@ -31,9 +32,12 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   visualConfig,
   theme,
 }) => {
+  const { user } = useAuth();
   const { getService, updateServiceVariables } = useServiceBaseSettings();
   const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials'>('equipment');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const isAdmin = user?.is_admin || false;
 
   // Equipment state
   const [equipmentCosts, setEquipmentCosts] = useState({
@@ -226,7 +230,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
           min={min}
           max={max}
           step={step}
-          className="flex-1 p-2 border rounded-lg text-sm"
+          disabled={!isAdmin}
+          className={`flex-1 p-2 border rounded-lg text-sm ${!isAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
           style={{
             backgroundColor: visualConfig.colors.surface,
             borderColor: visualConfig.colors.text.secondary + '40',
@@ -267,7 +272,9 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                 Service Configuration: {serviceName}
               </h2>
               <p className="text-sm mt-1" style={{ color: visualConfig.colors.text.secondary }}>
-                Edit detailed variables and pricing factors
+                {isAdmin
+                  ? 'Edit detailed variables and pricing factors'
+                  : 'View current variable settings (admin access required to edit)'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -628,7 +635,9 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
             style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}
           >
             <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-              Changes will be saved to service configuration
+              {isAdmin
+                ? 'Changes will be saved to service configuration'
+                : 'Read-only view - admin access required to make changes'}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -639,18 +648,20 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                   color: visualConfig.colors.text.secondary,
                 }}
               >
-                Cancel
+                {isAdmin ? 'Cancel' : 'Close'}
               </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 rounded-lg font-medium transition-colors"
-                style={{
-                  backgroundColor: visualConfig.colors.primary,
-                  color: 'white',
-                }}
-              >
-                Save Configuration
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 rounded-lg font-medium transition-colors"
+                  style={{
+                    backgroundColor: visualConfig.colors.primary,
+                    color: 'white',
+                  }}
+                >
+                  Save Configuration
+                </button>
+              )}
             </div>
           </div>
         </div>
