@@ -326,7 +326,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
       // Cast the imported JSON to our type
       let configData = paverPatioConfigJson as any;
       
-      // Check for base settings overrides from Services tab
+      // Check for base settings AND variables overrides from Services tab
       const serviceConfigOverride = localStorage.getItem('service_config_paver_patio_sqft');
       if (serviceConfigOverride) {
         try {
@@ -339,10 +339,20 @@ export const usePaverPatioStore = (): PaverPatioStore => {
               materialSettings: { ...configData.baseSettings?.materialSettings, ...override.baseSettings?.materialSettings },
               businessSettings: { ...configData.baseSettings?.businessSettings, ...override.baseSettings?.businessSettings }
             },
+            // Also apply variables overrides (equipment costs, cutting complexity, etc.)
+            variables: {
+              ...configData.variables,
+              ...(override.variables || {})
+            },
             lastModified: override.lastModified || configData.lastModified
           };
+          console.log('🔧 Applied service config overrides:', {
+            baseSettings: !!override.baseSettings,
+            variables: !!override.variables,
+            lastModified: override.lastModified
+          });
         } catch (error) {
-          console.warn('Failed to apply base settings override:', error);
+          console.warn('Failed to apply service config override:', error);
         }
       }
       
@@ -506,14 +516,14 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     loadConfig();
   }, [loadConfig]);
 
-  // Listen for base settings changes from Services tab
+  // Listen for service configuration changes from Services tab (base settings AND variables)
   useEffect(() => {
-    const handleBaseSettingsChange = (e: StorageEvent) => {
+    const handleServiceConfigChange = (e: StorageEvent) => {
       if (e.key === 'service_config_paver_patio_sqft' && e.newValue && config) {
         try {
           const updatedServiceConfig = JSON.parse(e.newValue);
-          
-          // Update the config with new base settings - handle nested structure
+
+          // Update the config with new base settings AND variables
           const updatedConfig = {
             ...config,
             baseSettings: {
@@ -521,10 +531,21 @@ export const usePaverPatioStore = (): PaverPatioStore => {
               materialSettings: { ...config.baseSettings?.materialSettings, ...updatedServiceConfig.baseSettings?.materialSettings },
               businessSettings: { ...config.baseSettings?.businessSettings, ...updatedServiceConfig.baseSettings?.businessSettings }
             },
+            // Also update variables (equipment costs, cutting complexity, etc.)
+            variables: {
+              ...config.variables,
+              ...(updatedServiceConfig.variables || {})
+            },
             lastModified: updatedServiceConfig.lastModified || config.lastModified
           };
-          
+
           setConfig(updatedConfig);
+
+          console.log('🔄 Paver patio store updated from service config changes:', {
+            baseSettings: !!updatedServiceConfig.baseSettings,
+            variables: !!updatedServiceConfig.variables,
+            equipmentCosts: updatedServiceConfig.variables?.excavation?.equipmentRequired?.options
+          });
           
           // Recalculate price with new base settings
           const calculation = calculatePrice(updatedConfig, values);
@@ -537,8 +558,8 @@ export const usePaverPatioStore = (): PaverPatioStore => {
       }
     };
 
-    window.addEventListener('storage', handleBaseSettingsChange);
-    return () => window.removeEventListener('storage', handleBaseSettingsChange);
+    window.addEventListener('storage', handleServiceConfigChange);
+    return () => window.removeEventListener('storage', handleServiceConfigChange);
   }, [config, values]);
 
   return {
