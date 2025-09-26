@@ -18,10 +18,16 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const visualConfig = getSmartVisualThemeConfig(theme);
   const store = usePaverPatioStore();
 
-  // Reset to defaults every time the Quick Calculator opens
+  // Reset to defaults every time the Quick Calculator opens or closes
   useEffect(() => {
-    if (isOpen && store.resetToDefaults100) {
-      store.resetToDefaults100();
+    if (store.resetToDefaults100) {
+      if (isOpen) {
+        // Reset when opening
+        store.resetToDefaults100();
+      } else {
+        // Also reset when closing to ensure clean state for next open
+        store.resetToDefaults100();
+      }
     }
   }, [isOpen, store.resetToDefaults100]);
 
@@ -32,13 +38,25 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
       {/* Background Overlay */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50 animate-overlay-fade-in"
-        onClick={onClose}
+        onClick={() => {
+          // Reset to defaults when closing via overlay click
+          if (store.resetToDefaults100) {
+            store.resetToDefaults100();
+          }
+          onClose();
+        }}
       />
 
       {/* Modal Container */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={onClose}
+        onClick={() => {
+          // Reset to defaults when closing via background click
+          if (store.resetToDefaults100) {
+            store.resetToDefaults100();
+          }
+          onClose();
+        }}
       >
         <div
           className="w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
@@ -52,7 +70,13 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
               Quick Calculator
             </h2>
             <button
-              onClick={onClose}
+              onClick={() => {
+                // Reset to defaults when closing via X button
+                if (store.resetToDefaults100) {
+                  store.resetToDefaults100();
+                }
+                onClose();
+              }}
               className="p-1 rounded-lg hover:bg-opacity-20 transition-colors"
               style={{ color: visualConfig.colors.text.secondary }}
             >

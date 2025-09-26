@@ -46,6 +46,17 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
   };
 };
 
+// Get true baseline values (results in exactly 24 hours for 100 sqft)
+const getTrueBaselineValues = (): PaverPatioValues => {
+  return {
+    excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
+    siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
+    materials: { paverStyle: 'economy', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+    labor: { teamSize: 'threePlus' },
+    complexity: { overallComplexity: 1.0 }
+  };
+};
+
 // Load values from localStorage - Expert system compatible
 const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
   try {
@@ -407,13 +418,22 @@ export const usePaverPatioStore = (): PaverPatioStore => {
   const resetToDefaults100 = useCallback(() => {
     if (!config) return;
 
-    const defaultValues = getDefaultValues(config);
-    setValues(defaultValues);
-    saveStoredValues(defaultValues);
+    // Use true baseline values that result in exactly 24 hours for 100 sqft
+    const baselineValues = getTrueBaselineValues();
+    setValues(baselineValues);
+    saveStoredValues(baselineValues);
 
-    // Calculate with exactly 100 sqft
-    const calculation = calculatePrice(config, defaultValues, 100);
+    // Calculate with exactly 100 sqft using baseline values
+    const calculation = calculatePrice(config, baselineValues, 100);
     setLastCalculation(calculation);
+
+    console.log('🔄 Quick Calculator reset to true baseline:', {
+      teamSize: baselineValues.labor.teamSize,
+      accessDifficulty: baselineValues.siteAccess.accessDifficulty,
+      obstacleRemoval: baselineValues.siteAccess.obstacleRemoval,
+      cuttingComplexity: baselineValues.materials.cuttingComplexity,
+      expectedHours: '24.0 hours for 100 sqft'
+    });
   }, [config]);
 
   // Reset a specific category

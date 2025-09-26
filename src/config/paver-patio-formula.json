@@ -100,7 +100,7 @@
       "accessDifficulty": {
         "label": "Access Difficulty",
         "type": "select",
-        "default": "moderate",
+        "default": "easy",
         "calculationTier": 1,
         "effectType": "labor_time_percentage",
         "options": {
@@ -112,7 +112,7 @@
       "obstacleRemoval": {
         "label": "Obstacle Removal",
         "type": "select",
-        "default": "minor",
+        "default": "none",
         "calculationTier": 2,
         "effectType": "flat_additional_cost",
         "options": {
@@ -138,7 +138,7 @@
       "cuttingComplexity": {
         "label": "Cutting Complexity",
         "type": "select",
-        "default": "moderate",
+        "default": "minimal",
         "calculationTier": "both",
         "effectType": "cutting_complexity",
         "options": {
@@ -165,7 +165,7 @@
       "teamSize": {
         "label": "Team Size",
         "type": "select",
-        "default": "twoPerson",
+        "default": "threePlus",
         "calculationTier": 1,
         "effectType": "labor_time_percentage",
         "options": {
