@@ -136,7 +136,7 @@ export class MessageStorageService {
       }
       
       // Clean problematic characters
-      cleanedResponse = cleanedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      cleanedResponse = cleanedResponse.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
       
       // ✅ FIXED: Simplified message data matching existing DB schema
       const messageData = {
@@ -155,7 +155,7 @@ export class MessageStorageService {
       console.log('  Our structure keys:', Object.keys(messageData));
       console.log('  Schema match:', Object.keys(messageData).length === 6 && 
         ['session_id', 'message_text', 'sender', 'tech_id', 'created_at', 'message_source']
-        .every(field => messageData.hasOwnProperty(field)));
+        .every(field => Object.prototype.hasOwnProperty.call(messageData, field)));
 
       console.log('🗄️ DATA TO WRITE:', { 
         sessionId: messageData.session_id, 
@@ -250,8 +250,8 @@ export class MessageStorageService {
       }
       
       // Clean problematic characters
-      cleanedUserInput = cleanedUserInput.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-      cleanedAiResponse = cleanedAiResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      cleanedUserInput = cleanedUserInput.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+      cleanedAiResponse = cleanedAiResponse.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
       
       // 🏢 PHASE 2: VC Usage record with customer fields + analytics
       const vcUsageData = {

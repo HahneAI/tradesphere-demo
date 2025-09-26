@@ -1,0 +1,189 @@
+{
+  "service": "Paver Patio (SQFT)",
+  "serviceId": "paver_patio_sqft",
+  "category": "Hardscaping",
+  "version": "2.0.0",
+  "lastModified": "2025-09-24",
+  "modifiedBy": "industry_expert_tom",
+  "description": "Expert-validated paver patio pricing with two-tier calculation system",
+
+  "baseSettings": {
+    "laborSettings": {
+      "hourlyLaborRate": {
+        "value": 25,
+        "unit": "$/hour/person",
+        "label": "Labor Price Per Hour (Per Person)",
+        "description": "Dollar charge per 1 person per 1 hour of work",
+        "adminEditable": true,
+        "validation": { "min": 15, "max": 50, "step": 1 }
+      },
+      "optimalTeamSize": {
+        "value": 3,
+        "unit": "people",
+        "label": "Optimal Team Size",
+        "description": "Most efficient crew size for productivity",
+        "adminEditable": true,
+        "validation": { "min": 2, "max": 5, "step": 1 }
+      },
+      "baseProductivity": {
+        "value": 100,
+        "unit": "sqft/day",
+        "label": "Base Productivity Rate",
+        "description": "Square feet completed per day by optimal team",
+        "adminEditable": true,
+        "validation": { "min": 50, "max": 200, "step": 10 }
+      }
+    },
+    "materialSettings": {
+      "baseMaterialCost": {
+        "value": 5.84,
+        "unit": "$/sqft",
+        "label": "Base Material Cost",
+        "description": "Standard material package cost per square foot",
+        "adminEditable": true,
+        "validation": { "min": 3.00, "max": 12.00, "step": 0.25 }
+      }
+    },
+    "businessSettings": {
+      "profitMarginTarget": {
+        "value": 0.15,
+        "unit": "percentage",
+        "label": "Profit Margin Target",
+        "description": "Target profit margin percentage",
+        "adminEditable": true,
+        "validation": { "min": 0.10, "max": 0.40, "step": 0.05 }
+      }
+    }
+  },
+
+  "calculationSystem": {
+    "type": "two_tier",
+    "description": "Tier 1: Calculate man hours, Tier 2: Calculate costs",
+    "tier1": "man_hours_calculation",
+    "tier2": "cost_calculation"
+  },
+
+  "variables": {
+    "excavation": {
+      "label": "Excavation & Site Preparation",
+      "description": "Variables affecting excavation and site preparation",
+
+      "tearoutComplexity": {
+        "label": "Tearout Complexity",
+        "description": "Multiplier based on what needs to be removed",
+        "type": "select",
+        "default": "grass",
+        "calculationTier": 1,
+        "effectType": "labor_time_percentage",
+        "options": {
+          "grass": { "label": "Grass/Sod Only", "value": 0, "multiplier": 1.0 },
+          "concrete": { "label": "Concrete/Pavement", "value": 20, "multiplier": 1.2 },
+          "asphalt": { "label": "Heavy Asphalt", "value": 30, "multiplier": 1.3 }
+        }
+      },
+      "equipmentRequired": {
+        "label": "Equipment Required",
+        "type": "select",
+        "default": "handTools",
+        "calculationTier": 2,
+        "effectType": "daily_equipment_cost",
+        "options": {
+          "handTools": { "label": "Hand Tools Only", "value": 0 },
+          "attachments": { "label": "Attachments/Jackhammers", "value": 125 },
+          "lightMachinery": { "label": "Light Machinery", "value": 250 },
+          "heavyMachinery": { "label": "Heavy Machinery", "value": 350 }
+        }
+      }
+    },
+    "siteAccess": {
+      "label": "Site Access & Obstacles",
+      "accessDifficulty": {
+        "label": "Access Difficulty",
+        "type": "select",
+        "default": "easy",
+        "calculationTier": 1,
+        "effectType": "labor_time_percentage",
+        "options": {
+          "easy": { "label": "Easy Access", "value": 0, "multiplier": 1.0 },
+          "moderate": { "label": "Moderate Access", "value": 50, "multiplier": 1.5 },
+          "difficult": { "label": "Difficult Access", "value": 100, "multiplier": 2.0 }
+        }
+      },
+      "obstacleRemoval": {
+        "label": "Obstacle Removal",
+        "type": "select",
+        "default": "none",
+        "calculationTier": 2,
+        "effectType": "flat_additional_cost",
+        "options": {
+          "none": { "label": "No Obstacles", "value": 0 },
+          "minor": { "label": "Minor Obstacles", "value": 500 },
+          "major": { "label": "Major Obstacles", "value": 1000 }
+        }
+      }
+    },
+    "materials": {
+      "label": "Materials & Complexity",
+      "paverStyle": {
+        "label": "Paver Style & Quality",
+        "type": "select",
+        "default": "economy",
+        "calculationTier": 2,
+        "effectType": "material_cost_multiplier",
+        "options": {
+          "economy": { "label": "Economy Grade", "value": 0, "multiplier": 1.0 },
+          "premium": { "label": "Premium", "value": 30, "multiplier": 1.3 }
+        }
+      },
+      "cuttingComplexity": {
+        "label": "Cutting Complexity",
+        "type": "select",
+        "default": "minimal",
+        "calculationTier": "both",
+        "effectType": "cutting_complexity",
+        "options": {
+          "minimal": { "label": "Minimal Cutting", "laborMultiplier": 1.0, "materialWaste": 0, "fixedLaborHours": 0 },
+          "moderate": { "label": "Moderate Cutting", "laborMultiplier": 2.0, "materialWaste": 15, "fixedLaborHours": 6 },
+          "complex": { "label": "Complex Cutting", "laborMultiplier": 2.5, "materialWaste": 25, "fixedLaborHours": 12 }
+        }
+      },
+      "patternComplexity": {
+        "label": "Pattern Complexity",
+        "type": "select",
+        "default": "minimal",
+        "calculationTier": 2,
+        "effectType": "material_waste_percentage",
+        "options": {
+          "minimal": { "label": "Minimal Pattern Work", "wastePercentage": 0 },
+          "some": { "label": "Some Pattern Complexity", "wastePercentage": 15 },
+          "extensive": { "label": "Extensive Pattern Work", "wastePercentage": 25 }
+        }
+      }
+    },
+    "labor": {
+      "label": "Labor Configuration",
+      "teamSize": {
+        "label": "Team Size",
+        "type": "select",
+        "default": "threePlus",
+        "calculationTier": 1,
+        "effectType": "labor_time_percentage",
+        "options": {
+          "twoPerson": { "label": "Two Person Team", "value": 40, "multiplier": 1.4 },
+          "threePlus": { "label": "Three+ Person Team", "value": 0, "multiplier": 1.0 }
+        }
+      }
+    },
+    "complexity": {
+      "label": "Project Complexity",
+      "overallComplexity": {
+        "label": "Overall Complexity",
+        "type": "slider",
+        "default": 1.0,
+        "calculationTier": 2,
+        "effectType": "total_project_multiplier",
+        "validation": { "min": 0.9, "max": 1.5, "step": 0.1 }
+      }
+    }
+  }
+}

@@ -339,7 +339,7 @@ export class GoogleSheetsClient {
         const laborHours = parseFloat(values[2]) || 0; // Column C is index 2 (A=0, B=1, C=2, D=3)
         // Parse cost string by removing $ and commas
         const costString = (values[3] || '').toString();
-        const cost = parseFloat(costString.replace(/[\$,]/g, '')) || 0;
+        const cost = parseFloat(costString.replace(/[$,]/g, '')) || 0;
         
         console.log(`  - Column A (Service Name): "${values[0]}" -> "${serviceName}"`);
         console.log(`  - Column C (Labor Hours): "${values[2]}" -> ${laborHours}`);
@@ -394,7 +394,7 @@ export class GoogleSheetsClient {
       const totalLaborHours = parseFloat(values[0]) || 0;
       // Parse cost string by removing $ and commas
       const totalCostString = (values[1] || '').toString();
-      const totalCost = parseFloat(totalCostString.replace(/[\$,]/g, '')) || 0;
+      const totalCost = parseFloat(totalCostString.replace(/[$,]/g, '')) || 0;
       
       console.log(`🔍 DEBUG: Parsed totals - Hours: "${values[0]}" -> ${totalLaborHours}, Cost: "${values[1]}" -> ${totalCost} (cleaned from "${totalCostString}")`);
 

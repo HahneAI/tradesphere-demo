@@ -27,6 +27,9 @@ import { Message } from '../types/message';
 import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
+import { ServicesTab } from './ServicesTab';
+import { ServicesPage } from './ServicesPage';
+import { QuickCalculatorTab } from './QuickCalculatorTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -246,6 +249,10 @@ const ChatInterface = () => {
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
 
   const [showNotesPopup, setShowNotesPopup] = useState(false);
+  const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
+
+  // Full-page navigation system
+  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers'>('chat');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -297,10 +304,12 @@ const ChatInterface = () => {
   
   const sessionIdRef = useRef<string>(generateSessionId());
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastPollTimeRef = useRef<Date>(new Date());
   const sendButtonRef = useRef<HTMLButtonElement>(null);
   const refreshButtonRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const savedScrollPosition = useRef<number>(0);
 
   // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
   const welcomeMessage = EnvironmentManager.getWelcomeMessage();
@@ -866,9 +875,31 @@ const ChatInterface = () => {
     };
   }, []); // Simplified dependency array
 
-  // ORIGINAL: Auto-scroll functionality
+  // IMPROVED: Smart auto-scroll functionality
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only auto-scroll if user is near the bottom or if it's a new message (not loading history)
+    if (messagesContainerRef.current && messagesEndRef.current) {
+      const container = messagesContainerRef.current;
+      const scrollPosition = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+
+      // Check if user is near the bottom (within 100px)
+      const isNearBottom = scrollPosition + clientHeight >= scrollHeight - 100;
+
+      // Check if this is likely loading previous messages (user scrolled up significantly)
+      const isLoadingHistory = savedScrollPosition.current > 0 && scrollPosition < savedScrollPosition.current;
+
+      // Only auto-scroll if user is near bottom and not loading history
+      if (isNearBottom && !isLoadingHistory) {
+        messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }
+
+      // Reset saved scroll position after use
+      if (savedScrollPosition.current > 0) {
+        savedScrollPosition.current = 0;
+      }
+    }
   }, [messages]);
 
   // ORIGINAL: User context initialization
@@ -1652,10 +1683,22 @@ const ChatInterface = () => {
             interactionNumber: msg.interactionNumber || 0
           }));
 
+        // Save current scroll position before adding messages
+        if (messagesContainerRef.current) {
+          savedScrollPosition.current = messagesContainerRef.current.scrollTop;
+        }
+
         setMessages((prev) => [
           ...previousMessages,
           ...prev.filter(m => !m.isPreviousSession) // Keep current session messages
         ]);
+
+        // Restore scroll position after a brief delay to allow DOM updates
+        setTimeout(() => {
+          if (messagesContainerRef.current && savedScrollPosition.current > 0) {
+            messagesContainerRef.current.scrollTop = savedScrollPosition.current;
+          }
+        }, 100);
 
         console.log('✅ Conversation history populated:', previousMessages.length, 'messages');
       }
@@ -1764,7 +1807,9 @@ const ChatInterface = () => {
         onFeedbackClick={() => setShowFeedbackPopup(true)}
         onNotesClick={() => setShowNotesPopup(true)}
         onAvatarClick={() => setShowAvatarPopup(true)}
-        onCustomersClick={() => setShowCustomersPopup(true)}
+        onCustomersClick={() => setCurrentPage('customers')}
+        onServicesClick={() => setCurrentPage('services')}
+        onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
@@ -1798,6 +1843,22 @@ const ChatInterface = () => {
                   <h1 className="text-xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
                     {coreConfig.companyName}
                   </h1>
+                  {currentPage !== 'chat' && (
+                    <div className="flex items-center space-x-2 text-sm mt-1">
+                      <button
+                        onClick={() => setCurrentPage('chat')}
+                        className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
+                        style={{ color: visualConfig.colors.text.secondary }}
+                      >
+                        <Icons.Home className="h-4 w-4" />
+                        <span>Dashboard</span>
+                      </button>
+                      <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
+                      <span style={{ color: visualConfig.colors.text.primary }} className="capitalize">
+                        {currentPage}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2216,8 +2277,25 @@ const ChatInterface = () => {
         </div>
       </header>
 
-      {/* ORIGINAL: Main Chat Area - exact same structure */}
-      <main className="flex-1 flex flex-col overflow-hidden p-4">
+      {/* Page Content - Conditional rendering based on currentPage */}
+      {currentPage === 'services' && (
+        <ServicesPage />
+      )}
+
+      {currentPage === 'customers' && (
+        <div className="flex-1 p-4">
+          <CustomersTab
+            isOpen={true}
+            onClose={() => setCurrentPage('chat')}
+            onLoadCustomer={handleLoadCustomer}
+          />
+        </div>
+      )}
+
+      {currentPage === 'chat' && (
+        <>
+          {/* ORIGINAL: Main Chat Area - exact same structure */}
+          <main className="flex-1 flex flex-col overflow-hidden p-4">
         <div
           className="flex-1 rounded-2xl shadow-lg flex flex-col overflow-hidden min-h-0 transition-all duration-300"
           style={{
@@ -2226,21 +2304,16 @@ const ChatInterface = () => {
           }}
         >
           {/* 🔄 DUAL TESTING: Enhanced Messages Area with dual response support */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-            {/* Customer Loading Screen */}
+          <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+            {/* Customer Loading Screen - Fixed positioning to not block scroll */}
             {isLoadingCustomer && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-lg">
-                <div className="bg-white p-6 rounded-lg shadow-xl flex flex-col items-center space-y-4"
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+                <div className="bg-white p-4 rounded-lg shadow-xl flex items-center space-x-3 pointer-events-auto"
                      style={{ backgroundColor: visualConfig.colors.surface }}>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2"
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2"
                        style={{ borderColor: visualConfig.colors.primary }}></div>
-                  <div className="text-center">
-                    <div className="font-medium mb-1" style={{ color: visualConfig.colors.text.primary }}>
-                      Loading Customer
-                    </div>
-                    <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-                      {loadingCustomerName && `Loading conversation with ${loadingCustomerName}...`}
-                    </div>
+                  <div className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                    {loadingCustomerName ? `Loading ${loadingCustomerName}...` : 'Loading Customer...'}
                   </div>
                 </div>
               </div>
@@ -2422,6 +2495,9 @@ const ChatInterface = () => {
           </div>
         </div>
       </main>
+        </>
+      )}
+
       {/* ADD NOTESPOPUP HERE */}
       <NotesPopup
         isOpen={showNotesPopup}
@@ -2430,11 +2506,11 @@ const ChatInterface = () => {
         userName={user?.first_name || 'Anonymous'}
       />
 
-      {/* Customers Popup */}
-      <CustomersTab
-        isOpen={showCustomersPopup}
-        onClose={() => setShowCustomersPopup(false)}
-        onLoadCustomer={handleLoadCustomer}
+
+      {/* Quick Calculator Popup */}
+      <QuickCalculatorTab
+        isOpen={showQuickCalculatorPopup}
+        onClose={() => setShowQuickCalculatorPopup(false)}
       />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
