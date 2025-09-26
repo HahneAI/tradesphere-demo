@@ -344,7 +344,6 @@ export const ServicesPage: React.FC = () => {
                       borderColor: visualConfig.colors.primary,
                       color: visualConfig.colors.primary
                     }}
-                    disabled={!isAdmin}
                   >
                     <Icons.Settings className="h-4 w-4" />
                     Open Specifics
