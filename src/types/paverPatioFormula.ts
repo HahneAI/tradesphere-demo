@@ -92,6 +92,7 @@ export interface PaverPatioCalculationResult {
     baseHours: number;
     adjustedHours: number;
     totalManHours: number;
+    totalDays: number;
     breakdown: string[];
   };
   tier2Results: {

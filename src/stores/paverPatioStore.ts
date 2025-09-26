@@ -202,11 +202,15 @@ const calculateExpertPricing = (
   const complexityMultiplier = values?.complexity?.overallComplexity || 1.0;
   const total = beforeComplexity * complexityMultiplier;
 
+  // Calculate total days (8-hour workdays) at the end of Tier 1
+  const totalDays = Math.round(((totalManHours ?? 0) / 8) * 10) / 10;
+
   return {
     tier1Results: {
       baseHours: baseHours ?? 0,
       adjustedHours: adjustedHours ?? 0,
       totalManHours: totalManHours ?? 0,
+      totalDays: totalDays,
       breakdown: breakdownSteps
     },
     tier2Results: {
@@ -239,6 +243,7 @@ const calculatePrice = (
         baseHours: 0,
         adjustedHours: 0,
         totalManHours: 0,
+        totalDays: 0,
         breakdown: ['Error: Configuration missing']
       },
       tier2Results: {
@@ -286,11 +291,15 @@ const calculatePrice = (
   const materialCostBase = multipliedPrice * sqft * 0.4;
   const profit = subtotal * 0.15;
 
+  // Calculate total days (8-hour workdays) for legacy calculation
+  const totalDaysLegacy = Math.round(((adjustedHours ?? 0) / 8) * 10) / 10;
+
   return {
     tier1Results: {
       baseHours: baseHours ?? 0,
       adjustedHours: adjustedHours ?? 0,
       totalManHours: adjustedHours ?? 0,
+      totalDays: totalDaysLegacy,
       breakdown: ['Legacy calculation - hours estimated']
     },
     tier2Results: {

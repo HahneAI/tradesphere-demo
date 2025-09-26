@@ -41,6 +41,7 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
   const getObstacleCost = () => calculation?.tier2Results?.obstacleCost ?? 0;
   const getProfit = () => calculation?.tier2Results?.profit ?? 0;
   const getTotalHours = () => calculation?.tier1Results?.totalManHours ?? 0;
+  const getTotalDays = () => calculation?.tier1Results?.totalDays ?? 0;
 
   if (!calculation) {
     return (
@@ -123,6 +124,9 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
         <div className="text-xs mt-1" style={{ color: visualConfig.colors.text.secondary }}>
           {getTotalHours().toFixed(1)} total hours
         </div>
+        <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+          {getTotalDays().toFixed(1)} business days
+        </div>
       </div>
 
       {/* Quick Size Presets */}
@@ -191,6 +195,11 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
               <span style={{ color: visualConfig.colors.text.primary }}>
                 {getTotalHours().toFixed(1)}h
               </span>
+            </div>
+            <div className="flex justify-between text-xs"
+                 style={{ color: visualConfig.colors.text.secondary }}>
+              <span>Business Days:</span>
+              <span>{getTotalDays().toFixed(1)} days</span>
             </div>
           </div>
 
