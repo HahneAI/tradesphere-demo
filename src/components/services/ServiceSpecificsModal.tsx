@@ -12,17 +12,58 @@ interface ServiceSpecificsModalProps {
   theme: string;
 }
 
-interface EquipmentOption {
+// Define NumberInput as a separate component to prevent re-creation and focus loss
+interface NumberInputProps {
   label: string;
   value: number;
+  onChange: (value: number) => void;
+  unit?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  isAdmin: boolean;
+  visualConfig: any;
 }
 
-interface CuttingComplexityOption {
-  label: string;
-  laborMultiplier: number;
-  materialWaste: number;
-  fixedLaborHours: number;
-}
+const NumberInput: React.FC<NumberInputProps> = ({
+  label,
+  value,
+  onChange,
+  unit = '',
+  min = 0,
+  max = 1000,
+  step = 1,
+  isAdmin,
+  visualConfig
+}) => (
+  <div className="space-y-1">
+    <label className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
+      {label}
+    </label>
+    <div className="flex items-center space-x-2">
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        min={min}
+        max={max}
+        step={step}
+        disabled={!isAdmin}
+        className={`flex-1 p-2 border rounded-lg text-sm ${!isAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+        style={{
+          backgroundColor: visualConfig.colors.surface,
+          borderColor: visualConfig.colors.text.secondary + '40',
+          color: visualConfig.colors.text.primary,
+        }}
+      />
+      {unit && (
+        <span className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+          {unit}
+        </span>
+      )}
+    </div>
+  </div>
+);
 
 export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   isOpen,
@@ -201,52 +242,6 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     { key: 'materials' as const, label: 'Material Settings', icon: Icons.Package },
   ];
 
-  const NumberInput = ({
-    label,
-    value,
-    onChange,
-    unit = '',
-    min = 0,
-    max = 1000,
-    step = 1
-  }: {
-    label: string;
-    value: number;
-    onChange: (value: number) => void;
-    unit?: string;
-    min?: number;
-    max?: number;
-    step?: number;
-  }) => (
-    <div className="space-y-1">
-      <label className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
-        {label}
-      </label>
-      <div className="flex items-center space-x-2">
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-          min={min}
-          max={max}
-          step={step}
-          disabled={!isAdmin}
-          className={`flex-1 p-2 border rounded-lg text-sm ${!isAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-          style={{
-            backgroundColor: visualConfig.colors.surface,
-            borderColor: visualConfig.colors.text.secondary + '40',
-            color: visualConfig.colors.text.primary,
-          }}
-        />
-        {unit && (
-          <span className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-            {unit}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <>
       {/* Background Overlay */}
@@ -333,6 +328,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
 
                 <div className="grid grid-cols-2 gap-6">
                   <NumberInput
+                    key="handTools"
                     label="Hand Tools Only"
                     value={equipmentCosts.handTools}
                     onChange={(value) => updateEquipmentCost('handTools', value)}
@@ -340,8 +336,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     min={0}
                     max={100}
                     step={5}
+                    isAdmin={isAdmin}
+                    visualConfig={visualConfig}
                   />
                   <NumberInput
+                    key="attachments"
                     label="Attachments/Jackhammers"
                     value={equipmentCosts.attachments}
                     onChange={(value) => updateEquipmentCost('attachments', value)}
@@ -349,8 +348,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     min={0}
                     max={500}
                     step={25}
+                    isAdmin={isAdmin}
+                    visualConfig={visualConfig}
                   />
                   <NumberInput
+                    key="lightMachinery"
                     label="Light Machinery"
                     value={equipmentCosts.lightMachinery}
                     onChange={(value) => updateEquipmentCost('lightMachinery', value)}
@@ -358,8 +360,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     min={0}
                     max={1000}
                     step={25}
+                    isAdmin={isAdmin}
+                    visualConfig={visualConfig}
                   />
                   <NumberInput
+                    key="heavyMachinery"
                     label="Heavy Machinery"
                     value={equipmentCosts.heavyMachinery}
                     onChange={(value) => updateEquipmentCost('heavyMachinery', value)}
@@ -367,6 +372,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     min={0}
                     max={1000}
                     step={25}
+                    isAdmin={isAdmin}
+                    visualConfig={visualConfig}
                   />
                 </div>
               </div>
@@ -395,6 +402,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                       </h4>
                       <div className="grid grid-cols-2 gap-4">
                         <NumberInput
+                          key={`${level}-fixedLaborHours`}
                           label="Fixed Labor Hours"
                           value={cuttingComplexity[level].fixedLaborHours}
                           onChange={(value) => updateCuttingComplexity(level, 'fixedLaborHours', value)}
@@ -402,8 +410,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                           min={0}
                           max={24}
                           step={1}
+                          isAdmin={isAdmin}
+                          visualConfig={visualConfig}
                         />
                         <NumberInput
+                          key={`${level}-materialWaste`}
                           label="Material Waste"
                           value={cuttingComplexity[level].materialWaste}
                           onChange={(value) => updateCuttingComplexity(level, 'materialWaste', value)}
@@ -411,6 +422,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                           min={0}
                           max={50}
                           step={5}
+                          isAdmin={isAdmin}
+                          visualConfig={visualConfig}
                         />
                       </div>
                     </div>
@@ -442,6 +455,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     </h4>
                     <div className="grid grid-cols-3 gap-4">
                       <NumberInput
+                        key="tearoutGrass"
                         label="Grass/Sod Only"
                         value={laborMultipliers.tearoutGrass}
                         onChange={(value) => updateLaborMultiplier('tearoutGrass', value)}
@@ -449,8 +463,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="tearoutConcrete"
                         label="Concrete/Pavement"
                         value={laborMultipliers.tearoutConcrete}
                         onChange={(value) => updateLaborMultiplier('tearoutConcrete', value)}
@@ -458,8 +475,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="tearoutAsphalt"
                         label="Heavy Asphalt"
                         value={laborMultipliers.tearoutAsphalt}
                         onChange={(value) => updateLaborMultiplier('tearoutAsphalt', value)}
@@ -467,6 +487,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                     </div>
                   </div>
@@ -481,6 +503,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     </h4>
                     <div className="grid grid-cols-3 gap-4">
                       <NumberInput
+                        key="accessEasy"
                         label="Easy Access"
                         value={laborMultipliers.accessEasy}
                         onChange={(value) => updateLaborMultiplier('accessEasy', value)}
@@ -488,8 +511,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={200}
                         step={10}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="accessModerate"
                         label="Moderate Access"
                         value={laborMultipliers.accessModerate}
                         onChange={(value) => updateLaborMultiplier('accessModerate', value)}
@@ -497,8 +523,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={200}
                         step={10}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="accessDifficult"
                         label="Difficult Access"
                         value={laborMultipliers.accessDifficult}
                         onChange={(value) => updateLaborMultiplier('accessDifficult', value)}
@@ -506,6 +535,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={200}
                         step={10}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                     </div>
                   </div>
@@ -520,6 +551,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       <NumberInput
+                        key="teamTwoPerson"
                         label="Two Person Team"
                         value={laborMultipliers.teamTwoPerson}
                         onChange={(value) => updateLaborMultiplier('teamTwoPerson', value)}
@@ -527,8 +559,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="teamThreePlus"
                         label="Three+ Person Team"
                         value={laborMultipliers.teamThreePlus}
                         onChange={(value) => updateLaborMultiplier('teamThreePlus', value)}
@@ -536,6 +571,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                     </div>
                   </div>
@@ -566,6 +603,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       <NumberInput
+                        key="economyGrade"
                         label="Economy Grade"
                         value={materialSettings.economyGrade}
                         onChange={(value) => updateMaterialSetting('economyGrade', value)}
@@ -573,8 +611,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="premiumGrade"
                         label="Premium Grade"
                         value={materialSettings.premiumGrade}
                         onChange={(value) => updateMaterialSetting('premiumGrade', value)}
@@ -582,6 +623,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={100}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                     </div>
                   </div>
@@ -596,6 +639,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     </h4>
                     <div className="grid grid-cols-3 gap-4">
                       <NumberInput
+                        key="patternMinimal"
                         label="Minimal Pattern Work"
                         value={materialSettings.patternMinimal}
                         onChange={(value) => updateMaterialSetting('patternMinimal', value)}
@@ -603,8 +647,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={50}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="patternSome"
                         label="Some Pattern Complexity"
                         value={materialSettings.patternSome}
                         onChange={(value) => updateMaterialSetting('patternSome', value)}
@@ -612,8 +659,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={50}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                       <NumberInput
+                        key="patternExtensive"
                         label="Extensive Pattern Work"
                         value={materialSettings.patternExtensive}
                         onChange={(value) => updateMaterialSetting('patternExtensive', value)}
@@ -621,6 +671,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         min={0}
                         max={50}
                         step={5}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
                       />
                     </div>
                   </div>
