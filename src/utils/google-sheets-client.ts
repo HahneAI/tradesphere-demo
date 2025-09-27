@@ -531,8 +531,8 @@ export class GoogleSheetsClient {
  * Factory function for creating Google Sheets client instances
  */
 export const createSheetsClient = (spreadsheetId?: string): GoogleSheetsClient => {
-  const sheetId = spreadsheetId || 
-    import.meta.env?.VITE_GOOGLE_SHEETS_SHEET_ID || 
+  const sheetId = spreadsheetId ||
+    // import.meta.env?.VITE_GOOGLE_SHEETS_SHEET_ID || // DISABLED - causing ESM/CJS conflicts
     process.env.VITE_GOOGLE_SHEETS_SHEET_ID ||
     process.env.GOOGLE_SHEETS_SHEET_ID;
   

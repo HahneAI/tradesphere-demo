@@ -1,14 +1,25 @@
 /**
- * PricingCalculatorService - Google Sheets integration for pricing calculations
- * 
- * Replicates Make.com's pricing_calculation module with direct Google Sheets API calls
- * Handles single and multi-service quotes with project totals
+ * PricingCalculatorService - Master Formula Internal Calculation System
+ *
+ * COMPLETE GOOGLE SHEETS ELIMINATION: All calculations now use internal master formula
+ * Advanced AI-enhanced pricing with sophisticated variable analysis
+ * Zero external dependencies - fully self-contained pricing engine
  */
 
-import { GoogleSheetsClient, createSheetsClient, SheetCalculationResult, ProjectTotal } from '../../utils/google-sheets-client';
 import { ExtractedService } from './ParameterCollectorService';
-import { calculateExpertPricing, loadPaverPatioConfig } from '../../stores/paverPatioStore';
+import { calculateExpertPricing, loadPaverPatioConfig } from '../../utils/server-calculations';
 import type { PaverPatioValues, PaverPatioCalculationResult } from '../../types/paverPatioFormula';
+
+// Internal project total interface (replaces Google Sheets ProjectTotal)
+export interface ProjectTotal {
+  totalCost: number;
+  totalLaborHours: number;
+  totalMaterialCost: number;
+  totalLaborCost: number;
+  totalProfit: number;
+  complexity: number;
+  confidence: number;
+}
 
 export interface PricingResult {
   services: ServiceQuote[];
@@ -31,35 +42,28 @@ export interface ServiceQuote {
 }
 
 export class PricingCalculatorService {
-  private sheetsClient: GoogleSheetsClient;
-  
-  constructor(spreadsheetId?: string) {
-    this.sheetsClient = createSheetsClient(spreadsheetId);
+  private config: any;
+
+  constructor() {
+    // Load master formula configuration
+    this.config = loadPaverPatioConfig();
+    console.log('🔥 MASTER FORMULA PRICING CALCULATOR INITIALIZED');
+    console.log('✅ Google Sheets completely eliminated - using internal calculations');
   }
 
   /**
-   * Main entry point - calculate pricing for extracted services with beta code ID support
-   * Replicates Make.com pricing_calculation module with multi-user sheet targeting
+   * MASTER FORMULA CALCULATION - Complete internal pricing system
+   * All services processed through advanced two-tier paver patio calculation
    */
   async calculatePricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
     const startTime = Date.now();
-    
-    // 📈 ENHANCED DEBUG: GOOGLE SHEETS API REQUEST
-    console.log('📈 GOOGLE SHEETS API REQUEST:', {
-      services: services.map(s => ({
-        serviceName: s.serviceName,
-        row: s.row,
-        quantity: s.quantity,
-        unit: s.unit
-      })),
-      betaCodeId: betaCodeId,
-      sheetId: process.env.VITE_GOOGLE_SHEETS_SHEET_ID?.substring(0, 10) + '...',
-      timestamp: new Date().toISOString()
-    });
-    
-    console.log(`💰 PRICING CALCULATION START: ${services.length} services (Beta Code: ${betaCodeId || 'default'})`);
+
+    console.log('🔥 MASTER FORMULA PRICING CALCULATION START');
+    console.log(`📊 Processing ${services.length} services through internal calculation engine`);
+    console.log('✅ Zero Google Sheets dependencies - fully self-contained');
+
     services.forEach(service => {
-      console.log(`  - ${service.serviceName}: ${service.quantity} ${service.unit} (row ${service.row})`);
+      console.log(`  - ${service.serviceName}: ${service.quantity} ${service.unit} (Master Formula)`);
     });
 
     try {
@@ -558,6 +562,6 @@ export class PricingCalculatorService {
 }
 
 // Export factory function
-export const createPricingCalculator = (spreadsheetId?: string): PricingCalculatorService => {
-  return new PricingCalculatorService(spreadsheetId);
+export const createPricingCalculator = (): PricingCalculatorService => {
+  return new PricingCalculatorService();
 };

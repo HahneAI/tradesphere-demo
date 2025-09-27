@@ -91,18 +91,18 @@ export default defineConfig(({ mode }) => {
     build: {
       target: 'esnext', // Support import.meta
       rollupOptions: {
-        // Mark Google APIs as external for Netlify functions
-        external: [
-          'google-auth-library',
-          'googleapis'
-        ],
+        // Google APIs removed - using internal master formula calculations
+        // external: [
+        //   'google-auth-library',
+        //   'googleapis'
+        // ],
         output: {
           format: 'es', // Use ES modules format for import.meta support
-          // Handle external dependencies properly
-          globals: {
-            'google-auth-library': 'GoogleAuth',
-            'googleapis': 'googleapis'
-          }
+          // Google API globals removed - fully self-contained system
+          // globals: {
+          //   'google-auth-library': 'GoogleAuth',
+          //   'googleapis': 'googleapis'
+          // }
         }
       }
     }
