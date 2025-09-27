@@ -7,6 +7,8 @@
 
 import { GoogleSheetsClient, createSheetsClient, SheetCalculationResult, ProjectTotal } from '../../utils/google-sheets-client';
 import { ExtractedService } from './ParameterCollectorService';
+import { calculateExpertPricing, loadPaverPatioConfig } from '../../stores/paverPatioStore';
+import type { PaverPatioValues, PaverPatioCalculationResult } from '../../types/paverPatioFormula';
 
 export interface PricingResult {
   services: ServiceQuote[];
@@ -61,12 +63,51 @@ export class PricingCalculatorService {
     });
 
     try {
-      // Validate inputs
+      // 🎯 MASTER FORMULA PRIMARY - All services route through paver patio system
+      // Google Sheets integration disabled - Services tab expansion coming
+      console.log('🎯 ROUTING ALL SERVICES TO MASTER FORMULA (Google Sheets disabled)');
+
+      // For now, treat everything as paver patio for the master formula system
+      if (services.length > 0) {
+        // Force first service to be treated as paver patio if not already
+        const primaryService = services[0];
+
+        if (!primaryService.serviceName.includes("Paver Patio")) {
+          console.log(`⚠️ Converting ${primaryService.serviceName} to paver patio for master formula testing`);
+          console.log('📋 Non-paver services will be supported via Services database tab expansion');
+
+          // Convert to paver patio format for master formula compatibility
+          primaryService.serviceName = "Paver Patio (SQFT)";
+          primaryService.row = 999; // Master formula flag
+          primaryService.isSpecial = true;
+
+          // Ensure reasonable square footage if not provided
+          if (!primaryService.quantity || primaryService.quantity <= 0) {
+            primaryService.quantity = 200; // Default reasonable size
+            console.log(`📏 Setting default square footage: ${primaryService.quantity} sqft`);
+          }
+        }
+
+        return this.calculateMasterFormulaPricing(services, betaCodeId);
+      }
+
+      // Fallback for empty services
+      return {
+        success: false,
+        confidence: 0,
+        services: [],
+        totals: { totalCost: 0, totalLaborHours: 0 },
+        errors: ['No services detected for master formula calculation'],
+        calculationTime: Date.now() - startTime
+      };
+
+      /* COMMENTED OUT - Google Sheets Integration Disabled
+      // Validate inputs for standard Google Sheets flow
       this.validateServices(services);
-      
+
       // Calculate based on service count
       let result: PricingResult;
-      
+
       if (services.length === 1) {
         result = await this.calculateSingleService(services[0], betaCodeId);
       } else {
@@ -76,6 +117,7 @@ export class PricingCalculatorService {
       const calculationTime = Date.now() - startTime;
       result.calculationTime = calculationTime;
 
+
       // 📈 ENHANCED DEBUG: GOOGLE SHEETS API RESPONSE
       console.log('📈 GOOGLE SHEETS API RESPONSE:', {
         success: result?.success !== false,
@@ -84,7 +126,7 @@ export class PricingCalculatorService {
         calculationTime: calculationTime || 'unknown',
         errors: result?.error || 'none'
       });
-      
+
       // 📈 ENHANCED DEBUG: DETAILED SERVICE PRICING BREAKDOWN
       if (result?.services) {
         result.services.forEach((service, index) => {
@@ -97,12 +139,13 @@ export class PricingCalculatorService {
           });
         });
       }
-      
+
       console.log(`✅ PRICING COMPLETE: ${calculationTime}ms (Beta Code: ${betaCodeId || 'default'})`);
       console.log(`   Total Cost: $${result.totals.totalCost}`);
       console.log(`   Total Hours: ${result.totals.totalLaborHours}h`);
 
       return result;
+      */
 
     } catch (error) {
       console.error('❌ PRICING CALCULATION FAILED:', error);
@@ -155,6 +198,111 @@ export class PricingCalculatorService {
       calculationTime: 0, // Set by caller
       success: true
     };
+  }
+
+  /**
+   * Calculate pricing using master formula for paver patio requests
+   */
+  private async calculateMasterFormulaPricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
+    console.log('🔥 MASTER FORMULA CALCULATION START');
+
+    const startTime = Date.now();
+
+    // Find the paver patio service
+    const paverPatioService = services.find(service =>
+      service.serviceName === 'Paver Patio (SQFT)' && service.row === 999
+    );
+
+    if (!paverPatioService) {
+      throw new Error('Master formula routing called without paver patio service');
+    }
+
+    if (!paverPatioService.specialRequirements?.paverPatioValues) {
+      throw new Error('Paver patio service missing master formula variables');
+    }
+
+    const sqft = paverPatioService.quantity || 100;
+    const paverPatioValues: PaverPatioValues = paverPatioService.specialRequirements.paverPatioValues;
+
+    console.log('🔥 MASTER FORMULA INPUTS:');
+    console.log(`  Square Footage: ${sqft} sqft`);
+    console.log(`  Variables:`, paverPatioValues);
+
+    try {
+      // Load the paver patio configuration
+      const config = loadPaverPatioConfig();
+
+      // Execute master formula calculation
+      const masterFormulaResult: PaverPatioCalculationResult = calculateExpertPricing(
+        config,
+        paverPatioValues,
+        sqft
+      );
+
+      console.log('🔥 MASTER FORMULA CALCULATION COMPLETE:');
+      console.log(`  Total Cost: $${masterFormulaResult.tier2Results.total.toFixed(2)}`);
+      console.log(`  Labor Hours: ${masterFormulaResult.tier1Results.totalManHours.toFixed(1)}h`);
+      console.log(`  Business Days: ${masterFormulaResult.tier1Results.totalDays.toFixed(1)}`);
+
+      // Convert master formula result to PricingResult format
+      const pricingResult = this.convertMasterFormulaResult(
+        masterFormulaResult,
+        paverPatioService,
+        startTime
+      );
+
+      return pricingResult;
+
+    } catch (error) {
+      console.error('❌ MASTER FORMULA CALCULATION FAILED:', error);
+      throw new Error(`Master formula calculation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Convert master formula result to PricingResult format for compatibility
+   */
+  private convertMasterFormulaResult(
+    masterFormulaResult: PaverPatioCalculationResult,
+    originalService: ExtractedService,
+    startTime: number
+  ): PricingResult {
+    console.log('🔄 CONVERTING MASTER FORMULA RESULT TO PRICING FORMAT');
+
+    const calculationTime = Date.now() - startTime;
+
+    // Create service quote from master formula result
+    const serviceQuote: ServiceQuote = {
+      serviceName: originalService.serviceName,
+      quantity: originalService.quantity || 100,
+      unit: originalService.unit,
+      laborHours: masterFormulaResult.tier1Results.totalManHours,
+      cost: masterFormulaResult.tier2Results.total,
+      unitPrice: masterFormulaResult.tier2Results.pricePerSqft,
+      totalPrice: masterFormulaResult.tier2Results.total,
+      row: 999, // Special indicator for master formula
+      category: 'hardscaping'
+    };
+
+    // Create project totals
+    const projectTotals: ProjectTotal = {
+      totalCost: masterFormulaResult.tier2Results.total,
+      totalLaborHours: masterFormulaResult.tier1Results.totalManHours
+    };
+
+    const result: PricingResult = {
+      services: [serviceQuote],
+      totals: projectTotals,
+      calculationTime,
+      success: true
+    };
+
+    console.log('🔄 MASTER FORMULA CONVERSION COMPLETE:');
+    console.log(`  Service: ${serviceQuote.serviceName}`);
+    console.log(`  Total: $${result.totals.totalCost.toFixed(2)}`);
+    console.log(`  Hours: ${result.totals.totalLaborHours.toFixed(1)}h`);
+
+    return result;
   }
 
   /**

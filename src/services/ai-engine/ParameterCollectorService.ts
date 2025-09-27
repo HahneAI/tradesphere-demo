@@ -1,12 +1,16 @@
 /**
- * ParameterCollectorService - Advanced NLP for landscaping service extraction
- * 
- * Replicates Make.com's parameter_collector module logic using OpenAI
- * Optimized for 2-3k tokens vs original 17-20k tokens
+ * ParameterCollectorService - Master Formula Primary System
+ *
+ * SIMPLIFIED: All services route through paver patio master formula
+ * Google Sheets integration disabled - Services tab expansion coming
+ *
+ * Previous complex multi-service logic commented out for Services database migration
  */
 
-import { ServiceMappingEngine, ServiceMappingResult } from './ServiceMappingEngine';
+// Commented out - Google Sheets service mapping disabled
+// import { ServiceMappingEngine, ServiceMappingResult } from './ServiceMappingEngine';
 import { CategorySplitResult } from './GPTServiceSplitter';
+import { PaverPatioVariableMapper, PaverPatioVariableExtractionResult } from './PaverPatioVariableMapper';
 
 export interface CollectionResult {
   status: 'incomplete' | 'ready_for_pricing' | 'partial';
@@ -37,513 +41,273 @@ export interface SpecialRequirements {
   };
   boring?: boolean;
   setupRequired?: boolean;
-  
+
   // For lighting
   transformer?: boolean;
   dimmer?: boolean;
   fixtures?: number;
+
+  // For paver patio master formula
+  paverPatioValues?: any; // PaverPatioValues type from master formula
+  extractedVariables?: string[];
+  defaultsUsed?: string[];
 }
 
 export class ParameterCollectorService {
   private static readonly COMPLETION_THRESHOLD = 0.85;
   
   /**
-   * Enhanced parameter collection using GPT split services with category hints
+   * MASTER FORMULA PRIMARY - All requests route to paver patio calculation
    */
   static async collectParametersWithSplitServices(
-    originalMessage: string, 
+    originalMessage: string,
     splitResult: CategorySplitResult
   ): Promise<CollectionResult> {
-    console.log('🎯 ENHANCED PARAMETER COLLECTION START (with GPT splits)');
+    console.log('🎯 MASTER FORMULA PARAMETER COLLECTION (All Services → Paver Patio)');
     console.log(`Original message: "${originalMessage}"`);
-    console.log(`Processing ${splitResult.service_count} split services...`);
-    
-    const completeServices: ExtractedService[] = [];
-    const incompleteServices: ExtractedService[] = [];
-    
-    // Process each split service with its category hint
-    for (let i = 0; i < splitResult.separated_services.length; i++) {
-      const splitService = splitResult.separated_services[i];
-      const [serviceText, categoryHint] = splitService.split(',').map(s => s.trim());
-      
-      console.log(`🔍 Processing split service ${i + 1}: "${serviceText}" (category: ${categoryHint})`);
-      
-      // Use ServiceMappingEngine with category priority
-      const mappingResult = ServiceMappingEngine.mapUserInputWithCategoryHint(serviceText, categoryHint);
-      
-      // Separate complete and incomplete services
-      mappingResult.services.forEach(service => {
-        const extractedService: ExtractedService = {
-          serviceName: service.serviceName,
-          quantity: service.quantity,
-          unit: service.unit,
-          row: service.row,
-          isSpecial: service.isSpecial,
-          status: service.status
-        };
-        
-        if (service.status === 'complete' && service.quantity && service.quantity > 0) {
-          completeServices.push(extractedService);
-        } else {
-          incompleteServices.push(extractedService);
+    console.log('🔥 ALL SERVICES ROUTE TO MASTER FORMULA SYSTEM');
+
+    // SIMPLIFIED: All requests go to master formula
+    return this.collectPaverPatioParameters(originalMessage, splitResult);
+  }
+
+  /* COMMENTED OUT - Google Sheets Service Mapping Logic
+   * Complex multi-service logic disabled for Services database migration
+   *
+   * Previous logic:
+   * - ServiceMappingEngine.mapUserInputWithCategoryHint()
+   * - Multiple service type processing
+   * - Complete/incomplete service separation
+   * - Category-based service routing
+   *
+   * This will be restored through Services database tab expansion system
+   */
+
+  /**
+   * Specialized parameter collection for paver patio master formula requests
+   */
+  static async collectPaverPatioParameters(
+    originalMessage: string,
+    splitResult: CategorySplitResult
+  ): Promise<CollectionResult> {
+    console.log('🔥 PAVER PATIO PARAMETER COLLECTION START');
+    console.log(`Master Formula Mode: ${splitResult.masterFormulaMode}`);
+
+    // Extract square footage from user message or split services
+    let sqft = 100; // Default fallback
+
+    // Try to extract sqft from the separated services or original message
+    const sqftMatch = originalMessage.match(/(\d+)\s*(?:sq\.?\s*ft\.?|sqft|square\s+feet)/);
+    if (sqftMatch) {
+      sqft = parseInt(sqftMatch[1]);
+    } else {
+      // Check split services for dimensions
+      for (const service of splitResult.separated_services) {
+        const dimensionMatch = service.match(/(\d+)\s*x\s*(\d+)/);
+        if (dimensionMatch) {
+          sqft = parseInt(dimensionMatch[1]) * parseInt(dimensionMatch[2]);
+          break;
         }
-      });
+      }
     }
-    
-    console.log(`✅ ENHANCED COLLECTION: ${completeServices.length} complete + ${incompleteServices.length} incomplete services from ${splitResult.service_count} splits`);
-    
-    // Determine status based on what we found
+
+    // Use PaverPatioVariableMapper to extract variables
+    const extractionResult = PaverPatioVariableMapper.extractPaverPatioVariables(
+      originalMessage,
+      sqft
+    );
+
+    // Create the paver patio service
+    const paverPatioService = PaverPatioVariableMapper.createPaverPatioService(
+      extractionResult.sqft
+    );
+
+    // Add master formula variables as special requirements
+    paverPatioService.specialRequirements = {
+      paverPatioValues: extractionResult.paverPatioValues,
+      extractedVariables: extractionResult.extractedVariables,
+      defaultsUsed: extractionResult.defaultsUsed
+    };
+
+    // Validate the extraction result
+    const validation = PaverPatioVariableMapper.validateExtractionResult(extractionResult);
+
+    console.log('🔥 PAVER PATIO EXTRACTION COMPLETE:');
+    console.log(`  Square Footage: ${extractionResult.sqft} sqft`);
+    console.log(`  Confidence: ${(extractionResult.confidence * 100).toFixed(1)}%`);
+    console.log(`  Extracted Variables: ${extractionResult.extractedVariables.length}`);
+    console.log(`  Defaults Used: ${extractionResult.defaultsUsed.length}`);
+    console.log(`  Validation: ${validation.isValid ? 'PASSED' : 'NEEDS MORE INFO'}`);
+
+    // Determine status
     let status: 'incomplete' | 'ready_for_pricing' | 'partial';
-    if (completeServices.length > 0 && incompleteServices.length === 0) {
+    if (validation.isValid) {
       status = 'ready_for_pricing';
-    } else if (completeServices.length > 0 && incompleteServices.length > 0) {
-      status = 'partial';
     } else {
       status = 'incomplete';
     }
-    
-    // Calculate overall confidence
-    const overallConfidence = (completeServices.length + incompleteServices.length) > 0 ? 0.85 : 0.2;
-    
+
     return {
       status,
-      services: completeServices,
-      incompleteServices,
-      missingInfo: [],
-      clarifyingQuestions: [],
-      confidence: overallConfidence,
-      suggestedResponse: 'Services extracted - proceeding to AI orchestration'
+      services: validation.isValid ? [paverPatioService] : [],
+      incompleteServices: validation.isValid ? [] : [paverPatioService],
+      missingInfo: validation.missingInfo,
+      clarifyingQuestions: validation.clarifyingQuestions,
+      confidence: extractionResult.confidence,
+      suggestedResponse: validation.isValid
+        ? 'Master formula variables extracted - ready for paver patio pricing calculation'
+        : 'Need more information for accurate paver patio pricing'
     };
   }
-  
+
   /**
-   * Main entry point - replaces Make.com parameter_collector (legacy method)
+   * MASTER FORMULA PRIMARY - Legacy entry point now routes to paver patio
    */
   static async collectParameters(userMessage: string, conversationHistory?: string[]): Promise<CollectionResult> {
-    console.log('🎯 PARAMETER COLLECTION START');
+    console.log('🎯 MASTER FORMULA PARAMETER COLLECTION (Legacy Entry Point)');
     console.log(`Input: "${userMessage}"`);
-    
-    // Step 1: Use service mapping engine for initial extraction
-    const mappingResult = await this.performServiceMapping(userMessage);
-    
-    // Step 2: Validate completeness and handle special services
-    const validationResult = await this.validateAndEnhance(mappingResult, userMessage);
-    
-    // Step 3: Determine if ready for pricing
-    const completionStatus = this.assessCompletion(validationResult);
-    
-    const result: CollectionResult = {
-      status: completionStatus.isComplete ? 'ready_for_pricing' : 'incomplete',
-      services: validationResult.services,
-      incompleteServices: [], // Legacy method doesn't track incomplete services
-      missingInfo: completionStatus.missingInfo,
-      clarifyingQuestions: completionStatus.clarifyingQuestions,
-      confidence: validationResult.confidence,
-      suggestedResponse: completionStatus.suggestedResponse
+    console.log('🔥 ROUTING TO PAVER PATIO MASTER FORMULA');
+
+    // Create mock split result for master formula routing
+    const mockSplitResult: CategorySplitResult = {
+      service_count: 1,
+      separated_services: [userMessage],
+      detected_categories: ['hardscaping'],
+      unmapped_text: [],
+      confidence: 0.9,
+      masterFormulaMode: true
     };
 
-    console.log(`✅ PARAMETER COLLECTION: ${result.status} (${result.confidence}% confidence)`);
-    console.log(`Services found: ${result.services.length}`);
-    
-    return result;
+    return this.collectPaverPatioParameters(userMessage, mockSplitResult);
   }
 
-  /**
-   * Step 1: Initial service mapping using the engine
+  /* COMMENTED OUT - Google Sheets Legacy Parameter Collection
+   * Complex multi-step service mapping disabled for master formula focus
+   *
+   * Previous steps:
+   * 1. performServiceMapping() - ServiceMappingEngine extraction
+   * 2. validateAndEnhance() - AI validation and special service handling
+   * 3. assessCompletion() - Completeness assessment
+   *
+   * This complex logic will be restored through Services database tab system
    */
-  private static async performServiceMapping(userMessage: string): Promise<ServiceMappingResult> {
-    // 🗺️ ENHANCED DEBUG: SERVICE MAPPING START
-    console.log('🗺️ SERVICE MAPPING START:', {
-      input: userMessage,
-      timestamp: new Date().toISOString()
-    });
-    
-    const mappingResult = await ServiceMappingEngine.mapUserInput(userMessage);
-    
-    // 🗺️ ENHANCED DEBUG: SERVICE MAPPING COMPLETE
-    console.log('🗺️ SERVICE MAPPING COMPLETE:', {
-      servicesFound: mappingResult.services.length,
-      overallConfidence: mappingResult.confidence,
-      needsClarification: mappingResult.needsClarification,
-      unmappedText: mappingResult.unmappedText
-    });
-    
-    // 🗺️ ENHANCED DEBUG: DETAILED SERVICE BREAKDOWN
-    mappingResult.services.forEach((service, index) => {
-      console.log(`🗺️ SERVICE ${index + 1}:`, {
-        serviceName: service.serviceName,
-        quantity: service.quantity,
-        unit: service.unit,
-        row: service.row,
-        category: service.category,
-        confidence: service.confidence,
-        isSpecial: service.isSpecial,
-        originalText: service.originalText
-      });
-    });
-    
-    if (mappingResult.unmappedText.length > 0) {
-      console.log('⚠️ UNMAPPED TEXT FOUND:', mappingResult.unmappedText);
-    }
-    
-    return mappingResult;
-  }
 
-  /**
-   * Step 2: Validate and enhance mapped services with AI assistance
+  /* COMMENTED OUT - Google Sheets Service Mapping
+   * ServiceMappingEngine integration disabled for master formula focus
+   *
+   * Previous service mapping logic:
+   * - ServiceMappingEngine.mapUserInput() calls
+   * - Multi-service detection and extraction
+   * - Complex confidence scoring
+   * - Unmapped text handling
+   *
+   * This will be restored through Services database tab expansion
    */
-  private static async validateAndEnhance(
-    mappingResult: ServiceMappingResult, 
-    originalMessage: string
-  ): Promise<{ services: ExtractedService[]; confidence: number }> {
-    
-    const enhancedServices: ExtractedService[] = [];
-    
-    for (const service of mappingResult.services) {
-      const enhancedService: ExtractedService = {
-        serviceName: service.serviceName,
-        quantity: service.quantity,
-        unit: service.unit,
-        row: service.row,
-        isSpecial: service.isSpecial
-      };
 
-      // Handle special services requiring additional information
-      if (service.isSpecial) {
-        enhancedService.specialRequirements = await this.extractSpecialRequirements(
-          service.serviceName, 
-          originalMessage
-        );
-      }
-
-      enhancedServices.push(enhancedService);
-    }
-
-    // Use AI to validate and potentially discover missed services
-    const aiEnhancedResult = await this.aiValidationPass(enhancedServices, originalMessage);
-
-    return {
-      services: aiEnhancedResult.services,
-      confidence: Math.min(mappingResult.confidence * aiEnhancedResult.confidence, 1.0)
-    };
-  }
-
-  /**
-   * AI validation pass to catch missed services and validate quantities
+  /* COMMENTED OUT - Google Sheets Service Validation
+   * Complex AI validation logic disabled for master formula focus
+   *
+   * Previous validation steps:
+   * - Service enhancement with special requirements
+   * - AI validation pass for missed services
+   * - Confidence calculation algorithms
+   *
+   * Master formula system handles validation through PaverPatioVariableMapper
    */
-  private static async aiValidationPass(
-    services: ExtractedService[], 
-    originalMessage: string
-  ): Promise<{ services: ExtractedService[]; confidence: number }> {
-    
-    // Create optimized prompt for validation
-    const prompt = this.buildValidationPrompt(services, originalMessage);
-    
-    try {
-      const aiResponse = await this.callAI(prompt);
-      const validation = this.parseValidationResponse(aiResponse);
-      
-      return {
-        services: validation.validatedServices || services,
-        confidence: validation.confidence || 0.8
-      };
-      
-    } catch (error) {
-      console.warn('⚠️ AI validation failed, using mapped services:', error);
-      return { services, confidence: 0.7 };
-    }
-  }
 
-  /**
-   * Build optimized validation prompt (2-3k tokens vs 17-20k)
+  /* COMMENTED OUT - Google Sheets AI Validation Logic
+   * Complex AI validation system disabled for master formula focus
+   *
+   * Previous AI validation features:
+   * - buildValidationPrompt() for 2-3k token optimization
+   * - callAI() for OpenAI/Claude integration
+   * - parseValidationResponse() for service extraction
+   * - Missed service detection algorithms
+   *
+   * Master formula uses PaverPatioVariableMapper for validation
    */
-  private static buildValidationPrompt(services: ExtractedService[], originalMessage: string): string {
-    const servicesList = services.map(s => `${s.serviceName}: ${s.quantity} ${s.unit}`).join(', ');
-    
-    return `LANDSCAPING SERVICE VALIDATION:
 
-User Request: "${originalMessage}"
-
-Currently Extracted: ${servicesList || 'None'}
-
-Validate and identify any missed landscaping services. Focus on:
-- Hardscape (patios, retaining walls, edging)
-- Materials (mulch, topsoil, rock)
-- Planting (trees, shrubs, sod)
-- Irrigation (setup, zones, spouts)
-- Drainage (downspouts, french drains)
-
-RESPOND ONLY IN JSON:
-{
-  "validated_services": [
-    {
-      "service_name": "exact_name_from_database",
-      "quantity": number,
-      "unit": "sqft|linear_feet|each|etc",
-      "confidence": 0.0-1.0
-    }
-  ],
-  "missed_services": ["any_additional_services_found"],
-  "validation_confidence": 0.0-1.0
-}`;
-  }
-
-  /**
-   * Parse AI validation response
+  /* COMMENTED OUT - Google Sheets Validation Prompts and Parsing
+   * Complex AI prompt building and response parsing disabled
+   *
+   * Previous validation prompt features:
+   * - 2-3k token optimization vs 17-20k original
+   * - Multi-service category validation
+   * - JSON response parsing with ServiceMappingEngine integration
+   * - Confidence scoring algorithms
+   *
+   * Master formula uses simplified variable validation
    */
-  private static parseValidationResponse(response: string): {
-    validatedServices?: ExtractedService[];
-    confidence?: number;
-  } {
-    try {
-      const cleaned = response.replace(/```json|```/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-      
-      const validatedServices: ExtractedService[] = [];
-      
-      if (parsed.validated_services) {
-        for (const service of parsed.validated_services) {
-          // Map to our service database to get row numbers
-          const mappingResult = ServiceMappingEngine.mapUserInput(
-            `${service.quantity} ${service.service_name}`
-          );
-          
-          if (mappingResult.services.length > 0) {
-            const mapped = mappingResult.services[0];
-            validatedServices.push({
-              serviceName: mapped.serviceName,
-              quantity: service.quantity,
-              unit: mapped.unit,
-              row: mapped.row,
-              isSpecial: mapped.isSpecial
-            });
-          }
-        }
-      }
-      
-      return {
-        validatedServices,
-        confidence: parsed.validation_confidence || 0.8
-      };
-      
-    } catch (error) {
-      console.warn('⚠️ Failed to parse AI validation response:', error);
-      return {};
-    }
-  }
 
-  /**
-   * Extract special requirements for irrigation and lighting services
+  /* COMMENTED OUT - Google Sheets Special Requirements Extraction
+   * Complex irrigation and lighting requirements logic disabled
+   *
+   * Previous special requirements features:
+   * - extractIrrigationZones() for turf/drip zone detection
+   * - detectBoringRequirement() for drilling detection
+   * - Lighting fixture and transformer extraction
+   * - Complex regex pattern matching
+   *
+   * Master formula uses PaverPatioVariableMapper for all variables
    */
-  private static async extractSpecialRequirements(
-    serviceName: string, 
-    message: string
-  ): Promise<SpecialRequirements> {
-    
-    const requirements: SpecialRequirements = {};
-    
-    if (serviceName.includes('Irrigation')) {
-      // Extract irrigation-specific requirements
-      const zones = this.extractIrrigationZones(message);
-      const boring = this.detectBoringRequirement(message);
-      
-      requirements.zones = zones;
-      requirements.boring = boring;
-      requirements.setupRequired = serviceName.includes('Set Up');
-    }
-    
-    // Future: Add lighting requirements extraction
-    
-    return requirements;
-  }
 
-  /**
-   * Extract irrigation zone information from text
+  /* COMMENTED OUT - Google Sheets Completion Assessment
+   * Complex completion logic disabled for master formula focus
+   *
+   * Previous completion assessment features:
+   * - Multi-service completeness validation
+   * - Special service requirement checking
+   * - Confidence threshold analysis (0.85)
+   * - Clarifying question generation
+   *
+   * Master formula uses PaverPatioVariableMapper validation
    */
-  private static extractIrrigationZones(message: string): { turf: number; drip: number; total: number } {
-    const lowerMessage = message.toLowerCase();
-    
-    // Look for explicit zone counts
-    const zoneMatches = lowerMessage.match(/(\d+)\s*(?:zones?|spouts?)/);
-    const turfMatches = lowerMessage.match(/(\d+).*turf/);
-    const dripMatches = lowerMessage.match(/(\d+).*drip/);
-    
-    let turf = 0;
-    let drip = 0;
-    let total = 0;
-    
-    if (turfMatches) turf = parseInt(turfMatches[1]);
-    if (dripMatches) drip = parseInt(dripMatches[1]);
-    if (zoneMatches) total = parseInt(zoneMatches[1]);
-    
-    // If total specified but not breakdown, assume all turf
-    if (total > 0 && turf === 0 && drip === 0) {
-      turf = total;
-    }
-    
-    return { turf, drip, total: turf + drip || total };
-  }
 
-  /**
-   * Detect if boring under driveways/sidewalks is needed
+  /* COMMENTED OUT - Google Sheets Special Service Completeness
+   * Irrigation and lighting completeness checking disabled
+   *
+   * Previous special service features:
+   * - Irrigation zone validation
+   * - Boring requirement detection
+   * - Missing information tracking
+   * - Clarifying question generation
+   *
+   * Master formula handles all validation through variable mapping
    */
-  private static detectBoringRequirement(message: string): boolean {
-    const boringKeywords = [
-      'boring', 'drill', 'under driveway', 'under sidewalk', 
-      'cross driveway', 'underground', 'beneath'
-    ];
-    
-    const lowerMessage = message.toLowerCase();
-    return boringKeywords.some(keyword => lowerMessage.includes(keyword));
-  }
 
-  /**
-   * Step 3: Assess if collection is complete enough for pricing
+  /* COMMENTED OUT - Google Sheets Clarification Response Building
+   * Complex response generation disabled for master formula focus
+   *
+   * Previous clarification features:
+   * - Multi-question formatting
+   * - Service summary generation
+   * - Dynamic response building
+   * - Conversation flow management
+   *
+   * Master formula uses PaverPatioVariableMapper response generation
    */
-  private static assessCompletion(result: { services: ExtractedService[]; confidence: number }): {
-    isComplete: boolean;
-    missingInfo: string[];
-    clarifyingQuestions: string[];
-    suggestedResponse: string;
-  } {
-    
-    const missingInfo: string[] = [];
-    const clarifyingQuestions: string[] = [];
-    
-    // Check if we have any services at all
-    if (result.services.length === 0) {
-      return {
-        isComplete: false,
-        missingInfo: ['No services identified'],
-        clarifyingQuestions: ['Could you please specify what landscaping services you need?'],
-        suggestedResponse: 'I need more information about the landscaping services you\'re looking for. Could you describe your project in more detail?'
-      };
-    }
 
-    // Check special service requirements
-    for (const service of result.services) {
-      if (service.isSpecial) {
-        const missing = this.checkSpecialServiceCompleteness(service);
-        missingInfo.push(...missing.missingInfo);
-        clarifyingQuestions.push(...missing.questions);
-      }
-      
-      // Check for zero quantities
-      if (service.quantity <= 0) {
-        missingInfo.push(`Quantity for ${service.serviceName}`);
-        clarifyingQuestions.push(`How much ${service.serviceName} do you need?`);
-      }
-    }
-
-    // Check overall confidence
-    if (result.confidence < this.COMPLETION_THRESHOLD) {
-      clarifyingQuestions.push('Could you provide more specific details about your project?');
-    }
-
-    const isComplete = missingInfo.length === 0 && result.confidence >= this.COMPLETION_THRESHOLD;
-
-    return {
-      isComplete,
-      missingInfo,
-      clarifyingQuestions,
-      suggestedResponse: this.buildClarificationResponse(clarifyingQuestions, result.services)
-    };
-  }
-
-  /**
-   * Check completeness for special services (irrigation, lighting)
+  /* COMMENTED OUT - Google Sheets AI Integration
+   * Mock AI call logic disabled for master formula focus
+   *
+   * Previous AI integration features:
+   * - OpenAI/Claude API integration points
+   * - Prompt optimization for 2-3k tokens
+   * - Mock response handling
+   * - Error handling and fallbacks
+   *
+   * Master formula uses dedicated AI services for variable extraction
    */
-  private static checkSpecialServiceCompleteness(service: ExtractedService): {
-    missingInfo: string[];
-    questions: string[];
-  } {
-    const missing: string[] = [];
-    const questions: string[] = [];
 
-    if (service.serviceName.includes('Irrigation')) {
-      if (!service.specialRequirements?.zones || service.specialRequirements.zones.total === 0) {
-        missing.push('Irrigation zone count');
-        questions.push('How many irrigation zones do you need (turf zones vs drip zones)?');
-      }
-      
-      if (service.specialRequirements?.boring === undefined) {
-        missing.push('Boring requirement assessment');
-        questions.push('Will we need to bore under any driveways or sidewalks for irrigation?');
-      }
-    }
-
-    return { missingInfo: missing, questions };
-  }
-
-  /**
-   * Build clarification response message
+  /* COMMENTED OUT - Google Sheets Follow-up Conversation Logic
+   * Complex conversation context handling disabled
+   *
+   * Previous follow-up features:
+   * - processFollowUp() for multi-turn conversations
+   * - buildCombinedContext() for conversation memory
+   * - Previous result integration
+   * - Enhanced context building
+   *
+   * Master formula uses dedicated conversation orchestration services
    */
-  private static buildClarificationResponse(questions: string[], services: ExtractedService[]): string {
-    if (questions.length === 0) {
-      return 'Great! I have all the information needed to provide your pricing.';
-    }
-
-    let response = 'I need a few more details to give you accurate pricing:\n\n';
-    
-    questions.forEach((question, index) => {
-      response += `${index + 1}. ${question}\n`;
-    });
-
-    if (services.length > 0) {
-      response += '\nSo far I understand you need:\n';
-      services.forEach(service => {
-        response += `• ${service.serviceName}: ${service.quantity} ${service.unit}\n`;
-      });
-    }
-
-    return response;
-  }
-
-  /**
-   * Mock AI call - replace with actual OpenAI integration
-   */
-  private static async callAI(prompt: string): Promise<string> {
-    // TODO: Replace with actual OpenAI/Claude API call
-    console.log('🤖 AI Prompt (simulated):', prompt.substring(0, 200) + '...');
-    
-    // Mock response for development
-    return JSON.stringify({
-      validated_services: [],
-      missed_services: [],
-      validation_confidence: 0.8
-    });
-  }
-
-  /**
-   * Handle conversation context for follow-up questions
-   */
-  static async processFollowUp(
-    newMessage: string, 
-    previousResult: CollectionResult
-  ): Promise<CollectionResult> {
-    console.log('🔄 PROCESSING FOLLOW-UP');
-    
-    // Combine previous context with new message
-    const combinedContext = this.buildCombinedContext(previousResult, newMessage);
-    
-    // Re-run parameter collection with enhanced context
-    return this.collectParameters(combinedContext);
-  }
-
-  /**
-   * Build combined context from conversation history
-   */
-  private static buildCombinedContext(previousResult: CollectionResult, newMessage: string): string {
-    let context = 'Previous services mentioned: ';
-    
-    if (previousResult.services.length > 0) {
-      context += previousResult.services.map(s => `${s.serviceName}: ${s.quantity} ${s.unit}`).join(', ');
-    } else {
-      context += 'none clearly identified';
-    }
-    
-    context += `\n\nNew message: ${newMessage}`;
-    
-    return context;
-  }
 }

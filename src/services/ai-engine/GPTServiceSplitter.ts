@@ -18,6 +18,7 @@ export interface CategorySplitResult {
   separated_services: string[];
   service_count: number;
   confidence: 'high' | 'medium' | 'low';
+  masterFormulaMode: boolean; // Flag to trigger master formula for paver patios
 }
 
 interface OpenAIResponse {
@@ -33,47 +34,53 @@ export class GPTServiceSplitter {
   private static readonly MODEL = 'gpt-4o-mini';
   
   /**
-   * Combined prompt for category detection and service splitting
+   * FOCUSED PROMPT - Paver Patio Master Formula Primary
+   * Google Sheets integration disabled - Services tab expansion coming
    */
-  private static readonly COMBINED_PROMPT = `You are a landscaping category identifier and service splitter. Analyze the input for ALL services and split them cleanly.
+  private static readonly COMBINED_PROMPT = `You are a paver patio specialist focusing on hardscaping detection. The system is currently optimized for paver patio projects using advanced master formula calculations.
 
-STEP 1 - CATEGORY DETECTION (generous matching):
-- hardscaping: patio, pavers, wall, retaining walls, pergola, flagstone, walkway, steps
-- planting: tree, shrub, flower, plant, lawn, seed, straw, pot
-- drainage: drain, downspout, spout, gutter, french, creek, flow, water management, system
-- materials: mulch, topsoil, dirt, soil, rock, ground, chips, rainbow, straw
-- removal: sod removal, grass excavation, removal
-- edging: edging, border, metal, stone, spade, cut
-- structures: kitchen, pergola, gathering, social spot, cedar, intellishade
+🎯 MASTER FORMULA FOCUS: This system prioritizes paver patio projects for sophisticated pricing.
 
-STEP 2 - SERVICE SPLITTING:
-Split using separation clues: 'and', 'plus', 'also', ',', 'with', numbers followed by different service types, different units/measurements
+STEP 1 - PRIMARY DETECTION (paver patio focus):
+- hardscaping: patio, pavers, stone patio, brick patio, flagstone patio, hardscape, outdoor living, backyard patio, bluestone, travertine
 
-TASK: Find ALL categories AND split into individual services, tagging each with its category.
+STEP 2 - SERVICE IDENTIFICATION:
+Focus on paver patio variations and measurements. Look for square footage, dimensions, or descriptive size terms.
+
+TASK: Identify paver patio projects and extract key details for master formula routing.
 
 OUTPUT COMBINED JSON:
 {
-  "detected_categories": ["category1", "category2"],
+  "detected_categories": ["hardscaping"],
   "separated_services": [
-    "individual service text 1, category1",
-    "individual service text 2, category2"
+    "paver patio service details, hardscaping"
   ],
-  "service_count": 2,
+  "service_count": 1,
   "confidence": "high"
 }
 
 EXAMPLES:
-Input: "20x15 patio with 100 sqft mulch and 40 feet metal edging"
+Input: "200 sqft paver patio removing concrete"
 Output: {
-  "detected_categories": ["hardscaping", "materials", "edging"],
+  "detected_categories": ["hardscaping"],
   "separated_services": [
-    "20x15 patio, hardscaping",
-    "100 sqft mulch, materials", 
-    "40 feet metal edging, edging"
+    "200 sqft paver patio removing concrete, hardscaping"
   ],
-  "service_count": 3,
+  "service_count": 1,
   "confidence": "high"
-}`;
+}
+
+Input: "15x20 stone patio with premium materials"
+Output: {
+  "detected_categories": ["hardscaping"],
+  "separated_services": [
+    "15x20 stone patio with premium materials, hardscaping"
+  ],
+  "service_count": 1,
+  "confidence": "high"
+}
+
+NOTE: Non-paver requests will be handled through Services database tab expansion. For now, focus on detecting and routing paver patio projects to the master formula system.`;
 
   /**
    * Main analysis method - combines category detection and service splitting
@@ -133,17 +140,21 @@ Output: {
       });
       
       const result = this.parseGPTResponse(response.choices[0].message.content);
-      
+
+      // Add master formula mode detection
+      result.masterFormulaMode = this.isPaverPatioRequest(input, result.detected_categories, result.confidence);
+
       // 🤖 ENHANCED DEBUG: GPT PARSED RESULT
       console.log('🤖 GPT PARSED RESULT:', {
         serviceCount: result.service_count,
         categories: result.detected_categories,
         separatedServices: result.separated_services,
-        confidence: result.confidence
+        confidence: result.confidence,
+        masterFormulaMode: result.masterFormulaMode
       });
-      
-      console.log(`✅ GPT Analysis: ${result.service_count} services in ${result.detected_categories.length} categories`);
-      
+
+      console.log(`✅ GPT Analysis: ${result.service_count} services in ${result.detected_categories.length} categories${result.masterFormulaMode ? ' [MASTER FORMULA MODE]' : ''}`);
+
       return result;
       
     } catch (error) {
@@ -251,7 +262,8 @@ Output: {
         detected_categories: parsed.detected_categories,
         separated_services: parsed.separated_services,
         service_count: parsed.service_count || parsed.separated_services.length,
-        confidence: parsed.confidence || 'medium'
+        confidence: parsed.confidence || 'medium',
+        masterFormulaMode: false // Will be set by calling method
       };
 
     } catch (error) {
@@ -272,11 +284,15 @@ Output: {
       detected_categories: categories,
       separated_services: services,
       service_count: services.length,
-      confidence: 'medium'
+      confidence: 'medium',
+      masterFormulaMode: false // Will be updated below
     };
 
-    console.log(`🔍 Mock Analysis: ${result.service_count} services in ${result.detected_categories.length} categories`);
-    
+    // Add master formula mode detection for mock mode
+    result.masterFormulaMode = this.isPaverPatioRequest(input, result.detected_categories, result.confidence);
+
+    console.log(`🔍 Mock Analysis: ${result.service_count} services in ${result.detected_categories.length} categories${result.masterFormulaMode ? ' [MASTER FORMULA MODE]' : ''}`);
+
     return result;
   }
 
@@ -287,16 +303,24 @@ Output: {
     const lowerInput = input.toLowerCase();
     const categories = new Set<string>();
 
-    // Category patterns (generous matching)
+    // FOCUSED DETECTION - Paver Patio Primary (Master Formula Focus)
+    // Other service detection commented out for master formula transition
     const categoryPatterns = {
-      hardscaping: /\b(patio|pavers?|wall|retaining|pergola|flagstone|walkway|steps?|stone|concrete|brick)\b/,
+      hardscaping: /\b(patio|pavers?|stone\s+patio|brick\s+patio|hardscape|flagstone|outdoor\s+living|bluestone|travertine)\b/,
+
+      // COMMENTED OUT - Other services disabled for master formula focus
+      // Will be re-enabled through Services database tab expansion
+      /*
       planting: /\b(tree|shrub|flower|plant|lawn|seed|straw|pot|sod|grass)\b/,
       drainage: /\b(drain|downspout|spout|gutter|french|creek|flow|water|system)\b/,
       materials: /\b(mulch|topsoil|dirt|soil|rock|ground|chips|rainbow|straw)\b/,
       removal: /\b(removal|excavation)\b/,
       edging: /\b(edging|border|metal|steel|aluminum|spade|cut|trim)\b/,
       structures: /\b(kitchen|pergola|gathering|social|spot|cedar|intellishade|structure)\b/
+      */
     };
+
+    console.log('🎯 PAVER PATIO FOCUSED DETECTION ACTIVE (Google Sheets disabled)');
 
     for (const [category, pattern] of Object.entries(categoryPatterns)) {
       if (pattern.test(lowerInput)) {
@@ -338,15 +362,19 @@ Output: {
   private matchServiceToCategory(servicePart: string, availableCategories: string[]): string {
     const lowerPart = servicePart.toLowerCase();
 
-    // Service-specific matching
+    // FOCUSED SERVICE MATCHING - Paver Patio Primary
     const serviceMatches = {
-      hardscaping: /\b(patio|pavers?|wall|retaining|walkway|steps?|stone|concrete)\b/,
+      hardscaping: /\b(patio|pavers?|stone\s+patio|brick\s+patio|hardscape|flagstone|outdoor\s+patio|backyard\s+patio)\b/,
+
+      // COMMENTED OUT - Other services disabled for master formula focus
+      /*
       planting: /\b(tree|shrub|flower|plant|lawn|seed|sod|grass)\b/,
       drainage: /\b(drain|downspout|spout|gutter|french|creek|flow)\b/,
       materials: /\b(mulch|topsoil|dirt|soil|rock|ground|chips)\b/,
       removal: /\b(removal|excavation)\b/,
       edging: /\b(edging|border|metal|steel|aluminum)\b/,
       structures: /\b(kitchen|pergola|gathering|cedar|structure)\b/
+      */
     };
 
     // Find best match
@@ -358,6 +386,95 @@ Output: {
 
     // Fallback to first available category
     return availableCategories.length > 0 ? availableCategories[0] : 'general';
+  }
+
+  /**
+   * Enhanced paver patio detection for master formula routing
+   */
+  private isPaverPatioRequest(input: string, categories: string[], confidence: 'high' | 'medium' | 'low'): boolean {
+    const lowerInput = input.toLowerCase();
+
+    // High confidence paver patio patterns (explicit mentions with measurements)
+    const highConfidencePatterns = [
+      /\b\d+\s*(?:sq\.?\s*ft\.?|sqft|square\s+feet)\s+(?:paver\s+)?patio\b/,
+      /\b(?:paver\s+)?patio\s+\d+\s*(?:sq\.?\s*ft\.?|sqft|square\s+feet)\b/,
+      /\b\d+\s*x\s*\d+\s+(?:paver\s+|stone\s+)?patio\b/,
+      /\b\d+\s*ft\s*x\s*\d+\s*ft\s+(?:paver\s+|stone\s+)?patio\b/,
+      /\b\d+\s*by\s*\d+\s+(?:paver\s+|stone\s+)?patio\b/
+    ];
+
+    // Medium confidence patterns (clear patio intentions)
+    const mediumConfidencePatterns = [
+      /\bpaver\s+patio\b/,
+      /\bstone\s+patio\b/,
+      /\bconcrete\s+paver\b/,
+      /\bpatio\s+(?:with\s+)?pavers?\b/,
+      /\bpatio\s+(?:using\s+)?(?:paver|stone|brick)s?\b/,
+      /\b(?:install|build|create)\s+(?:a\s+)?(?:paver\s+)?patio\b/
+    ];
+
+    // Enhanced patterns for dimensional calculations
+    const dimensionalPatterns = [
+      /\b\d+\s*(?:sq\.?\s*ft\.?|sqft)\s+patio\b/,
+      /\bpatio\s+\d+\s*(?:sq\.?\s*ft\.?|sqft)\b/,
+      /\b\d+\s*x\s*\d+\s+(?:foot|ft)\s+patio\b/
+    ];
+
+    // Semantic similarity patterns (catch variations)
+    const semanticPatterns = [
+      /\b(?:flagstone|bluestone|travertine|natural\s+stone)\s+patio\b/,
+      /\bpatio\s+(?:installation|construction|project)\b/,
+      /\bbackyard\s+patio\b/,
+      /\boutdoor\s+patio\b/,
+      /\bpatio\s+(?:area|space)\b/
+    ];
+
+    // Check for hardscaping category first
+    if (!categories.includes('hardscaping')) {
+      return false;
+    }
+
+    // High confidence detection (explicit with measurements)
+    if (highConfidencePatterns.some(pattern => pattern.test(lowerInput))) {
+      console.log('🎯 HIGH CONFIDENCE paver patio detected - enabling master formula mode');
+      return true;
+    }
+
+    // Medium confidence detection (clear patio intentions)
+    if ((confidence === 'high' || confidence === 'medium') &&
+        mediumConfidencePatterns.some(pattern => pattern.test(lowerInput))) {
+      console.log('🎯 MEDIUM CONFIDENCE paver patio detected - enabling master formula mode');
+      return true;
+    }
+
+    // Dimensional pattern detection (measurements imply patio project)
+    if (dimensionalPatterns.some(pattern => pattern.test(lowerInput))) {
+      const hasPatioKeyword = /\bpatio\b/.test(lowerInput);
+      if (hasPatioKeyword) {
+        console.log('🎯 DIMENSIONAL CONFIDENCE paver patio detected - enabling master formula mode');
+        return true;
+      }
+    }
+
+    // Semantic similarity detection (catch stone patio variations)
+    if ((confidence === 'high' || confidence === 'medium') &&
+        semanticPatterns.some(pattern => pattern.test(lowerInput))) {
+      console.log('🎯 SEMANTIC CONFIDENCE paver patio detected - enabling master formula mode');
+      return true;
+    }
+
+    // Enhanced fallback for missed obvious cases
+    const patioKeyword = /\bpatio\b/.test(lowerInput);
+    const hardscapingTerms = /\b(?:paver|stone|brick|flagstone|concrete|hardscape)\b/.test(lowerInput);
+    const measurements = /\b\d+\s*(?:sq\.?\s*ft\.?|sqft|square\s+feet|x\s*\d+|by\s*\d+)\b/.test(lowerInput);
+
+    if (patioKeyword && hardscapingTerms && measurements && confidence !== 'low') {
+      console.log('🎯 FALLBACK CONFIDENCE paver patio detected - enabling master formula mode');
+      return true;
+    }
+
+    console.log('🔍 No master formula trigger detected - using standard Google Sheets routing');
+    return false;
   }
 
   /**
