@@ -95,7 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🌐 STEP 3: Using Supabase client for beta_codes query');
 
       // STEP 4: Send request using Supabase client (prevents 406 errors)
-      console.log('📡 STEP 4: Sending validation request via Supabase client...');
       const startTime = performance.now();
 
       const supabase = createClient(supabaseUrl, supabaseKey);
@@ -107,12 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const requestTime = performance.now() - startTime;
 
       // STEP 5: Response validation
-      console.log('📡 STEP 5: Response received -', {
-        success: !error,
-        codesFound: codes?.length || 0,
-        latency: `${requestTime.toFixed(2)}ms`,
-        error: error?.message || null
-      });
 
       if (error) {
         console.error('❌ STEP 5 FAILED: Supabase client error');
@@ -312,7 +305,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       
-      console.log('📡 STEP 4: Querying database...');
       const startTime = performance.now();
 
       const response = await fetch(requestUrl, {
@@ -328,11 +320,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const queryTime = performance.now() - startTime;
 
       // STEP 5: Response validation
-      console.log('📡 STEP 5: Database response received -', {
-        status: response.status,
-        statusText: response.statusText,
-        latency: `${queryTime.toFixed(2)}ms`
-      });
 
       if (!response.ok) {
         console.error('❌ STEP 5 FAILED: Database query error');
@@ -426,14 +413,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('🛠️ Admin features will be available');
       }
 
-      console.log('🎉 SUCCESS: User authentication completed');
-      console.log('📊 Final login metrics:', {
-        firstName: betaUser.first_name,
-        techId: betaUser.tech_uuid.slice(-8),
-        queryTime: `${queryTime.toFixed(2)}ms`,
-        isAdmin: betaUser.is_admin || false,
-        timestamp: new Date().toISOString().slice(11, 23)
-      });
       
       console.groupEnd();
       return { success: true };

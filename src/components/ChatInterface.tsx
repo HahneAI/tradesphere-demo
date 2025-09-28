@@ -375,7 +375,6 @@ const ChatInterface = () => {
   // 🔄 AUTH TIMING FIX: Load customers when auth becomes available and dropdown is open
   useEffect(() => {
     if (showCustomerDropdown && user?.tech_uuid && recentCustomerSessions.length === 0 && !isLoadingCustomers) {
-      console.log('🔄 Auth became available while dropdown open - loading customers');
       loadRecentCustomers();
     }
   }, [showCustomerDropdown, user?.tech_uuid]);
@@ -423,11 +422,6 @@ const ChatInterface = () => {
       console.groupEnd();
       throw new Error("User not authenticated");
     }
-    console.log('✅ STEP 3: User authenticated -', {
-      name: user.first_name,
-      techId: user.tech_uuid.slice(-8),
-      betaId: user.beta_code_id
-    });
 
     // STEP 4: Prepare payload with validation
     const payload = {
@@ -534,11 +528,6 @@ const ChatInterface = () => {
       
       // STEP 8: Response validation with detailed logging
       const webhookLatency = performance.now() - startTime;
-      console.log('📡 STEP 8: Response received -', {
-        status: response.status,
-        statusText: response.statusText,
-        latency: `${webhookLatency.toFixed(2)}ms`
-      });
 
       // Track performance metrics
       setPerformanceMetrics(prev => ({
@@ -633,12 +622,7 @@ const ChatInterface = () => {
     
     // 🏢 PHASE 4: Log customer context when present
     if (customerDetails) {
-      console.log('👤 Customer Context:', {
-        name: customerDetails.name,
-        hasAddress: !!customerDetails.address,
-        hasEmail: !!customerDetails.email,
-        hasPhone: !!customerDetails.phone
-      });
+      // Customer context available for processing
     }
     
     // Validate user authentication
@@ -729,10 +713,7 @@ const ChatInterface = () => {
     const shouldDetailLog = isAdmin || (Date.now() - (processingStartTime || 0)) < 30000;
     
     if (shouldDetailLog) {
-      console.log(`${debugPrefix} Starting poll`, {
-        since: sinceParam.slice(11, 23), // Just time portion
-        url: currentApiUrl.slice(-20), // Just end of URL
-      });
+      // Starting poll request
     }
     
     try {
@@ -839,7 +820,7 @@ const ChatInterface = () => {
       } else {
         // Only log no messages if we're in detailed logging mode
         if (shouldDetailLog && pollLatency > 100) {
-          console.log(`${debugPrefix} No new messages (${pollLatency.toFixed(2)}ms)`);
+          // No new messages found
         }
       }
       
@@ -863,14 +844,11 @@ const ChatInterface = () => {
 
   // 🔍 DEBUG: Simple polling rollback to isolate 400 error
   useEffect(() => {
-    console.log('🔍 DEBUG: Starting simple 2-second polling');
     const polling = setInterval(() => {
-      console.log('🔍 DEBUG: Polling attempt...');
       pollForAiMessages();
     }, 2000);
-    
+
     return () => {
-      console.log('🔍 DEBUG: Cleaning up polling interval');
       clearInterval(polling);
     };
   }, []); // Simplified dependency array
@@ -1054,12 +1032,6 @@ const ChatInterface = () => {
     setInputText('');
     lastPollTimeRef.current = new Date();
 
-    console.log('🔄 Chat refreshed with new user session:', sessionIdRef.current);
-    console.log('👤 User context:', { 
-      name: user.first_name, 
-      betaId: user.beta_code_id,
-      techId: user.tech_uuid 
-    });
   };
 
   const handleSendMessage = async () => {
@@ -1531,7 +1503,6 @@ const ChatInterface = () => {
           setShowCustomerForm(false);
         }
 
-        console.log(`✅ Customer context loaded: ${customer.customer_name} (${response.conversationHistory.length} messages)`);
       } else {
         console.error('Failed to load customer context:', response.error);
         // Could show error message to user here
@@ -1550,15 +1521,10 @@ const ChatInterface = () => {
   const loadRecentCustomers = async () => {
     // Enhanced authentication and state guards
     if (!user?.tech_uuid || isLoadingCustomers) {
-      console.log('⚠️ Skipping customer load - auth not ready or already loading:', {
-        hasTechUuid: !!user?.tech_uuid,
-        isLoading: isLoadingCustomers
-      });
       return;
     }
 
     setIsLoadingCustomers(true);
-    console.log('👤 Loading recent customers for tech:', user.tech_uuid);
     
     try {
       // Use existing chat-messages endpoint with customer lookup flag
@@ -1630,7 +1596,6 @@ const ChatInterface = () => {
         });
       }, 50);
 
-      console.log('🔄 Preloading customer context:', { customerName, sessionId });
 
       // Build query URL
       const queryParams = new URLSearchParams({
@@ -1741,7 +1706,6 @@ const ChatInterface = () => {
     }
 
     try {
-      console.log('👤 Saving customer details for session:', sessionIdRef.current);
       
       // Update all VC Usage records for this session
       const response = await fetch('/.netlify/functions/customer-update', {
@@ -1763,7 +1727,6 @@ const ChatInterface = () => {
       }
 
       const result = await response.json();
-      console.log('✅ Customer details updated for entire session:', result);
       
       setShowCustomerDropdown(false);
       
@@ -1872,10 +1835,7 @@ const ChatInterface = () => {
                     setShowCustomerDropdown(newState);
                     // 🏢 PHASE 5: Load recent customers when dropdown opens (with auth timing protection)
                     if (newState && recentCustomerSessions.length === 0 && user?.tech_uuid) {
-                      console.log('🔄 Customer dropdown opened - loading customers with auth check');
                       loadRecentCustomers();
-                    } else if (newState && !user?.tech_uuid) {
-                      console.log('⚠️ Customer dropdown opened but auth not ready - skipping load');
                     }
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
