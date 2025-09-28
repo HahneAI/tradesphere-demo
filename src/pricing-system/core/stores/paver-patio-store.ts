@@ -136,7 +136,7 @@ const calculateExpertPricing = (
   // Get base settings with comprehensive null guards and defaults
   const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
   const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
-  const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 100;
+  const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 50;
   const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
   const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
 
@@ -724,6 +724,43 @@ export const usePaverPatioStore = (): PaverPatioStore => {
 
     window.addEventListener('storage', handleServiceConfigChange);
     return () => window.removeEventListener('storage', handleServiceConfigChange);
+  }, [config, values]);
+
+  // Listen for immediate config updates from Services tab
+  useEffect(() => {
+    const handleConfigUpdate = (event: CustomEvent) => {
+      const { serviceId, updatedService } = event.detail;
+
+      if (serviceId === 'paver_patio_sqft' && config) {
+        console.log('🔄 IMMEDIATE CONFIG UPDATE: Reloading configuration from Services tab changes');
+
+        // Update the config immediately with the new values
+        const mergedConfig = {
+          ...config,
+          baseSettings: {
+            laborSettings: { ...config.baseSettings?.laborSettings, ...updatedService.baseSettings?.laborSettings },
+            materialSettings: { ...config.baseSettings?.materialSettings, ...updatedService.baseSettings?.materialSettings },
+            businessSettings: { ...config.baseSettings?.businessSettings, ...updatedService.baseSettings?.businessSettings }
+          },
+          variables: {
+            ...config.variables,
+            ...(updatedService.variables || {})
+          },
+          lastModified: updatedService.lastModified || config.lastModified
+        };
+
+        setConfig(mergedConfig);
+
+        // Recalculate pricing with new config
+        const calculation = calculatePrice(mergedConfig, values);
+        setLastCalculation(calculation);
+
+        console.log('✅ IMMEDIATE CONFIG UPDATE: Pricing recalculated with new configuration');
+      }
+    };
+
+    window.addEventListener('paver-config-updated', handleConfigUpdate as EventListener);
+    return () => window.removeEventListener('paver-config-updated', handleConfigUpdate as EventListener);
   }, [config, values]);
 
   return {

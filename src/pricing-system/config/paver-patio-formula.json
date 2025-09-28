@@ -26,7 +26,7 @@
         "validation": { "min": 2, "max": 5, "step": 1 }
       },
       "baseProductivity": {
-        "value": 100,
+        "value": 50,
         "unit": "sqft/day",
         "label": "Base Productivity Rate",
         "description": "Square feet completed per day by optimal team",

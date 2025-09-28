@@ -37,7 +37,7 @@ export function calculateExpertPricing(
   // Comprehensive null guards and defaults for server environment
   const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
   const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
-  const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 100;
+  const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 50;
   const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
   const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
 

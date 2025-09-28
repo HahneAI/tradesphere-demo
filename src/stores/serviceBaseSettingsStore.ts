@@ -89,32 +89,68 @@ const loadServices = (): ServiceConfig[] => {
   }
 };
 
-// Save updated configuration to localStorage (simulating JSON file update)
+// Save updated configuration to localStorage AND write back to JSON file
 const saveServiceConfig = (serviceId: string, updatedService: ServiceConfig) => {
   try {
-    // For now, we'll store in localStorage
-    // In production, this would write back to the JSON file
+    // STEP 1: Store in localStorage for immediate use
     const storageKey = `service_config_${serviceId}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedService));
-    
-    // Also store the update timestamp
+
+    // STEP 2: Also store the update timestamp
     const updateInfo = {
       serviceId,
       timestamp: new Date().toISOString(),
       lastModified: new Date().toISOString().split('T')[0]
     };
     localStorage.setItem(`service_update_${serviceId}`, JSON.stringify(updateInfo));
-    
-    // Broadcast change to other tabs/windows
+
+    // STEP 3: Write back to JSON file via Netlify function
+    if (serviceId === 'paver_patio_sqft') {
+      writeConfigToJsonFile(updatedService).catch(error => {
+        console.warn('⚠️ Failed to update JSON file, using localStorage only:', error.message);
+      });
+    }
+
+    // STEP 4: Broadcast change to other tabs/windows AND all pricing components
     window.dispatchEvent(new StorageEvent('storage', {
       key: storageKey,
       newValue: JSON.stringify(updatedService),
       storageArea: localStorage
     }));
-    
-    console.log(`✅ Service ${serviceId} configuration updated`);
+
+    // STEP 5: Trigger immediate refresh of pricing calculations
+    window.dispatchEvent(new CustomEvent('paver-config-updated', {
+      detail: { serviceId, updatedService }
+    }));
+
+    console.log(`✅ Service ${serviceId} configuration updated (localStorage + JSON file sync)`);
   } catch (error) {
     console.error('Error saving service configuration:', error);
+    throw error;
+  }
+};
+
+// Write configuration back to JSON file
+const writeConfigToJsonFile = async (updatedService: ServiceConfig) => {
+  try {
+    const response = await fetch('/.netlify/functions/update-service-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        serviceId: 'paver_patio_sqft',
+        configData: updatedService
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    console.log('✅ JSON file updated successfully');
+  } catch (error) {
+    console.error('❌ Failed to update JSON file:', error);
     throw error;
   }
 };
