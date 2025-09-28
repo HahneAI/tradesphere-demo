@@ -697,11 +697,8 @@ const ChatInterface = () => {
 
   // 🔧 SIMPLIFIED: Fixed polling with proper URL construction
   const pollForAiMessages = async () => {
-    const debugPrefix = `📡 POLL [${sessionIdRef.current.slice(-8)}]`;
-    
     // Quick validation before polling
     if (!sessionIdRef.current) {
-      console.warn(`${debugPrefix} Skipped - No session ID`);
       return;
     }
     
@@ -721,11 +718,7 @@ const ChatInterface = () => {
       const pollLatency = performance.now() - pollStart;
       
       if (!response.ok) {
-        console.error(`${debugPrefix} HTTP Error -`, {
-          status: response.status,
-          statusText: response.statusText,
-          latency: `${pollLatency.toFixed(2)}ms`
-        });
+        // HTTP error occurred
         
         // Don't spam errors for common issues
         if (response.status !== 404 && response.status !== 429) {
@@ -737,15 +730,11 @@ const ChatInterface = () => {
       const newAiMessages = await response.json();
       
       if (shouldDetailLog) {
-        console.log(`${debugPrefix} Response -`, {
-          messages: newAiMessages.length,
-          latency: `${pollLatency.toFixed(2)}ms`,
-          status: response.status
-        });
+        // Response received
       }
       
       if (newAiMessages.length > 0) {
-        console.log(`🎉 ${debugPrefix} New messages received -`, newAiMessages.length);
+        // New messages received
         
         // 🏢 ENTERPRISE: Calculate total response time
         if (processingStartTime) {
@@ -768,7 +757,7 @@ const ChatInterface = () => {
           }));
 
         if (processedMessages.length !== newAiMessages.length) {
-          console.warn(`${debugPrefix} Filtered out ${newAiMessages.length - processedMessages.length} invalid messages`);
+          // Some messages were filtered out
         }
 
         setMessages(prev => {
@@ -779,7 +768,7 @@ const ChatInterface = () => {
             setIsLoading(false);
             lastPollTimeRef.current = new Date();
             
-            console.log(`✅ ${debugPrefix} Added ${uniqueNewMessages.length} new messages to chat`);
+            // Added new messages to chat
             
             // 🔄 DUAL TESTING: Check completion based on mode
             if (uniqueNewMessages.some(msg => msg.sender === 'ai')) {
@@ -813,7 +802,7 @@ const ChatInterface = () => {
             
             return [...prev, ...uniqueNewMessages];
           } else {
-            console.log(`🔄 ${debugPrefix} No new unique messages (${processedMessages.length} already exist)`);
+            // No new unique messages
             return prev;
           }
         });
@@ -828,11 +817,7 @@ const ChatInterface = () => {
       const pollLatency = performance.now() - pollStart;
       
       // Enhanced error logging
-      console.error(`❌ ${debugPrefix} Polling failed -`, {
-        error: error.message,
-        latency: `${pollLatency.toFixed(2)}ms`,
-        timestamp: new Date().toISOString().slice(11, 23)
-      });
+      console.error('❌ Polling failed:', error.message);
       
       // Network connectivity check for admins
       if (isAdmin && error.message?.includes('fetch')) {
