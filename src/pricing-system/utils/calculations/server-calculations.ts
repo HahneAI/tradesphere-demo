@@ -103,8 +103,7 @@ export function calculateExpertPricing(
     subtotal: subtotal,
     profit: profit,
     total: total,
-    expectedQuickCalculatorResult: 2716.80,
-    differenceFromExpected: total - 2716.80
+    pricePerSqft: (total / sqft).toFixed(2)
   });
 
   const result: PaverPatioCalculationResult = {
@@ -127,14 +126,13 @@ export function calculateExpertPricing(
     calculationDate: new Date().toISOString()
   };
 
-  // 🔍 [DEBUG] Final calculation results with comparison to expected $2,716.80
-  console.log('🔍 [DEBUG] server-calculations.ts - Final Results Comparison:', {
+  // 🔍 [DEBUG] Final calculation results
+  console.log('🔍 [DEBUG] server-calculations.ts - Final Results:', {
     sqft: sqft,
     finalTotal: result.tier2Results.total,
-    expectedQuickCalculatorResult: 2716.80,
-    absoluteDifference: Math.abs(result.tier2Results.total - 2716.80),
-    percentageDifference: ((result.tier2Results.total - 2716.80) / 2716.80 * 100).toFixed(2) + '%',
-    isWithinTolerance: Math.abs(result.tier2Results.total - 2716.80) < 50,
+    laborHours: result.tier1Results.totalManHours,
+    complexity: result.tier1Results.complexityScore,
+    pricePerSqft: (result.tier2Results.total / sqft).toFixed(2),
     debugTimestamp: new Date().toISOString()
   });
 

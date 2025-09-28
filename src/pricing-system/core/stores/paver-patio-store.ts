@@ -340,8 +340,8 @@ const calculateExpertPricing = (
   const complexityMultiplier = values?.complexity?.overallComplexity || 1.0;
   const total = beforeComplexity * complexityMultiplier;
 
-  // 🔍 [QUICK CALCULATOR DEBUG] Final calculation with comparison to expected $2,716.80
-  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Final Calculation vs Expected:', {
+  // 🔍 [QUICK CALCULATOR DEBUG] Final calculation results
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Final Calculation Results:', {
     laborCost: laborCost.toFixed(2),
     totalMaterialCost: totalMaterialCost.toFixed(2),
     equipmentCost: equipmentCost.toFixed(2),
@@ -352,9 +352,7 @@ const calculateExpertPricing = (
     beforeComplexity: beforeComplexity.toFixed(2),
     complexityMultiplier: complexityMultiplier,
     finalTotal: total.toFixed(2),
-    expectedResult: 2716.80,
-    difference: (total - 2716.80).toFixed(2),
-    percentDifference: (((total - 2716.80) / 2716.80) * 100).toFixed(2) + '%'
+    pricePerSqft: (total / sqft).toFixed(2)
   });
 
   // Calculate total days (8-hour workdays) at the end of Tier 1
