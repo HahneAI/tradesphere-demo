@@ -232,6 +232,17 @@ export class PricingCalculatorService {
     console.log(`  Square Footage: ${sqft} sqft`);
     console.log(`  Variables:`, paverPatioValues);
 
+    // 🐛 DEBUG: Master Formula Calculation Inputs
+    console.log('🔍 [DEBUG] Master Formula Calculation Inputs:', {
+      sqft: sqft,
+      paverPatioValues: paverPatioValues,
+      calculationType: 'master-formula'
+    });
+
+    console.log('🔍 [DEBUG] PaverPatioValues Structure:',
+      JSON.stringify(paverPatioValues, null, 2)
+    );
+
     try {
       // Load the paver patio configuration
       const config = loadPaverPatioConfig();

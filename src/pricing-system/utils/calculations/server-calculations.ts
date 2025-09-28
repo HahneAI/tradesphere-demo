@@ -26,12 +26,29 @@ export function calculateExpertPricing(
   values: PaverPatioValues,
   sqft: number = 100
 ): PaverPatioCalculationResult {
+  // 🔍 [DEBUG] Log input parameters at function start
+  console.log('🔍 [DEBUG] server-calculations.ts - Function Start:', {
+    sqft: sqft,
+    inputValues: values,
+    configPresent: !!config,
+    timestamp: new Date().toISOString()
+  });
+
   // Comprehensive null guards and defaults for server environment
   const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
   const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
   const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 100;
   const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
   const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
+
+  // 🔍 [DEBUG] Log base configuration values
+  console.log('🔍 [DEBUG] server-calculations.ts - Base Config Values:', {
+    hourlyRate: hourlyRate,
+    optimalTeamSize: optimalTeamSize,
+    baseProductivity: baseProductivity,
+    baseMaterialCost: baseMaterialCost,
+    profitMargin: profitMargin
+  });
 
   console.log('🔥 SERVER-SIDE MASTER FORMULA CALCULATION START');
   console.log(`📊 Inputs: ${sqft} sqft with complexity factors`);
@@ -42,6 +59,18 @@ export function calculateExpertPricing(
   const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
   const teamSizeMultiplier = getTeamSizeMultiplier(values.labor.teamSize);
 
+  // 🔍 [DEBUG] Log Tier 1 multiplier calculations
+  console.log('🔍 [DEBUG] server-calculations.ts - Tier 1 Multiplier Calculations:', {
+    tearoutComplexity: values.excavation.tearoutComplexity,
+    tearoutMultiplier: tearoutMultiplier,
+    accessDifficulty: values.siteAccess.accessDifficulty,
+    accessMultiplier: accessMultiplier,
+    paverStyle: values.materials.paverStyle,
+    materialMultiplier: materialMultiplier,
+    teamSize: values.labor.teamSize,
+    teamSizeMultiplier: teamSizeMultiplier
+  });
+
   // TIER 1: Base labor calculation with complexity adjustments
   const baseHoursPerSqft = 0.24; // 24 hours for 100 sqft baseline
   const complexityFactor = tearoutMultiplier * accessMultiplier * materialMultiplier * teamSizeMultiplier;
@@ -50,12 +79,33 @@ export function calculateExpertPricing(
   const totalManHours = adjustedHoursPerSqft * sqft;
   const totalDays = totalManHours / (optimalTeamSize * 8); // 8-hour work days
 
+  // 🔍 [DEBUG] Log Tier 1 results
+  console.log('🔍 [DEBUG] server-calculations.ts - Tier 1 Results:', {
+    baseHoursPerSqft: baseHoursPerSqft,
+    complexityFactor: complexityFactor,
+    adjustedHoursPerSqft: adjustedHoursPerSqft,
+    totalManHours: totalManHours,
+    totalDays: totalDays,
+    optimalTeamSize: optimalTeamSize
+  });
+
   // TIER 2: Cost calculation with material and labor components
   const laborCost = totalManHours * hourlyRate;
   const adjustedMaterialCost = baseMaterialCost * sqft * materialMultiplier;
   const subtotal = laborCost + adjustedMaterialCost;
   const profit = subtotal * profitMargin;
   const total = subtotal + profit;
+
+  // 🔍 [DEBUG] Log Tier 2 cost calculations
+  console.log('🔍 [DEBUG] server-calculations.ts - Tier 2 Cost Calculations:', {
+    laborCost: laborCost,
+    adjustedMaterialCost: adjustedMaterialCost,
+    subtotal: subtotal,
+    profit: profit,
+    total: total,
+    expectedQuickCalculatorResult: 2716.80,
+    differenceFromExpected: total - 2716.80
+  });
 
   const result: PaverPatioCalculationResult = {
     tier1Results: {
@@ -76,6 +126,17 @@ export function calculateExpertPricing(
     confidence: 0.9,
     calculationDate: new Date().toISOString()
   };
+
+  // 🔍 [DEBUG] Final calculation results with comparison to expected $2,716.80
+  console.log('🔍 [DEBUG] server-calculations.ts - Final Results Comparison:', {
+    sqft: sqft,
+    finalTotal: result.tier2Results.total,
+    expectedQuickCalculatorResult: 2716.80,
+    absoluteDifference: Math.abs(result.tier2Results.total - 2716.80),
+    percentageDifference: ((result.tier2Results.total - 2716.80) / 2716.80 * 100).toFixed(2) + '%',
+    isWithinTolerance: Math.abs(result.tier2Results.total - 2716.80) < 50,
+    debugTimestamp: new Date().toISOString()
+  });
 
   console.log('✅ SERVER-SIDE CALCULATION COMPLETE:', {
     sqft,

@@ -74,6 +74,24 @@ export const handler = async (event, context) => {
     console.log(`✅ Parameter Collection: ${parameterCollectionTime}ms`);
     console.log(`📊 Services: ${collectionResult.services.length} complete + ${collectionResult.incompleteServices.length} incomplete`);
 
+    // 🐛 DEBUG: Parameter Collection Results
+    console.log('🔍 [DEBUG] ParameterCollectorService Results:', {
+      status: collectionResult.status,
+      servicesCount: collectionResult.services.length,
+      firstService: collectionResult.services[0] ? {
+        serviceName: collectionResult.services[0].serviceName,
+        quantity: collectionResult.services[0].quantity,
+        hasSpecialRequirements: !!collectionResult.services[0].specialRequirements,
+        paverPatioValuesPresent: !!collectionResult.services[0].specialRequirements?.paverPatioValues
+      } : null
+    });
+
+    if (collectionResult.services[0]?.specialRequirements?.paverPatioValues) {
+      console.log('🔍 [DEBUG] PaverPatioValues Being Sent to Calculator:',
+        JSON.stringify(collectionResult.services[0].specialRequirements.paverPatioValues, null, 2)
+      );
+    }
+
     // STEP 2: Pricing Calculation (only for complete services)
     let pricingResult = undefined;
     let pricingCalculationTime = 0;

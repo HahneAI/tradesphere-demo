@@ -125,12 +125,43 @@ const calculateExpertPricing = (
   values: PaverPatioValues,
   sqft: number = 100
 ): PaverPatioCalculationResult => {
+  // 🔍 [QUICK CALCULATOR DEBUG] Function start
+  console.log('🔍 [QUICK CALCULATOR DEBUG] calculateExpertPricing() START:', {
+    sqft: sqft,
+    inputValues: values,
+    configPresent: !!config,
+    timestamp: new Date().toISOString()
+  });
+
   // Get base settings with comprehensive null guards and defaults
   const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
   const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
   const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 100;
   const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
   const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Actual config values from paver-patio-formula.json
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Actual Config Values from JSON:', {
+    hourlyRate: hourlyRate,
+    optimalTeamSize: optimalTeamSize,
+    baseProductivity: baseProductivity,
+    baseMaterialCost: baseMaterialCost,
+    profitMargin: profitMargin,
+    configSource: 'paver-patio-formula.json + Services database overrides'
+  });
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Actual variable values being used
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Actual Variable Values from Services Database:', {
+    tearoutComplexity: values?.excavation?.tearoutComplexity,
+    equipmentRequired: values?.excavation?.equipmentRequired,
+    accessDifficulty: values?.siteAccess?.accessDifficulty,
+    obstacleRemoval: values?.siteAccess?.obstacleRemoval,
+    paverStyle: values?.materials?.paverStyle,
+    cuttingComplexity: values?.materials?.cuttingComplexity,
+    patternComplexity: values?.materials?.patternComplexity,
+    teamSize: values?.labor?.teamSize,
+    overallComplexity: values?.complexity?.overallComplexity
+  });
 
   // TIER 1: Man Hours Calculation - Base-Independent Variable System
   // Formula: (sqft ÷ daily_productivity) × team_size × 8_hours_per_day
@@ -139,11 +170,27 @@ const calculateExpertPricing = (
   let adjustedHours = baseHours;
   const breakdownSteps: string[] = [`Base: ${sqft} sqft ÷ ${baseProductivity} sqft/day × ${optimalTeamSize} people × 8 hours = ${baseHours.toFixed(1)} hours`];
 
+  // 🔍 [QUICK CALCULATOR DEBUG] Tier 1 base calculation
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 1 Base Hours Calculation:', {
+    formula: `(${sqft} sqft ÷ ${baseProductivity} sqft/day) × ${optimalTeamSize} people × 8 hours`,
+    calculation: `(${sqft} ÷ ${baseProductivity}) × ${optimalTeamSize} × 8`,
+    result: baseHours.toFixed(1) + ' hours'
+  });
+
   // Apply base-independent variable system - each percentage applies to ORIGINAL base hours
   // This keeps each variable's effect independent and predictable
 
   const tearoutVar = config?.variables?.excavation?.tearoutComplexity as PaverPatioVariable;
   const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Tearout multiplier from JSON
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tearout Complexity Multiplier:', {
+    selectedValue: values?.excavation?.tearoutComplexity,
+    multiplierValue: tearoutOption?.value,
+    allTearoutOptions: tearoutVar?.options,
+    isApplied: !!(tearoutOption?.value && tearoutOption.value > 0)
+  });
+
   if (tearoutOption?.value && tearoutOption.value > 0) {
     const tearoutHours = baseHours * (tearoutOption.value / 100);
     adjustedHours += tearoutHours;
@@ -152,6 +199,15 @@ const calculateExpertPricing = (
 
   const accessVar = config?.variables?.siteAccess?.accessDifficulty as PaverPatioVariable;
   const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'moderate'];
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Access multiplier from JSON
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Access Difficulty Multiplier:', {
+    selectedValue: values?.siteAccess?.accessDifficulty,
+    multiplierValue: accessOption?.value,
+    allAccessOptions: accessVar?.options,
+    isApplied: !!(accessOption?.value && accessOption.value > 0)
+  });
+
   if (accessOption?.value && accessOption.value > 0) {
     const accessHours = baseHours * (accessOption.value / 100);
     adjustedHours += accessHours;
@@ -160,6 +216,15 @@ const calculateExpertPricing = (
 
   const teamVar = config?.variables?.labor?.teamSize as PaverPatioVariable;
   const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'optimal'];
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Team size multiplier from JSON
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Team Size Multiplier:', {
+    selectedValue: values?.labor?.teamSize,
+    multiplierValue: teamOption?.value,
+    allTeamOptions: teamVar?.options,
+    isApplied: !!(teamOption?.value && teamOption.value > 0)
+  });
+
   if (teamOption?.value && teamOption.value > 0) {
     const teamHours = baseHours * (teamOption.value / 100);
     adjustedHours += teamHours;
@@ -169,6 +234,15 @@ const calculateExpertPricing = (
   // Add fixed cutting hours (Tom's spec: fixed hours, not percentages)
   const cuttingVar = config?.variables?.materials?.cuttingComplexity as PaverPatioVariable;
   const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Cutting complexity from JSON
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Cutting Complexity Fixed Hours:', {
+    selectedValue: values?.materials?.cuttingComplexity,
+    fixedLaborHours: cuttingOption?.fixedLaborHours,
+    allCuttingOptions: cuttingVar?.options,
+    isApplied: !!(cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0)
+  });
+
   if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
     adjustedHours += cuttingOption.fixedLaborHours;
     breakdownSteps.push(`+Cutting complexity: +${cuttingOption.fixedLaborHours} fixed hours`);
@@ -179,14 +253,39 @@ const calculateExpertPricing = (
 
   const totalManHours = adjustedHours;
 
+  // 🔍 [QUICK CALCULATOR DEBUG] Tier 1 final results
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 1 Final Results:', {
+    baseHours: baseHours.toFixed(1),
+    totalAdjustedHours: adjustedHours.toFixed(1),
+    breakdown: breakdownSteps
+  });
+
   // TIER 2: Cost Calculation
   const laborCost = totalManHours * hourlyRate;
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Labor cost calculation
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Labor Cost:', {
+    totalManHours: totalManHours.toFixed(1),
+    hourlyRate: hourlyRate,
+    laborCost: laborCost.toFixed(2),
+    calculation: `${totalManHours.toFixed(1)} hours × $${hourlyRate}/hour = $${laborCost.toFixed(2)}`
+  });
 
   // Material costs with comprehensive null guards and fallbacks
   const paverVar = config?.variables?.materials?.paverStyle as PaverPatioVariable;
   const paverOption = paverVar?.options?.[values?.materials?.paverStyle ?? 'economy'];
   const styleMultiplier = paverOption?.multiplier ?? 1.0;
   const materialCostBase = sqft * baseMaterialCost * styleMultiplier;
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Material cost calculation
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Material Cost Base:', {
+    sqft: sqft,
+    baseMaterialCost: baseMaterialCost,
+    paverStyle: values?.materials?.paverStyle,
+    styleMultiplier: styleMultiplier,
+    materialCostBase: materialCostBase.toFixed(2),
+    calculation: `${sqft} sqft × $${baseMaterialCost}/sqft × ${styleMultiplier} = $${materialCostBase.toFixed(2)}`
+  });
 
   // Material waste calculations with null guards
   const cuttingWaste = (cuttingOption?.materialWaste ?? 0) / 100;
@@ -196,16 +295,43 @@ const calculateExpertPricing = (
   const materialWasteCost = materialCostBase * (cuttingWaste + patternWaste);
   const totalMaterialCost = materialCostBase + materialWasteCost;
 
+  // 🔍 [QUICK CALCULATOR DEBUG] Material waste calculation
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Material Waste:', {
+    cuttingComplexity: values?.materials?.cuttingComplexity,
+    cuttingWastePercent: cuttingOption?.materialWaste ?? 0,
+    patternComplexity: values?.materials?.patternComplexity,
+    patternWastePercent: patternOption?.wastePercentage ?? 0,
+    totalWastePercent: ((cuttingWaste + patternWaste) * 100).toFixed(1) + '%',
+    materialWasteCost: materialWasteCost.toFixed(2),
+    totalMaterialCost: totalMaterialCost.toFixed(2)
+  });
+
   // Equipment cost (daily rate * project days) with null guards
   const equipmentVar = config?.variables?.excavation?.equipmentRequired as PaverPatioVariable;
   const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
   const projectDays = totalManHours / (optimalTeamSize * 8);
   const equipmentCost = (equipmentOption?.value ?? 0) * projectDays;
 
+  // 🔍 [QUICK CALCULATOR DEBUG] Equipment cost calculation
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Equipment Cost:', {
+    equipmentRequired: values?.excavation?.equipmentRequired,
+    dailyRate: equipmentOption?.value ?? 0,
+    projectDays: projectDays.toFixed(2),
+    equipmentCost: equipmentCost.toFixed(2),
+    calculation: `$${equipmentOption?.value ?? 0}/day × ${projectDays.toFixed(2)} days = $${equipmentCost.toFixed(2)}`
+  });
+
   // Obstacle flat costs with null guards
   const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval as PaverPatioVariable;
   const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'minor'];
   const obstacleCost = obstacleOption?.value ?? 0;
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Obstacle cost
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Obstacle Cost:', {
+    obstacleRemoval: values?.siteAccess?.obstacleRemoval,
+    obstacleCost: obstacleCost,
+    allObstacleOptions: obstacleVar?.options
+  });
 
   // Calculate subtotal and apply complexity multiplier
   const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
@@ -213,6 +339,23 @@ const calculateExpertPricing = (
   const beforeComplexity = subtotal + profit;
   const complexityMultiplier = values?.complexity?.overallComplexity || 1.0;
   const total = beforeComplexity * complexityMultiplier;
+
+  // 🔍 [QUICK CALCULATOR DEBUG] Final calculation with comparison to expected $2,716.80
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Final Calculation vs Expected:', {
+    laborCost: laborCost.toFixed(2),
+    totalMaterialCost: totalMaterialCost.toFixed(2),
+    equipmentCost: equipmentCost.toFixed(2),
+    obstacleCost: obstacleCost.toFixed(2),
+    subtotal: subtotal.toFixed(2),
+    profitMargin: (profitMargin * 100).toFixed(1) + '%',
+    profit: profit.toFixed(2),
+    beforeComplexity: beforeComplexity.toFixed(2),
+    complexityMultiplier: complexityMultiplier,
+    finalTotal: total.toFixed(2),
+    expectedResult: 2716.80,
+    difference: (total - 2716.80).toFixed(2),
+    percentDifference: (((total - 2716.80) / 2716.80) * 100).toFixed(2) + '%'
+  });
 
   // Calculate total days (8-hour workdays) at the end of Tier 1
   const totalDays = Math.round(((totalManHours ?? 0) / 8) * 10) / 10;
