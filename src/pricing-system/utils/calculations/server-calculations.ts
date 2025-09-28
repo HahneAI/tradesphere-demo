@@ -5,10 +5,10 @@
  * Provides master formula calculations without ESM/React dependencies
  */
 
-import type { PaverPatioConfig, PaverPatioValues, PaverPatioCalculationResult } from '../types/paverPatioFormula';
+import type { PaverPatioConfig, PaverPatioValues, PaverPatioCalculationResult } from '../../core/master-formula/formula-types';
 
 // Import the JSON configuration directly
-import paverPatioConfigJson from '../config/paver-patio-formula.json';
+import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 
 /**
  * Load paver patio configuration (server-side compatible)

@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
 import * as Icons from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { getSmartVisualThemeConfig } from '../config/industry';
-import { PaverPatioManager } from './services/PaverPatioManager';
-import { PaverPatioReadOnly } from './services/PaverPatioReadOnly';
-import { usePaverPatioStore } from '../stores/paverPatioStore';
+import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
+import { getSmartVisualThemeConfig } from '../../../config/industry';
+import { PaverPatioManager } from '../../../components/services/PaverPatioManager';
+import { PaverPatioReadOnly } from '../../../components/services/PaverPatioReadOnly';
+import { usePaverPatioStore } from '../../core/stores/paver-patio-store';
 
 interface QuickCalculatorTabProps {
   isOpen: boolean;

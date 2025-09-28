@@ -10,9 +10,9 @@
  * See ParameterCollectorService.ts lines 147-172 for Services database integration.
  */
 
-import type { PaverPatioValues, PaverPatioConfig } from '../../types/paverPatioFormula';
+import type { PaverPatioValues, PaverPatioConfig } from '../../core/master-formula/formula-types';
 import { ExtractedService } from './ParameterCollectorService';
-import { getPaverPatioServiceDefaults } from '../../config/service-database';
+import { getPaverPatioServiceDefaults } from '../../core/services-database/service-database';
 
 export interface PaverPatioVariableExtractionResult {
   sqft: number;

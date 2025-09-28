@@ -6,9 +6,9 @@
  * Zero external dependencies - fully self-contained pricing engine
  */
 
-import { ExtractedService } from './ParameterCollectorService';
-import { calculateExpertPricing, loadPaverPatioConfig } from '../../utils/server-calculations';
-import type { PaverPatioValues, PaverPatioCalculationResult } from '../../types/paverPatioFormula';
+import { ExtractedService } from '../parameter-collection/ParameterCollectorService';
+import { calculateExpertPricing, loadPaverPatioConfig } from '../../utils/calculations/server-calculations';
+import type { PaverPatioValues, PaverPatioCalculationResult } from '../../core/master-formula/formula-types';
 
 // Internal project total interface (replaces Google Sheets ProjectTotal)
 export interface ProjectTotal {

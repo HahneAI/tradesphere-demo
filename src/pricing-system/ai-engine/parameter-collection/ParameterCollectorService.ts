@@ -9,9 +9,9 @@
 
 // Commented out - Google Sheets service mapping disabled
 // import { ServiceMappingEngine, ServiceMappingResult } from './ServiceMappingEngine';
-import { CategorySplitResult } from './GPTServiceSplitter';
+import { CategorySplitResult } from '../text-processing/GPTServiceSplitter';
 import { PaverPatioVariableMapper, PaverPatioVariableExtractionResult } from './PaverPatioVariableMapper';
-import { getPaverPatioServiceDefaults } from '../../config/service-database';
+import { getPaverPatioServiceDefaults } from '../../core/services-database/service-database';
 
 export interface CollectionResult {
   status: 'incomplete' | 'ready_for_pricing' | 'partial';

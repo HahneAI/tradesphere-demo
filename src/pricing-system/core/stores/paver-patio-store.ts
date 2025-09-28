@@ -5,12 +5,12 @@ import type {
   PaverPatioCalculationResult,
   PaverPatioStore,
   PaverPatioVariable
-} from '../types/paverPatioFormula';
+} from '../master-formula/formula-types';
 
 // Import the JSON configuration
-import paverPatioConfigJson from '../config/paver-patio-formula.json';
+import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 // Import Services database for baseline values
-import { getPaverPatioServiceDefaults } from '../config/service-database';
+import { getPaverPatioServiceDefaults } from '../services-database/service-database';
 
 // Default values based on the configuration - Expert system compatible with comprehensive null guards
 const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
