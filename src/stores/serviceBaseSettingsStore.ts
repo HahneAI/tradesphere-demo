@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 
 // Import the JSON configuration
-import paverPatioConfigJson from '../config/paver-patio-formula.json';
+import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
 
 interface BaseSetting {
   value: number;
