@@ -12,7 +12,7 @@
  * - Educational reasoning for variable importance
  */
 
-import type { PaverPatioValues } from '../../types/paverPatioFormula';
+import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
 
 export interface PaverPatioDetectionPrompt {
   userMessage: string;

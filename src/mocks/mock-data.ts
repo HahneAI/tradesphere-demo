@@ -7,7 +7,7 @@
  * CRITICAL: These are real service names and pricing from our actual database.
  */
 
-import { ServiceConfig } from '../config/service-database';
+import { ServiceConfig } from '../pricing-system/core/services-database/service-database';
 
 // Real pricing data for mock testing (based on production averages)
 export const MOCK_SERVICE_PRICING: Record<string, {

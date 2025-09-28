@@ -13,9 +13,9 @@ import {
   findServiceBySynonym,
   getServiceByName,
   isSpecialService
-} from '../../config/service-database';
+} from '../../pricing-system/core/services-database/service-database';
 import { DimensionCalculator } from '../../utils/dimension-calculator';
-import { GPTServiceSplitter, CategorySplitResult } from './GPTServiceSplitter';
+import { GPTServiceSplitter, CategorySplitResult } from '../../pricing-system/ai-engine/text-processing/GPTServiceSplitter';
 
 export interface RecognizedService {
   serviceName: string;

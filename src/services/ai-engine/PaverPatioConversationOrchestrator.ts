@@ -16,8 +16,8 @@
 import { PaverPatioIntelligenceService, type PaverPatioAnalysisResult, type VariableConfirmationState } from './PaverPatioIntelligenceService';
 import { PaverPatioQuestionService, type QuestionContext } from './PaverPatioQuestionService';
 import { PaverPatioContextService } from './PaverPatioContextService';
-import { PricingCalculatorService } from './PricingCalculatorService';
-import type { PaverPatioValues } from '../../types/paverPatioFormula';
+import { PricingCalculatorService } from '../../pricing-system/ai-engine/pricing-calculation/PricingCalculatorService';
+import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
 
 export interface ConversationRequest {
   userMessage: string;

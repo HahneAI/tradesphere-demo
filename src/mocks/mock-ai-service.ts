@@ -5,7 +5,7 @@
  * Returns deterministic results matching expected Make.com behavior.
  */
 
-import { CollectionResult, ExtractedService } from '../services/ai-engine/ParameterCollectorService';
+import { CollectionResult, ExtractedService } from '../pricing-system/ai-engine/parameter-collection/ParameterCollectorService';
 import { MOCK_AI_RESPONSES } from './mock-data';
 
 export class MockAIService {

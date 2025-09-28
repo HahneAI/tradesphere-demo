@@ -6,11 +6,11 @@
  */
 
 // ES6 imports for TypeScript services - esbuild will bundle these
-import { ParameterCollectorService } from '../../src/services/ai-engine/ParameterCollectorService.ts';
-import { createPricingCalculator } from '../../src/services/ai-engine/PricingCalculatorService.ts';
+import { ParameterCollectorService } from '../../src/pricing-system/ai-engine/parameter-collection/ParameterCollectorService.ts';
+import { createPricingCalculator } from '../../src/pricing-system/ai-engine/pricing-calculation/PricingCalculatorService.ts';
 import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPersonalityService.ts';
 import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.ts';
-import { GPTServiceSplitter } from '../../src/services/ai-engine/GPTServiceSplitter.ts';
+import { GPTServiceSplitter } from '../../src/pricing-system/ai-engine/text-processing/GPTServiceSplitter.ts';
 import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.ts';
 import { MessageStorageService } from '../../src/utils/message-storage.ts';
 

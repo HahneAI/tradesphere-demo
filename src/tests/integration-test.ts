@@ -23,7 +23,7 @@ import {
   getServicesByCategory,
   isSpecialService,
   SHEETS_CONFIG 
-} from '../config/service-database';
+} from '../pricing-system/core/services-database/service-database';
 import { PipelineResult } from '../services/pipeline/interfaces';
 
 interface IntegrationTest {

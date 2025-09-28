@@ -1,6 +1,6 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
-import type { PaverPatioVariable } from '../../types/paverPatioFormula';
+import type { PaverPatioVariable } from '../../pricing-system/core/master-formula/formula-types';
 
 interface VariableDropdownProps {
   variable: PaverPatioVariable;

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import * as Icons from 'lucide-react';
-import { usePaverPatioStore } from '../../stores/paverPatioStore';
+import { usePaverPatioStore } from '../../pricing-system/core/stores/paver-patio-store';
 import { PricingPreview } from './PricingPreview';
-import type { PaverPatioValues } from '../../types/paverPatioFormula';
+import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
 
 interface PaverPatioReadOnlyProps {
   visualConfig: any;
