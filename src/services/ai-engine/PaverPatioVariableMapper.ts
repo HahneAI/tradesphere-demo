@@ -3,10 +3,16 @@
  *
  * Converts natural language descriptions into PaverPatioValues format compatible
  * with the master formula calculation system.
+ *
+ * NOTE: Services Database Integration
+ * This mapper focuses on variable extraction from user input. When validation fails,
+ * the ParameterCollectorService applies Services database defaults as fallback.
+ * See ParameterCollectorService.ts lines 147-172 for Services database integration.
  */
 
 import type { PaverPatioValues, PaverPatioConfig } from '../../types/paverPatioFormula';
 import { ExtractedService } from './ParameterCollectorService';
+import { getPaverPatioServiceDefaults } from '../../config/service-database';
 
 export interface PaverPatioVariableExtractionResult {
   sqft: number;

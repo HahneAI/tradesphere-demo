@@ -11,6 +11,7 @@
 // import { ServiceMappingEngine, ServiceMappingResult } from './ServiceMappingEngine';
 import { CategorySplitResult } from './GPTServiceSplitter';
 import { PaverPatioVariableMapper, PaverPatioVariableExtractionResult } from './PaverPatioVariableMapper';
+import { getPaverPatioServiceDefaults } from '../../config/service-database';
 
 export interface CollectionResult {
   status: 'incomplete' | 'ready_for_pricing' | 'partial';
@@ -117,17 +118,10 @@ export class ParameterCollectorService {
       sqft
     );
 
-    // Create the paver patio service
-    const paverPatioService = PaverPatioVariableMapper.createPaverPatioService(
+    // Create the paver patio service (will be updated after defaults are applied)
+    let paverPatioService = PaverPatioVariableMapper.createPaverPatioService(
       extractionResult.sqft
     );
-
-    // Add master formula variables as special requirements
-    paverPatioService.specialRequirements = {
-      paverPatioValues: extractionResult.paverPatioValues,
-      extractedVariables: extractionResult.extractedVariables,
-      defaultsUsed: extractionResult.defaultsUsed
-    };
 
     // Validate the extraction result
     const validation = PaverPatioVariableMapper.validateExtractionResult(extractionResult);
@@ -137,26 +131,60 @@ export class ParameterCollectorService {
     console.log(`  Confidence: ${(extractionResult.confidence * 100).toFixed(1)}%`);
     console.log(`  Extracted Variables: ${extractionResult.extractedVariables.length}`);
     console.log(`  Defaults Used: ${extractionResult.defaultsUsed.length}`);
-    console.log(`  Validation: ${validation.isValid ? 'PASSED' : 'NEEDS MORE INFO'}`);
+    console.log(`  Validation: ${validation.isValid ? 'PASSED' : 'USING SERVICES DATABASE DEFAULTS'}`);
 
-    // Determine status
-    let status: 'incomplete' | 'ready_for_pricing' | 'partial';
-    if (validation.isValid) {
-      status = 'ready_for_pricing';
-    } else {
-      status = 'incomplete';
+    // NEW: Use Services database defaults when validation fails
+    let finalPaverPatioValues = extractionResult.paverPatioValues;
+    let finalDefaultsUsed = [...extractionResult.defaultsUsed];
+
+    if (!validation.isValid) {
+      console.log('🔧 VALIDATION FAILED - APPLYING SERVICES DATABASE DEFAULTS');
+      const serviceDefaults = getPaverPatioServiceDefaults();
+
+      if (serviceDefaults) {
+        finalPaverPatioValues = {
+          ...serviceDefaults,
+          // Keep any successfully extracted square footage
+          sqft: extractionResult.sqft
+        };
+
+        finalDefaultsUsed = [
+          'excavation.tearoutComplexity (Services DB)',
+          'excavation.equipmentRequired (Services DB)',
+          'siteAccess.accessDifficulty (Services DB)',
+          'siteAccess.obstacleRemoval (Services DB)',
+          'materials.paverStyle (Services DB)',
+          'materials.cuttingComplexity (Services DB)',
+          'materials.patternComplexity (Services DB)',
+          'labor.teamSize (Services DB)',
+          'complexity.overallComplexity (Services DB)'
+        ];
+
+        console.log('✅ SERVICES DATABASE DEFAULTS APPLIED - READY FOR PRICING');
+      }
     }
+
+    // Update the paver patio service with final values (including Services database defaults if needed)
+    paverPatioService.specialRequirements = {
+      paverPatioValues: finalPaverPatioValues,
+      extractedVariables: extractionResult.extractedVariables,
+      defaultsUsed: finalDefaultsUsed
+    };
+
+    // Determine status - Now always ready for pricing with Services database fallback
+    let status: 'incomplete' | 'ready_for_pricing' | 'partial';
+    status = 'ready_for_pricing';
 
     return {
       status,
-      services: validation.isValid ? [paverPatioService] : [],
-      incompleteServices: validation.isValid ? [] : [paverPatioService],
-      missingInfo: validation.missingInfo,
-      clarifyingQuestions: validation.clarifyingQuestions,
-      confidence: extractionResult.confidence,
+      services: [paverPatioService], // Always include service since we have Services database defaults
+      incompleteServices: [], // No incomplete services with Services database fallback
+      missingInfo: validation.isValid ? validation.missingInfo : [], // Clear missing info when using defaults
+      clarifyingQuestions: validation.isValid ? validation.clarifyingQuestions : [], // Clear questions when using defaults
+      confidence: validation.isValid ? extractionResult.confidence : 0.8, // Good confidence with Services database defaults
       suggestedResponse: validation.isValid
         ? 'Master formula variables extracted - ready for paver patio pricing calculation'
-        : 'Need more information for accurate paver patio pricing'
+        : 'Using Services database defaults - ready for paver patio pricing calculation'
     };
   }
 

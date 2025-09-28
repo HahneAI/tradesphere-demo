@@ -9,6 +9,8 @@ import type {
 
 // Import the JSON configuration
 import paverPatioConfigJson from '../config/paver-patio-formula.json';
+// Import Services database for baseline values
+import { getPaverPatioServiceDefaults } from '../config/service-database';
 
 // Default values based on the configuration - Expert system compatible with comprehensive null guards
 const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
@@ -47,7 +49,17 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
 };
 
 // Get true baseline values (results in exactly 24 hours for 100 sqft)
+// Now reads from Services database for admin-configurable defaults
 const getTrueBaselineValues = (): PaverPatioValues => {
+  const serviceDefaults = getPaverPatioServiceDefaults();
+
+  if (serviceDefaults) {
+    // Use Services database values as single source of truth
+    return serviceDefaults;
+  }
+
+  // Fallback to hardcoded values if Services database unavailable
+  console.warn('⚠️ Services database unavailable, using hardcoded fallback baseline values');
   return {
     excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
@@ -586,4 +598,20 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     saveConfig,
     createBackup,
   };
+};
+
+// Server-side exports for AI system integration
+export { calculateExpertPricing };
+
+/**
+ * Load paver patio configuration for server-side use (without React hooks)
+ */
+export const loadPaverPatioConfig = (): PaverPatioConfig => {
+  try {
+    // Import the JSON configuration directly
+    return paverPatioConfigJson as PaverPatioConfig;
+  } catch (error) {
+    console.error('Failed to load paver patio config for server-side use:', error);
+    throw new Error('Paver patio configuration not available');
+  }
 };

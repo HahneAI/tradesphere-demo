@@ -13,6 +13,27 @@ export interface ServiceConfig {
   category: 'hardscaping' | 'drainage' | 'structures' | 'planting' | 'removal' | 'edging' | 'materials';
   special?: boolean; // For services requiring special handling
   masterFormula?: boolean; // Flag for master formula routing
+  defaultVariables?: {
+    excavation?: {
+      tearoutComplexity?: string;
+      equipmentRequired?: string;
+    };
+    siteAccess?: {
+      accessDifficulty?: string;
+      obstacleRemoval?: string;
+    };
+    materials?: {
+      paverStyle?: string;
+      cuttingComplexity?: string;
+      patternComplexity?: string;
+    };
+    labor?: {
+      teamSize?: string;
+    };
+    complexity?: {
+      overallComplexity?: number;
+    };
+  };
 }
 
 // SIMPLIFIED SERVICE DATABASE - Master Formula Focus
@@ -23,7 +44,30 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
     row: 999, // Master formula flag (not Google Sheets row)
     unit: "sqft",
     category: "hardscaping",
-    masterFormula: true // Flag for master formula routing
+    masterFormula: true, // Flag for master formula routing
+    defaultVariables: {
+      // True baseline values that result in exactly 24 hours for 100 sqft
+      // These match getTrueBaselineValues() from paverPatioStore.ts:50-58
+      excavation: {
+        tearoutComplexity: 'grass',
+        equipmentRequired: 'handTools'
+      },
+      siteAccess: {
+        accessDifficulty: 'easy',
+        obstacleRemoval: 'none'
+      },
+      materials: {
+        paverStyle: 'economy',
+        cuttingComplexity: 'minimal',
+        patternComplexity: 'minimal'
+      },
+      labor: {
+        teamSize: 'threePlus'
+      },
+      complexity: {
+        overallComplexity: 1.0
+      }
+    }
   },
 
   // FUTURE: Additional services will be added via Services database tab
@@ -44,10 +88,22 @@ export const CATEGORY_SYNONYMS: Record<string, string[]> = {
   hardscaping: ["hardscape", "hardscaping", "patio", "pavers", "stonework", "masonry", "outdoor living"]
 };
 
+// Helper function to get default variables for a service
+export function getServiceDefaultVariables(serviceName: string) {
+  const service = SERVICE_DATABASE[serviceName];
+  return service?.defaultVariables || null;
+}
+
+// Helper function to get default variables for paver patio service
+export function getPaverPatioServiceDefaults() {
+  return getServiceDefaultVariables("Paver Patio (SQFT)");
+}
+
 // Initialization logging
 if (typeof window === 'undefined') {
   console.log(`✅ SERVICE_DATABASE loaded: ${Object.keys(SERVICE_DATABASE).length} services (Master Formula Focus)`);
   console.log('📋 Google Sheets integration disabled - Services expansion via database tab coming');
+  console.log('🔧 Default variables configured for admin-editable service settings');
 }
 
 /* COMMENTED OUT - Original 31 Service Google Sheets Database
