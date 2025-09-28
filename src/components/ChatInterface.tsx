@@ -29,7 +29,7 @@ import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
 import { ServicesPage } from './ServicesPage';
-import { QuickCalculatorTab } from './QuickCalculatorTab';
+import QuickCalculatorTab from '../pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 

@@ -100,3 +100,5 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
     </>
   );
 };
+
+export default QuickCalculatorTab;
