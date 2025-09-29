@@ -337,7 +337,21 @@ const calculateExpertPricing = (
   const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
   const profit = subtotal * profitMargin;
   const beforeComplexity = subtotal + profit;
-  const complexityMultiplier = values?.complexity?.overallComplexity || 1.0;
+
+  // Convert string complexity to numeric multiplier
+  const complexityValue = values?.complexity?.overallComplexity;
+  const getComplexityMultiplier = (complexity: string | number): number => {
+    if (typeof complexity === 'number') return complexity; // Legacy support
+    switch (complexity) {
+      case 'simple': return 1.0;
+      case 'standard': return 1.1;
+      case 'complex': return 1.3;
+      case 'extreme': return 1.5;
+      default: return 1.0;
+    }
+  };
+
+  const complexityMultiplier = getComplexityMultiplier(complexityValue || 'simple');
   const total = beforeComplexity * complexityMultiplier;
 
   // 🔍 [QUICK CALCULATOR DEBUG] Final calculation results
@@ -350,6 +364,8 @@ const calculateExpertPricing = (
     profitMargin: (profitMargin * 100).toFixed(1) + '%',
     profit: profit.toFixed(2),
     beforeComplexity: beforeComplexity.toFixed(2),
+    complexityValue: complexityValue,
+    complexityType: typeof complexityValue,
     complexityMultiplier: complexityMultiplier,
     finalTotal: total.toFixed(2),
     pricePerSqft: (total / sqft).toFixed(2)
@@ -632,8 +648,20 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     if (!config) {
       throw new Error('Configuration not loaded');
     }
-    
+
+    console.log('🔍 [DEBUG] Calculating price with values:', {
+      sqft,
+      complexity: values.complexity,
+      allValues: values
+    });
+
     const calculation = calculatePrice(config, values, sqft);
+
+    console.log('🔍 [DEBUG] Calculation result:', {
+      total: calculation.tier2Results.total,
+      isNaN: isNaN(calculation.tier2Results.total)
+    });
+
     setLastCalculation(calculation);
     return calculation;
   }, [config, values]);

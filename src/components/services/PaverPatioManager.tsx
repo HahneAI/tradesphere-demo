@@ -33,6 +33,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
   };
 
   const handleValueChange = (category: keyof PaverPatioValues, variable: string, value: string | number) => {
+    console.log('🔍 [DEBUG] Value change:', { category, variable, value, type: typeof value });
     store.updateValue(category, variable, value);
     setHasUnsavedChanges(true);
   };
@@ -236,6 +237,15 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
       </div>
     );
   };
+
+  // Debug output
+  console.log('🔍 [DEBUG] PaverPatioManager render:', {
+    configAvailable: !!store.config,
+    valuesAvailable: !!store.values,
+    configCategories: store.config ? Object.keys(store.config.variables || {}) : [],
+    complexity: store.values?.complexity,
+    lastCalculation: store.lastCalculation?.tier2Results?.total
+  });
 
   return (
     <div className="space-y-6">
