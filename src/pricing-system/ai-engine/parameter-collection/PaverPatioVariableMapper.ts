@@ -64,11 +64,11 @@ export class PaverPatioVariableMapper {
 
     // 1. SQUARE FOOTAGE EXTRACTION (Enhanced)
     let extractedSqft = sqft;
-    const sqftDirectMatch = lowerMessage.match(/(\d+)\s*(?:sq\.?\s*ft\.?|sqft|square\s+feet)/);
+    const sqftDirectMatch = lowerMessage.match(/(\d+(?:\.\d+)?)\s*(?:sq\.?\s*f(?:oo|ee)?t\.?|square\s*f(?:oo|ee)?t\.?|sqft\.?|sq\.?\s*ft\.?|square\s*foot|square\s*feet|sq\s*feet)/);
     const dimensionMatch = lowerMessage.match(/(\d+)\s*(?:x|by)\s*(\d+)/);
 
     if (sqftDirectMatch) {
-      extractedSqft = parseInt(sqftDirectMatch[1]);
+      extractedSqft = parseFloat(sqftDirectMatch[1]);
       extractedVariables.push(`Square footage: ${extractedSqft} sqft (direct)`);
     } else if (dimensionMatch) {
       extractedSqft = parseInt(dimensionMatch[1]) * parseInt(dimensionMatch[2]);

@@ -53,44 +53,62 @@ export function calculateExpertPricing(
   console.log('🔥 SERVER-SIDE MASTER FORMULA CALCULATION START');
   console.log(`📊 Inputs: ${sqft} sqft with complexity factors`);
 
-  // Extract complexity multipliers from variables
-  const tearoutMultiplier = getTearoutMultiplier(values.excavation.tearoutComplexity);
-  const accessMultiplier = getAccessMultiplier(values.siteAccess.accessDifficulty);
-  const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
-  const teamSizeMultiplier = getTeamSizeMultiplier(values.labor.teamSize);
+  // TIER 1: Base labor calculation with base-independent percentage system
+  // Formula: (sqft ÷ daily_productivity) × team_size × 8_hours_per_day
+  const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
+  let adjustedHours = baseHours;
 
-  // 🔍 [DEBUG] Log Tier 1 multiplier calculations
-  console.log('🔍 [DEBUG] server-calculations.ts - Tier 1 Multiplier Calculations:', {
+  // Apply base-independent variable system - each percentage applies to ORIGINAL base hours
+  // This matches the Quick Calculator's calculation system exactly
+
+  // Extract complexity percentages from JSON configuration
+  const tearoutPercentage = getTearoutPercentage(values.excavation.tearoutComplexity);
+  const accessPercentage = getAccessPercentage(values.siteAccess.accessDifficulty);
+  const teamSizePercentage = getTeamSizePercentage(values.labor.teamSize);
+
+  // 🔍 [DEBUG] Log Tier 1 percentage calculations (base-independent system)
+  console.log('🔍 [DEBUG] server-calculations.ts - Base-Independent Percentage System:', {
+    baseHours: baseHours.toFixed(1),
     tearoutComplexity: values.excavation.tearoutComplexity,
-    tearoutMultiplier: tearoutMultiplier,
+    tearoutPercentage: tearoutPercentage + '%',
     accessDifficulty: values.siteAccess.accessDifficulty,
-    accessMultiplier: accessMultiplier,
-    paverStyle: values.materials.paverStyle,
-    materialMultiplier: materialMultiplier,
+    accessPercentage: accessPercentage + '%',
     teamSize: values.labor.teamSize,
-    teamSizeMultiplier: teamSizeMultiplier
+    teamSizePercentage: teamSizePercentage + '%'
   });
 
-  // TIER 1: Base labor calculation with complexity adjustments
-  const baseHoursPerSqft = 0.24; // 24 hours for 100 sqft baseline
-  const complexityFactor = tearoutMultiplier * accessMultiplier * materialMultiplier * teamSizeMultiplier;
+  // Apply each variable as independent percentage of base hours
+  if (tearoutPercentage > 0) {
+    const tearoutHours = baseHours * (tearoutPercentage / 100);
+    adjustedHours += tearoutHours;
+  }
 
-  const adjustedHoursPerSqft = baseHoursPerSqft * complexityFactor;
-  const totalManHours = adjustedHoursPerSqft * sqft;
+  if (accessPercentage > 0) {
+    const accessHours = baseHours * (accessPercentage / 100);
+    adjustedHours += accessHours;
+  }
+
+  if (teamSizePercentage > 0) {
+    const teamHours = baseHours * (teamSizePercentage / 100);
+    adjustedHours += teamHours;
+  }
+
+  const totalManHours = adjustedHours;
   const totalDays = totalManHours / (optimalTeamSize * 8); // 8-hour work days
 
-  // 🔍 [DEBUG] Log Tier 1 results
+  // 🔍 [DEBUG] Log Tier 1 results (base-independent system)
   console.log('🔍 [DEBUG] server-calculations.ts - Tier 1 Results:', {
-    baseHoursPerSqft: baseHoursPerSqft,
-    complexityFactor: complexityFactor,
-    adjustedHoursPerSqft: adjustedHoursPerSqft,
-    totalManHours: totalManHours,
-    totalDays: totalDays,
-    optimalTeamSize: optimalTeamSize
+    baseHours: baseHours.toFixed(1),
+    adjustedHours: adjustedHours.toFixed(1),
+    totalManHours: totalManHours.toFixed(1),
+    totalDays: totalDays.toFixed(1),
+    optimalTeamSize: optimalTeamSize,
+    baseProductivity: baseProductivity + ' sqft/day'
   });
 
   // TIER 2: Cost calculation with material and labor components
   const laborCost = totalManHours * hourlyRate;
+  const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
   const adjustedMaterialCost = baseMaterialCost * sqft * materialMultiplier;
   const subtotal = laborCost + adjustedMaterialCost;
   const profit = subtotal * profitMargin;
@@ -146,26 +164,28 @@ export function calculateExpertPricing(
   return result;
 }
 
-// Helper functions for complexity multipliers
-function getTearoutMultiplier(tearoutComplexity: string): number {
+// Helper functions for base-independent percentage system
+// These return percentages that match the JSON configuration exactly
+function getTearoutPercentage(tearoutComplexity: string): number {
   switch (tearoutComplexity) {
-    case 'grass': return 1.0;
-    case 'gravel': return 1.2;
-    case 'concrete': return 1.6;
-    default: return 1.0;
+    case 'grass': return 0;        // JSON: 0% additional
+    case 'concrete': return 20;    // JSON: 20% additional
+    case 'asphalt': return 30;     // JSON: 30% additional
+    default: return 0;
   }
 }
 
-function getAccessMultiplier(accessDifficulty: string): number {
+function getAccessPercentage(accessDifficulty: string): number {
   switch (accessDifficulty) {
-    case 'easy': return 0.9;
-    case 'moderate': return 1.0;
-    case 'difficult': return 1.3;
-    default: return 1.0;
+    case 'easy': return 0;         // JSON: 0% additional
+    case 'moderate': return 50;    // JSON: 50% additional
+    case 'difficult': return 100;  // JSON: 100% additional
+    default: return 0;
   }
 }
 
 function getMaterialMultiplier(paverStyle: string): number {
+  // Material multiplier still used for material costs, not labor hours
   switch (paverStyle) {
     case 'standard': return 1.0;
     case 'premium': return 1.2;
@@ -173,12 +193,11 @@ function getMaterialMultiplier(paverStyle: string): number {
   }
 }
 
-function getTeamSizeMultiplier(teamSize: string): number {
+function getTeamSizePercentage(teamSize: string): number {
   switch (teamSize) {
-    case 'onePerson': return 1.4;
-    case 'twoPerson': return 1.1;
-    case 'threePlus': return 1.0;
-    default: return 1.0;
+    case 'twoPerson': return 40;   // JSON: 40% additional for smaller team
+    case 'threePlus': return 0;    // JSON: 0% (optimal team size)
+    default: return 0;
   }
 }
 
