@@ -124,12 +124,15 @@ export function calculateExpertPricing(
     pricePerSqft: (total / sqft).toFixed(2)
   });
 
+  // Extract complexity score from input values (Tier 2 multiplier)
+  const complexityScore = values?.complexity?.overallComplexity ?? 1.0;
+
   const result: PaverPatioCalculationResult = {
     tier1Results: {
       totalManHours: Math.round(totalManHours * 10) / 10,
       totalDays: Math.round(totalDays * 10) / 10,
-      complexityScore: Math.round(complexityFactor * 100) / 100,
-      adjustedProductivity: Math.round((baseProductivity * complexityFactor) * 10) / 10
+      complexityScore: Math.round(complexityScore * 100) / 100,  // User's complexity slider value
+      adjustedProductivity: Math.round((sqft / totalDays) * 10) / 10  // Actual productivity: sqft per day
     },
     tier2Results: {
       laborCost: Math.round(laborCost * 100) / 100,
