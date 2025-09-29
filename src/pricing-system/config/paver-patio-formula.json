@@ -178,11 +178,16 @@
       "label": "Project Complexity",
       "overallComplexity": {
         "label": "Overall Complexity",
-        "type": "slider",
-        "default": 1.0,
+        "type": "select",
+        "default": "simple",
         "calculationTier": 2,
         "effectType": "total_project_multiplier",
-        "validation": { "min": 0.9, "max": 1.5, "step": 0.1 }
+        "options": {
+          "simple": { "label": "Simple Project - Straightforward rectangular patio", "value": 0, "multiplier": 1.0 },
+          "standard": { "label": "Standard Project - Typical patio with some features", "value": 10, "multiplier": 1.1 },
+          "complex": { "label": "Complex Project - Multiple levels, curves, or features", "value": 30, "multiplier": 1.3 },
+          "extreme": { "label": "Extreme Complexity - Highly complex design with multiple challenges", "value": 50, "multiplier": 1.5 }
+        }
       }
     }
   }

@@ -75,7 +75,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
 }) => {
   const { user } = useAuth();
   const { getService, updateServiceVariables } = useServiceBaseSettings();
-  const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials'>('equipment');
+  const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials' | 'complexity'>('equipment');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const isAdmin = user?.is_admin || false;
@@ -108,11 +108,19 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   });
 
   const [materialSettings, setMaterialSettings] = useState({
-    economyGrade: 0,
-    premiumGrade: 30,
+    standardGrade: 0,
+    premiumGrade: 20,
     patternMinimal: 0,
     patternSome: 15,
     patternExtensive: 25,
+  });
+
+  // Complexity state
+  const [complexitySettings, setComplexitySettings] = useState({
+    simple: 1.0,
+    standard: 1.1,
+    complex: 1.3,
+    extreme: 1.5
   });
 
   const service = getService(serviceId);
@@ -176,6 +184,17 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
           patternExtensive: vars.materials.patternComplexity.options.extensive?.wastePercentage || 25,
         });
       }
+
+      // Load complexity settings
+      if (vars.complexity?.overallComplexity?.options) {
+        const complexityOptions = vars.complexity.overallComplexity.options;
+        setComplexitySettings({
+          simple: complexityOptions.simple?.multiplier || 1.0,
+          standard: complexityOptions.standard?.multiplier || 1.1,
+          complex: complexityOptions.complex?.multiplier || 1.3,
+          extreme: complexityOptions.extreme?.multiplier || 1.5,
+        });
+      }
     }
   }, [service, serviceId]);
 
@@ -197,6 +216,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
         cuttingComplexity,
         laborMultipliers,
         materialSettings,
+        complexitySettings,
       });
       console.log('✅ Service variables saved successfully');
       setHasUnsavedChanges(false);
@@ -233,6 +253,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     setHasUnsavedChanges(true);
   };
 
+  const updateComplexitySettings = (key: string, value: number) => {
+    setComplexitySettings(prev => ({ ...prev, [key]: value }));
+    setHasUnsavedChanges(true);
+  };
+
   if (!isOpen) return null;
 
   const tabs = [
@@ -240,6 +265,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     { key: 'cutting' as const, label: 'Cutting Complexity', icon: Icons.Scissors },
     { key: 'labor' as const, label: 'Labor Factors', icon: Icons.Users },
     { key: 'materials' as const, label: 'Material Settings', icon: Icons.Package },
+    { key: 'complexity' as const, label: 'Project Complexity', icon: Icons.Settings },
   ];
 
   return (
@@ -674,6 +700,90 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Complexity Tab */}
+            {activeTab === 'complexity' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-3" style={{ color: visualConfig.colors.text.primary }}>
+                    Overall Project Complexity Multiplier
+                  </h3>
+                  <p className="text-sm mb-4" style={{ color: visualConfig.colors.text.secondary }}>
+                    Final multiplier applied to total project cost. Choose from 4 complexity levels based on project requirements.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-lg border" style={{
+                  borderColor: visualConfig.colors.text.secondary + '40',
+                  backgroundColor: visualConfig.colors.background
+                }}>
+                  <h4 className="text-md font-medium mb-3" style={{ color: visualConfig.colors.text.primary }}>
+                    Complexity Level Settings
+                  </h4>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <NumberInput
+                        label="Simple Project (100%)"
+                        value={complexitySettings.simple}
+                        onChange={(value) => updateComplexitySettings('simple', value)}
+                        unit="x"
+                        min={0.8}
+                        max={1.2}
+                        step={0.1}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
+                      />
+                      <NumberInput
+                        label="Standard Project (110%)"
+                        value={complexitySettings.standard}
+                        onChange={(value) => updateComplexitySettings('standard', value)}
+                        unit="x"
+                        min={1.0}
+                        max={1.3}
+                        step={0.1}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
+                      />
+                      <NumberInput
+                        label="Complex Project (130%)"
+                        value={complexitySettings.complex}
+                        onChange={(value) => updateComplexitySettings('complex', value)}
+                        unit="x"
+                        min={1.2}
+                        max={1.5}
+                        step={0.1}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
+                      />
+                      <NumberInput
+                        label="Extreme Complexity (150%)"
+                        value={complexitySettings.extreme}
+                        onChange={(value) => updateComplexitySettings('extreme', value)}
+                        unit="x"
+                        min={1.3}
+                        max={2.0}
+                        step={0.1}
+                        isAdmin={isAdmin}
+                        visualConfig={visualConfig}
+                      />
+                    </div>
+
+                    <div className="mt-4 p-3 rounded" style={{ backgroundColor: visualConfig.colors.background }}>
+                      <h5 className="text-sm font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                        Complexity Level Descriptions
+                      </h5>
+                      <div className="space-y-2 text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                        <div>• <strong>Simple (100%)</strong> - Straightforward rectangular patio</div>
+                        <div>• <strong>Standard (110%)</strong> - Typical patio with some features</div>
+                        <div>• <strong>Complex (130%)</strong> - Multiple levels, curves, or features</div>
+                        <div>• <strong>Extreme (150%)</strong> - Highly complex design with multiple challenges</div>
+                      </div>
                     </div>
                   </div>
                 </div>

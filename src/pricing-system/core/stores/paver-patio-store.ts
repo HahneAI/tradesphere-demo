@@ -21,7 +21,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
       siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
       materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
       labor: { teamSize: 'threePlus' },
-      complexity: { overallComplexity: 1.0 }
+      complexity: { overallComplexity: 'simple' }
     };
   }
 
@@ -43,7 +43,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
       teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'threePlus',
     },
     complexity: {
-      overallComplexity: (config.variables.complexity?.overallComplexity as PaverPatioVariable)?.default as number ?? 1.0,
+      overallComplexity: (config.variables.complexity?.overallComplexity as PaverPatioVariable)?.default as string ?? 'simple',
     },
   };
 };

@@ -65,7 +65,7 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
         teamSize: 'threePlus'
       },
       complexity: {
-        overallComplexity: 1.0
+        overallComplexity: 'simple'
       }
     }
   },

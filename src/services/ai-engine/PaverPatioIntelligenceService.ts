@@ -265,10 +265,10 @@ VARIABLES TO EXTRACT:
    - Only extract if obstacles mentioned
 
 10. OVERALL COMPLEXITY (CONTEXTUAL):
-    - Simple rectangular patio, basic conditions → 1.0
-    - Standard project with some complexity → 1.1
-    - Complex design or difficult conditions → 1.3
-    - Extreme complexity or multiple challenges → 1.5
+    - Simple rectangular patio, basic conditions → 'simple'
+    - Standard project with some complexity → 'standard'
+    - Complex design or difficult conditions → 'complex'
+    - Extreme complexity or multiple challenges → 'extreme'
 
 CONFIDENCE SCORING:
 - High confidence (0.8-1.0): Explicitly mentioned with clear details
@@ -299,7 +299,7 @@ RESPOND WITH VALID JSON:
       "teamSize": string | null
     },
     "complexity": {
-      "overallComplexity": number | null
+      "overallComplexity": string | null
     }
   },
   "variableConfidence": {
@@ -332,7 +332,7 @@ EXAMPLE OUTPUT: {
       "teamSize": null
     },
     "complexity": {
-      "overallComplexity": 1.2
+      "overallComplexity": "standard"
     }
   },
   "variableConfidence": {
@@ -470,8 +470,8 @@ ANALYZE THE MESSAGE:`;
       },
       overallComplexity: {
         description: "Extract overall project complexity",
-        validValues: "Number between 1.0-1.5",
-        examples: "'simple project' → 1.0, 'standard' → 1.1, 'complex' → 1.3, 'very complex' → 1.5"
+        validValues: "'simple', 'standard', 'complex', 'extreme'",
+        examples: "'simple project' → 'simple', 'standard patio' → 'standard', 'complex design' → 'complex', 'very complex' → 'extreme'"
       }
     };
 

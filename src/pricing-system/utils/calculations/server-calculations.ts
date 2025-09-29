@@ -125,7 +125,8 @@ export function calculateExpertPricing(
   });
 
   // Extract complexity score from input values (Tier 2 multiplier)
-  const complexityScore = values?.complexity?.overallComplexity ?? 1.0;
+  const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
+  const complexityScore = complexityMultiplier;
 
   const result: PaverPatioCalculationResult = {
     tier1Results: {
@@ -201,6 +202,16 @@ function getTeamSizePercentage(teamSize: string): number {
     case 'twoPerson': return 40;   // JSON: 40% additional for smaller team
     case 'threePlus': return 0;    // JSON: 0% (optimal team size)
     default: return 0;
+  }
+}
+
+function getComplexityMultiplier(complexity: string): number {
+  switch (complexity) {
+    case 'simple': return 1.0;    // JSON: 100% (Simple Project)
+    case 'standard': return 1.1;  // JSON: 110% (Standard Project)
+    case 'complex': return 1.3;   // JSON: 130% (Complex Project)
+    case 'extreme': return 1.5;   // JSON: 150% (Extreme Complexity)
+    default: return 1.0;          // Default to simple
   }
 }
 
