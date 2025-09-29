@@ -106,26 +106,57 @@ export function calculateExpertPricing(
     baseProductivity: baseProductivity + ' sqft/day'
   });
 
-  // TIER 2: Cost calculation with material and labor components
+  // TIER 2: Complete cost calculation (MUST match paver-patio-store.ts)
   const laborCost = totalManHours * hourlyRate;
+
+  // Material costs with waste (CRITICAL: was missing waste calculations)
   const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
-  const adjustedMaterialCost = baseMaterialCost * sqft * materialMultiplier;
-  const subtotal = laborCost + adjustedMaterialCost;
+  const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
+
+  // Material waste from cutting complexity
+  const cuttingVar = config?.variables?.materials?.cuttingComplexity;
+  const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+  const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
+  const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
+  const totalMaterialCost = materialCostBase + materialWasteCost;
+
+  // Equipment costs (CRITICAL: was missing entirely)
+  const projectDays = totalManHours / (optimalTeamSize * 8);
+  const equipmentVar = config?.variables?.excavation?.equipmentRequired;
+  const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
+  const equipmentCost = (equipmentOption?.value ?? 0) * projectDays;
+
+  // Obstacle costs (CRITICAL: was missing entirely)
+  const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval;
+  const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
+  const obstacleCost = obstacleOption?.value ?? 0;
+
+  // Subtotal and profit
+  const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
   const profit = subtotal * profitMargin;
-  const total = subtotal + profit;
+  const beforeComplexity = subtotal + profit;
+
+  // Apply overall complexity multiplier (CRITICAL: must apply to final total)
+  const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
+  const total = beforeComplexity * complexityMultiplier;
 
   // 🔍 [DEBUG] Log Tier 2 cost calculations
   console.log('🔍 [DEBUG] server-calculations.ts - Tier 2 Cost Calculations:', {
-    laborCost: laborCost,
-    adjustedMaterialCost: adjustedMaterialCost,
-    subtotal: subtotal,
-    profit: profit,
-    total: total,
+    laborCost: laborCost.toFixed(2),
+    materialCostBase: materialCostBase.toFixed(2),
+    materialWasteCost: materialWasteCost.toFixed(2),
+    totalMaterialCost: totalMaterialCost.toFixed(2),
+    equipmentCost: equipmentCost.toFixed(2),
+    obstacleCost: obstacleCost.toFixed(2),
+    subtotal: subtotal.toFixed(2),
+    profit: profit.toFixed(2),
+    beforeComplexity: beforeComplexity.toFixed(2),
+    complexityMultiplier: complexityMultiplier,
+    total: total.toFixed(2),
     pricePerSqft: (total / sqft).toFixed(2)
   });
 
-  // Extract complexity score from input values (Tier 2 multiplier)
-  const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
+  // Extract complexity score from input values (for return structure)
   const complexityScore = complexityMultiplier;
 
   const result: PaverPatioCalculationResult = {
@@ -137,7 +168,11 @@ export function calculateExpertPricing(
     },
     tier2Results: {
       laborCost: Math.round(laborCost * 100) / 100,
-      materialCost: Math.round(adjustedMaterialCost * 100) / 100,
+      materialCostBase: Math.round(materialCostBase * 100) / 100,
+      materialWasteCost: Math.round(materialWasteCost * 100) / 100,
+      totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
+      equipmentCost: Math.round(equipmentCost * 100) / 100,
+      obstacleCost: Math.round(obstacleCost * 100) / 100,
       subtotal: Math.round(subtotal * 100) / 100,
       profit: Math.round(profit * 100) / 100,
       total: Math.round(total * 100) / 100
