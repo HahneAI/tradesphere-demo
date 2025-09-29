@@ -6,16 +6,39 @@
  */
 
 // ES6 imports for TypeScript services - esbuild will bundle these
-import { ParameterCollectorService } from '../../src/pricing-system/ai-engine/parameter-collection/ParameterCollectorService.ts';
-import { createPricingCalculator } from '../../src/pricing-system/ai-engine/pricing-calculation/PricingCalculatorService.ts';
-import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPersonalityService.ts';
-import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.ts';
-import { GPTServiceSplitter } from '../../src/pricing-system/ai-engine/text-processing/GPTServiceSplitter.ts';
-import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.ts';
-import { MessageStorageService } from '../../src/utils/message-storage.ts';
+import { ParameterCollectorService } from '../../src/pricing-system/ai-engine/parameter-collection/ParameterCollectorService.js';
+import { createPricingCalculator } from '../../src/pricing-system/ai-engine/pricing-calculation/PricingCalculatorService.js';
+import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPersonalityService.js';
+import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.js';
+import { GPTServiceSplitter } from '../../src/pricing-system/ai-engine/text-processing/GPTServiceSplitter.js';
+import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.js';
+import { MessageStorageService } from '../../src/utils/message-storage.js';
 
 export const handler = async (event, context) => {
   const startTime = Date.now();
+
+  // ADD THIS DIAGNOSTIC BLOCK
+  console.log('🔍 DIAGNOSTIC: Function started');
+  console.log('🔍 Environment check:', {
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+    hasOpenAI: !!process.env.OPENAI_API_KEY,
+    nodeVersion: process.version
+  });
+
+  // Test module imports
+  try {
+    console.log('🔍 DIAGNOSTIC: Testing module imports...');
+    console.log('  - ParameterCollectorService available:', typeof ParameterCollectorService);
+    console.log('  - createPricingCalculator available:', typeof createPricingCalculator);
+    console.log('  - SalesPersonalityService available:', typeof SalesPersonalityService);
+    console.log('  - MainChatAgentService available:', typeof MainChatAgentService);
+    console.log('✅ DIAGNOSTIC: All modules imported successfully');
+  } catch (importError) {
+    console.error('❌ DIAGNOSTIC: Module import error:', importError.message);
+    console.error('❌ DIAGNOSTIC: Import stack:', importError.stack);
+    throw new Error(`Module import failed: ${importError.message}`);
+  }
 
   // CORS headers
   const corsHeaders = {
