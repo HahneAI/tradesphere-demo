@@ -19,7 +19,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     return {
       excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
       siteAccess: { accessDifficulty: 'moderate', obstacleRemoval: 'minor' },
-      materials: { paverStyle: 'economy', cuttingComplexity: 'moderate', patternComplexity: 'minimal' },
+      materials: { paverStyle: 'standard', cuttingComplexity: 'moderate', patternComplexity: 'minimal' },
       labor: { teamSize: 'twoPerson' },
       complexity: { overallComplexity: 1.0 }
     };
@@ -35,7 +35,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
       obstacleRemoval: (config.variables.siteAccess?.obstacleRemoval as PaverPatioVariable)?.default as string ?? 'minor',
     },
     materials: {
-      paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'economy',
+      paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'standard',
       cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'moderate',
       patternComplexity: (config.variables.materials?.patternComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
     },
@@ -63,7 +63,7 @@ const getTrueBaselineValues = (): PaverPatioValues => {
   return {
     excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-    materials: { paverStyle: 'economy', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
     labor: { teamSize: 'threePlus' },
     complexity: { overallComplexity: 1.0 }
   };
@@ -273,7 +273,7 @@ const calculateExpertPricing = (
 
   // Material costs with comprehensive null guards and fallbacks
   const paverVar = config?.variables?.materials?.paverStyle as PaverPatioVariable;
-  const paverOption = paverVar?.options?.[values?.materials?.paverStyle ?? 'economy'];
+  const paverOption = paverVar?.options?.[values?.materials?.paverStyle ?? 'standard'];
   const styleMultiplier = paverOption?.multiplier ?? 1.0;
   const materialCostBase = sqft * baseMaterialCost * styleMultiplier;
 

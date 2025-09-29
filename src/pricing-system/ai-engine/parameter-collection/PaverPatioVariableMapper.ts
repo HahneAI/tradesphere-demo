@@ -50,7 +50,7 @@ export class PaverPatioVariableMapper {
         obstacleRemoval: 'minor'
       },
       materials: {
-        paverStyle: 'economy',
+        paverStyle: 'standard',
         cuttingComplexity: 'moderate',
         patternComplexity: 'minimal'
       },
@@ -167,11 +167,11 @@ export class PaverPatioVariableMapper {
     } else if (/\b(?:flagstone|bluestone|travertine|natural|stone)\b/.test(lowerMessage)) {
       paverPatioValues.materials.paverStyle = 'premium';
       extractedVariables.push('Paver style: premium (natural stone specified)');
-    } else if (/\b(?:basic|standard|budget|economy|concrete\s+paver)\b/.test(lowerMessage)) {
-      paverPatioValues.materials.paverStyle = 'economy';
-      extractedVariables.push('Paver style: economy grade detected');
+    } else if (/\b(?:basic|standard|budget|concrete\s+paver)\b/.test(lowerMessage)) {
+      paverPatioValues.materials.paverStyle = 'standard';
+      extractedVariables.push('Paver style: standard grade detected');
     } else {
-      defaultsUsed.push('Paver style: economy grade (default)');
+      defaultsUsed.push('Paver style: standard grade (default)');
     }
 
     // 7. CUTTING COMPLEXITY (NEW)

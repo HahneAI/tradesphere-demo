@@ -167,9 +167,8 @@ function getAccessMultiplier(accessDifficulty: string): number {
 
 function getMaterialMultiplier(paverStyle: string): number {
   switch (paverStyle) {
-    case 'economy': return 0.9;
     case 'standard': return 1.0;
-    case 'premium': return 1.3;
+    case 'premium': return 1.2;
     default: return 1.0;
   }
 }

@@ -57,7 +57,7 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
         obstacleRemoval: 'none'
       },
       materials: {
-        paverStyle: 'economy',
+        paverStyle: 'standard',
         cuttingComplexity: 'minimal',
         patternComplexity: 'minimal'
       },
