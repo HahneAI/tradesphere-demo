@@ -52,7 +52,7 @@ interface ServiceVariableUpdate {
     teamThreePlus?: number;
   };
   materialSettings?: {
-    economyGrade?: number;
+    standardGrade?: number;
     premiumGrade?: number;
     patternMinimal?: number;
     patternSome?: number;
@@ -328,8 +328,8 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
 
           // Update material settings
           if (updates.materialSettings) {
-            if (updates.materialSettings.economyGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.economy) {
-              updatedVariables.materials.paverStyle.options.economy.value = updates.materialSettings.economyGrade;
+            if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
+              updatedVariables.materials.paverStyle.options.standard.value = updates.materialSettings.standardGrade;
             }
             if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
               updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;

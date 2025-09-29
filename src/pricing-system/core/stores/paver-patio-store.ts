@@ -18,9 +18,9 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
   if (!config || !config.variables) {
     return {
       excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
-      siteAccess: { accessDifficulty: 'moderate', obstacleRemoval: 'minor' },
-      materials: { paverStyle: 'standard', cuttingComplexity: 'moderate', patternComplexity: 'minimal' },
-      labor: { teamSize: 'twoPerson' },
+      siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
+      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+      labor: { teamSize: 'threePlus' },
       complexity: { overallComplexity: 1.0 }
     };
   }
@@ -31,16 +31,16 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
       equipmentRequired: (config.variables.excavation?.equipmentRequired as PaverPatioVariable)?.default as string ?? 'handTools',
     },
     siteAccess: {
-      accessDifficulty: (config.variables.siteAccess?.accessDifficulty as PaverPatioVariable)?.default as string ?? 'moderate',
-      obstacleRemoval: (config.variables.siteAccess?.obstacleRemoval as PaverPatioVariable)?.default as string ?? 'minor',
+      accessDifficulty: (config.variables.siteAccess?.accessDifficulty as PaverPatioVariable)?.default as string ?? 'easy',
+      obstacleRemoval: (config.variables.siteAccess?.obstacleRemoval as PaverPatioVariable)?.default as string ?? 'none',
     },
     materials: {
       paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'standard',
-      cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'moderate',
+      cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
       patternComplexity: (config.variables.materials?.patternComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
     },
     labor: {
-      teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'twoPerson',
+      teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'threePlus',
     },
     complexity: {
       overallComplexity: (config.variables.complexity?.overallComplexity as PaverPatioVariable)?.default as number ?? 1.0,
