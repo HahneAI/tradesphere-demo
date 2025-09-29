@@ -391,17 +391,13 @@ const ChatInterface = () => {
   const sendUserMessageToMake = async (userMessageText: string) => {
     const debugPrefix = `🔗 WEBHOOK [${sessionIdRef.current.slice(-8)}]`;
     
-    console.group(`${debugPrefix} Starting message transmission`);
-    console.log('📤 Message:', userMessageText.substring(0, 100) + (userMessageText.length > 100 ? '...' : ''));
+    // Debug logging removed for production
     
     // STEP 1: Validate webhook URL configuration
     if (!MAKE_WEBHOOK_URL || MAKE_WEBHOOK_URL === 'YOUR_MAKE_WEBHOOK_URL') {
       console.error('❌ STEP 1 FAILED: Make.com webhook URL not configured');
-      console.log('🔍 Current value:', MAKE_WEBHOOK_URL || 'undefined');
-      console.groupEnd();
       throw new Error("Webhook URL not configured - check environment variables");
     }
-    console.log('✅ STEP 1: Webhook URL validated');
 
     // STEP 2: Validate URL format
     try {
@@ -409,7 +405,6 @@ const ChatInterface = () => {
       if (!webhookUrl.hostname.includes('make.com')) {
         console.warn('⚠️ STEP 2: Webhook URL does not appear to be a Make.com URL');
       }
-      console.log('✅ STEP 2: URL format valid -', webhookUrl.hostname);
     } catch (urlError) {
       console.error('❌ STEP 2 FAILED: Invalid webhook URL format');
       console.groupEnd();
@@ -475,7 +470,6 @@ const ChatInterface = () => {
     // STEP 5: Performance tracking setup
     const startTime = performance.now();
     setProcessingStartTime(Date.now());
-    console.log('⏱️ STEP 5: Performance tracking started');
 
     // STEP 6: Create abort controller for timeout handling
     const controller = new AbortController();
@@ -485,7 +479,6 @@ const ChatInterface = () => {
     }, 15000); // 15 second timeout
 
     try {
-      console.log('🚀 STEP 7: Sending webhook request...');
       
       // 🔧 CRITICAL: Verify JSON serialization before transmission
       let payloadJson;
@@ -651,7 +644,6 @@ const ChatInterface = () => {
     const startTime = performance.now();
     
     try {
-      console.log('🚀 Sending to native pricing agent...');
       
       const response = await fetch(NATIVE_PRICING_AGENT_URL, {
         method: 'POST',
@@ -788,13 +780,11 @@ const ChatInterface = () => {
                 );
                 
                 if (hasMakeResponse && hasNativeResponse) {
-                  console.log('🎯 DUAL TESTING: Both responses received - returning to idle');
                   setIsLoading(false);
                 }
               } else {
                 // Single mode: Return to idle after ANY AI response
                 if (recentAIMessages.length > 0) {
-                  console.log('📱 SINGLE MODE: Response received - returning to idle');
                   setIsLoading(false);
                 }
               }
@@ -882,7 +872,6 @@ const ChatInterface = () => {
         timestamp: new Date(),
         sessionId: sessionIdRef.current
       }]);
-      console.log('✅ Personalized initial welcome for:', user.first_name);
     }
   }, [user]);
 
@@ -907,13 +896,11 @@ const ChatInterface = () => {
         const group = grouped[i];
         if (group.type === 'dual' && group.dual) {
           if (isMake && !group.dual.make && group.dual.waitingFor === 'make') {
-            console.log('✅ SLOT FILLING: Make.com response filled waiting slot');
             group.dual.make = newMessage;
             group.dual.waitingFor = null; // Both slots now filled
             return true; // Successfully filled existing slot
           }
           if (isNative && !group.dual.native && group.dual.waitingFor === 'native') {
-            console.log('✅ SLOT FILLING: Native response filled waiting slot');
             group.dual.native = newMessage;
             group.dual.waitingFor = null; // Both slots now filled
             return true; // Successfully filled existing slot
@@ -1050,7 +1037,6 @@ const ChatInterface = () => {
 
     try {
       if (DUAL_TESTING_ENABLED) {
-        console.log('🔄 DUAL TESTING: Sending to both Make.com and Native Pipeline');
         
         // Send to both endpoints simultaneously
         const promises = [
@@ -1086,11 +1072,9 @@ const ChatInterface = () => {
         
       } else if (USE_NATIVE_PRIMARY) {
         // 🚀 PHASE 1: Native-first pipeline (new default)
-        console.log('🚀 NATIVE PRIMARY: Using native pipeline as primary');
         await sendUserMessageToNative(userMessageText);
       } else {
         // Fallback to Make.com for backward compatibility
-        console.log('🔗 MAKE.COM FALLBACK: Using Make.com pipeline');
         await sendUserMessageToMake(userMessageText);
       }
     } catch (error) {
@@ -1149,7 +1133,6 @@ const ChatInterface = () => {
   useEffect(() => {
     // Clean up voice state when speech recognition stops listening
     if (!listening && isRecording) {
-      console.log('🎤 Speech recognition stopped - cleaning up state');
       setIsRecording(false);
       setVoiceError(null);
       
@@ -1210,7 +1193,6 @@ const ChatInterface = () => {
         
         // Restart pause detection
         const pauseTimer = setTimeout(() => {
-          console.log('🎤 Auto-stopping voice input after 8s pause');
           try {
             SpeechRecognition.stopListening();
           } catch (error) {
@@ -1264,11 +1246,9 @@ const ChatInterface = () => {
       }
       setIsRecording(false);
       
-      console.log('🎤 Voice recording stopped manually');
       
       // If we have transcript text, let user edit it
       if (transcript.trim()) {
-        console.log('🎤 Transcript available for editing:', transcript.length, 'characters');
       }
     } else {
       // Start recording with enhanced pause detection
@@ -1293,7 +1273,6 @@ const ChatInterface = () => {
         
         // Set up fallback timeout (30 seconds)
         const fallbackTimeout = setTimeout(() => {
-          console.log('🎤 Auto-stopping voice input after 30s fallback timeout');
           try {
             SpeechRecognition.stopListening();
           } catch (error) {
@@ -1313,8 +1292,7 @@ const ChatInterface = () => {
           }
           
           const pauseTimer = setTimeout(() => {
-            console.log('🎤 Auto-stopping voice input after 8s pause');
-            try {
+              try {
               SpeechRecognition.stopListening();
             } catch (error) {
               console.warn('🎤 Error stopping speech recognition in pause detection:', error);
@@ -1451,7 +1429,6 @@ const ChatInterface = () => {
         const isNewCustomerLoad = !previousCustomerName;
 
         if (isCustomerSwitch || isNewCustomerLoad) {
-          console.log(`🔄 Loading customer ${customer.customer_name} - resetting chat first`);
           setMessages([]); // Reset chat first
         }
 
@@ -1532,7 +1509,6 @@ const ChatInterface = () => {
       }
       
       const customers = await response.json();
-      console.log('👤 Recent customers loaded:', customers.length);
       
       setRecentCustomerSessions(customers);
       
@@ -1546,7 +1522,6 @@ const ChatInterface = () => {
 
   // 🏢 PHASE 5: Handle customer selection from recent customers
   const handleCustomerSelect = async (customer: any) => {
-    console.log('👤 Selected customer:', customer.customerName);
     
     setCustomerDetails({
       name: customer.customerName || '',
@@ -1650,7 +1625,6 @@ const ChatInterface = () => {
           }
         }, 100);
 
-        console.log('✅ Conversation history populated:', previousMessages.length, 'messages');
       }
 
       // Update customer details if available
@@ -1727,15 +1701,12 @@ const ChatInterface = () => {
     
     setIsRunningDiagnostics(true);
     console.group('🔬 ADMIN DIAGNOSTICS: Starting system health check');
-    console.log('👤 Initiated by:', user?.first_name);
-    console.log('⏰ Started at:', new Date().toISOString());
     
     try {
       const results = await runBackendDiagnostics();
       setDiagnosticResults(results);
       logDiagnosticResults(results);
       
-      console.log('✅ DIAGNOSTICS COMPLETE: Results saved to state');
       console.groupEnd();
     } catch (error) {
       console.error('❌ DIAGNOSTICS FAILED:', error);
@@ -1852,7 +1823,6 @@ const ChatInterface = () => {
                         }));
                         setPreviousCustomerName(null); // Clear tracking
                         handleRefreshChat(); // Reset chat when ejecting customer
-                        console.log('🗑️ Customer cleared via badge X button');
                       }}
                       className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
                       style={{ color: '#EF4444' }}
