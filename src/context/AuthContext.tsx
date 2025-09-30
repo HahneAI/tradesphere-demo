@@ -421,8 +421,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       console.log('✅ STEP 8: Account status validated - active');
 
-      // STEP 9: Prepare user object
-      const betaUser = userAccount as BetaUser;
+      // STEP 9: Prepare user object (merge userData into betaUser)
+      Object.assign(betaUser, userAccount);
 
       console.log('✅ STEP 9: User object prepared');
       console.log('🔍 [DEBUG] Final BetaUser object being prepared:', {
