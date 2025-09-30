@@ -8,13 +8,10 @@
  * across all users via Supabase real-time subscriptions.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
-
-// Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+import { getSupabase } from '../../../services/supabase';
 
 export interface PricingConfigRow {
   id: string;
@@ -71,15 +68,10 @@ export class MasterPricingEngine {
   private subscriptions: Map<string, any> = new Map();
 
   private constructor() {
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.supabase = getSupabase();
 
     // Debug logging for Supabase client initialization
-    console.log('🚀 [MASTER ENGINE] Supabase client initialized:', {
-      hasUrl: !!supabaseUrl,
-      hasKey: !!supabaseKey,
-      urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'MISSING',
-      keyPreview: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'MISSING'
-    });
+    console.log('🚀 [MASTER ENGINE] Using authenticated Supabase client');
   }
 
   public static getInstance(): MasterPricingEngine {
@@ -98,13 +90,19 @@ export class MasterPricingEngine {
     companyId?: string
   ): Promise<PaverPatioConfig> {
     try {
+      // Check authentication status
+      const { data: { session } } = await this.supabase.auth.getSession();
+      console.log('🔐 [MASTER ENGINE] Auth session present?', !!session);
+      console.log('🔐 [MASTER ENGINE] User ID:', session?.user?.id);
+
       // DEV MODE: Use fallback company_id if not provided
       const targetCompanyId = companyId || await this.getDevModeCompanyId();
 
       console.log('🔍 [MASTER ENGINE] Loading pricing config:', {
         serviceName,
         companyId: targetCompanyId,
-        mode: companyId ? 'production' : 'development'
+        mode: companyId ? 'production' : 'development',
+        hasAuth: !!session
       });
 
       // Check cache first
