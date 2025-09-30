@@ -10,6 +10,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
+import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -432,9 +433,6 @@ export class MasterPricingEngine {
    */
   private getFallbackConfig(): PaverPatioConfig {
     console.warn('⚠️ [MASTER ENGINE] Using fallback configuration');
-
-    // Import fallback from JSON
-    const paverPatioConfigJson = require('../../config/paver-patio-formula.json');
 
     // Override profit margin to 20% for current setup
     return {
