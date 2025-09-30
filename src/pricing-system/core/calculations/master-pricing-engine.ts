@@ -12,8 +12,8 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
 
 // Supabase configuration
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export interface PricingConfigRow {
   id: string;
@@ -71,6 +71,14 @@ export class MasterPricingEngine {
 
   private constructor() {
     this.supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Debug logging for Supabase client initialization
+    console.log('🚀 [MASTER ENGINE] Supabase client initialized:', {
+      hasUrl: !!supabaseUrl,
+      hasKey: !!supabaseKey,
+      urlPreview: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'MISSING',
+      keyPreview: supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'MISSING'
+    });
   }
 
   public static getInstance(): MasterPricingEngine {
