@@ -112,35 +112,54 @@ export class MasterPricingEngine {
         return this.convertRowToConfig(this.configCache.get(cacheKey)!);
       }
 
-      // Query Supabase
+      // Query Supabase with detailed logging
+      console.log('🔍 [MASTER ENGINE] Executing Supabase query:', {
+        table: 'service_pricing_configs',
+        company_id: targetCompanyId,
+        service_name: serviceName,
+        is_active: true
+      });
+
       const { data, error } = await this.supabase
         .from('service_pricing_configs')
         .select('*')
         .eq('company_id', targetCompanyId)
         .eq('service_name', serviceName)
         .eq('is_active', true)
-        .single();
+        .limit(1);
 
       if (error) {
         console.error('❌ [MASTER ENGINE] Supabase query error:', error);
+        console.log('🔄 [MASTER ENGINE] Falling back to JSON config due to query error');
         return this.getFallbackConfig();
       }
 
-      if (!data) {
+      if (!data || data.length === 0) {
+        console.warn('⚠️ [MASTER ENGINE] No pricing config found in Supabase for:', {
+          company_id: targetCompanyId,
+          service_name: serviceName
+        });
+        console.log('🔄 [MASTER ENGINE] Falling back to JSON config - no matching records');
+        return this.getFallbackConfig();
+      }
+
+      const configRow = data[0];
+      if (!configRow) {
         console.warn('⚠️ [MASTER ENGINE] No config found, using fallback');
         return this.getFallbackConfig();
       }
 
       // Cache the result
-      this.configCache.set(cacheKey, data);
+      this.configCache.set(cacheKey, configRow);
 
       console.log('✅ [MASTER ENGINE] Config loaded from Supabase:', {
-        profitMargin: data.profit_margin,
-        hourlyRate: data.hourly_labor_rate,
-        lastUpdated: data.updated_at
+        profitMargin: configRow.profit_margin,
+        hourlyRate: configRow.hourly_labor_rate,
+        lastUpdated: configRow.updated_at,
+        source: 'Supabase Database'
       });
 
-      return this.convertRowToConfig(data);
+      return this.convertRowToConfig(configRow);
 
     } catch (error) {
       console.error('💥 [MASTER ENGINE] Failed to load config:', error);
@@ -374,17 +393,26 @@ export class MasterPricingEngine {
    */
   private async getDevModeCompanyId(): Promise<string> {
     try {
+      console.log('🔍 [DEV MODE] Looking up first company ID...');
+
       const { data, error } = await this.supabase
         .from('companies')
         .select('id')
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error || !data) {
+      if (error) {
+        console.error('❌ [DEV MODE] Query error:', error);
+        throw new Error(`Companies query failed: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        console.error('❌ [DEV MODE] No companies found in database');
         throw new Error('No companies found for dev mode');
       }
 
-      return data.id;
+      const companyId = data[0].id;
+      console.log('✅ [DEV MODE] Using company ID:', companyId);
+      return companyId;
     } catch (error) {
       console.error('❌ [DEV MODE] Could not get company ID:', error);
       // Return a fallback UUID for development
