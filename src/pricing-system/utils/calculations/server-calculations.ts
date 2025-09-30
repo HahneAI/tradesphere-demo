@@ -65,9 +65,9 @@ export async function calculateExpertPricing(
 async function calculateLegacyFallback(values: PaverPatioValues, sqft: number): Promise<PaverPatioCalculationResult> {
   console.warn('🔄 [FALLBACK] Using legacy JSON-based calculation (Supabase unavailable)');
 
-  // Load JSON config
-  const { loadPaverPatioConfig } = await import('../../config/config-loader');
-  const config = await loadPaverPatioConfig();
+  // Load JSON config directly as emergency fallback
+  const configModule = await import('../../config/paver-patio-formula.json');
+  const config = configModule.default;
 
   if (!config) {
     throw new Error('❌ [CRITICAL] No configuration available - both Supabase and JSON failed');
