@@ -7,7 +7,10 @@ import type {
   PaverPatioVariable
 } from '../master-formula/formula-types';
 
-// Import the JSON configuration
+// Import master pricing engine for unified calculations
+import { masterPricingEngine, calculatePricing, subscribeToConfigChanges } from '../calculations/master-pricing-engine';
+
+// Import the JSON configuration (fallback only)
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 // Import Services database for baseline values
 import { getPaverPatioServiceDefaults } from '../services-database/service-database';
@@ -398,15 +401,46 @@ const calculateExpertPricing = (
   };
 };
 
-// Calculate price based on current values - Uses expert two-tier system
-const calculatePrice = (
-  config: PaverPatioConfig,
+// Calculate price using master pricing engine - Single source of truth
+const calculatePrice = async (
+  config: PaverPatioConfig | null,
+  values: PaverPatioValues,
+  sqft: number = 100
+): Promise<PaverPatioCalculationResult> => {
+  console.log('🚀 [QUICK CALCULATOR] Using Master Pricing Engine for calculation');
+
+  try {
+    // Use master pricing engine for live Supabase calculation
+    const result = await calculatePricing(values, sqft);
+
+    console.log('✅ [QUICK CALCULATOR] Master engine calculation complete:', {
+      total: result.tier2Results.total,
+      source: 'Master Pricing Engine + Live Supabase'
+    });
+
+    return result;
+  } catch (error) {
+    console.error('❌ [QUICK CALCULATOR] Master engine calculation failed:', error);
+
+    // Fallback to legacy calculation if master engine fails
+    console.warn('🔄 [QUICK CALCULATOR] Falling back to legacy local calculation');
+    return calculateLegacyFallback(config, values, sqft);
+  }
+};
+
+// Legacy fallback for Quick Calculator (when Supabase unavailable)
+const calculateLegacyFallback = (
+  config: PaverPatioConfig | null,
   values: PaverPatioValues,
   sqft: number = 100
 ): PaverPatioCalculationResult => {
-  // Comprehensive null guard for config
-  if (!config || !config.baseSettings) {
-    console.warn('Config or baseSettings missing, using safe defaults');
+  console.warn('🔄 [FALLBACK] Quick Calculator using legacy JSON-based calculation');
+
+  // Use config from props or fallback to imported JSON
+  const actualConfig = config || (paverPatioConfigJson as PaverPatioConfig);
+
+  if (!actualConfig) {
+    console.error('❌ [CRITICAL] No configuration available for Quick Calculator');
     return {
       tier1Results: {
         baseHours: 0,
@@ -427,64 +461,16 @@ const calculatePrice = (
         total: 0,
         pricePerSqft: 0
       },
-      breakdown: 'Configuration error - unable to calculate'
+      breakdown: 'Configuration error - unable to calculate',
+      sqft,
+      inputValues: values,
+      confidence: 0,
+      calculationDate: new Date().toISOString()
     };
   }
 
-  // Check if we have the new expert structure
-  if (config.calculationSystem?.type === 'two_tier') {
-    return calculateExpertPricing(config, values, sqft);
-  }
-
-  // Fallback to legacy calculation for backward compatibility
-  console.warn('⚠️ Using LEGACY calculation system - consider updating to expert structure');
-
-  const basePrice = 15.50;
-  const tearout = 1.2;
-  const access = 1.5;
-  const paverStyle = 1.0;
-  const cutting = 1.2;
-  const teamSize = 1.4;
-  const complexity = 1.0;
-  const equipment = 250;
-  const obstacles = 500;
-
-  const multipliedPrice = basePrice * tearout * access * paverStyle * cutting * teamSize * complexity;
-  const subtotal = multipliedPrice * sqft;
-  const total = subtotal + equipment + obstacles;
-
-  // Convert legacy result to new format with null-safe calculations
-  const baseHours = sqft / 100 * 24;
-  const adjustedHours = sqft / 100 * 24 * 1.5;
-  const laborCost = multipliedPrice * sqft * 0.6;
-  const materialCostBase = multipliedPrice * sqft * 0.4;
-  const profit = subtotal * 0.15;
-
-  // Calculate total days (8-hour workdays) for legacy calculation
-  const totalDaysLegacy = Math.round(((adjustedHours ?? 0) / 8) * 10) / 10;
-
-  return {
-    tier1Results: {
-      baseHours: baseHours ?? 0,
-      adjustedHours: adjustedHours ?? 0,
-      totalManHours: adjustedHours ?? 0,
-      totalDays: totalDaysLegacy,
-      breakdown: ['Legacy calculation - hours estimated']
-    },
-    tier2Results: {
-      laborCost: laborCost ?? 0,
-      materialCostBase: materialCostBase ?? 0,
-      materialWasteCost: 0,
-      totalMaterialCost: materialCostBase ?? 0,
-      equipmentCost: equipment ?? 0,
-      obstacleCost: obstacles ?? 0,
-      subtotal: subtotal ?? 0,
-      profit: profit ?? 0,
-      total: total ?? 0,
-      pricePerSqft: (total ?? 0) / sqft
-    },
-    breakdown: `Legacy calculation: $${(total ?? 0).toFixed(2)} total`
-  };
+  // Use the exact same calculation logic as master engine but with JSON config
+  return calculateExpertPricing(actualConfig, values, sqft);
 };
 
 // Custom hook for paver patio store
@@ -495,47 +481,18 @@ export const usePaverPatioStore = (): PaverPatioStore => {
   const [error, setError] = useState<string | null>(null);
   const [lastCalculation, setLastCalculation] = useState<PaverPatioCalculationResult | null>(null);
 
-  // Load configuration with base settings integration
+  // Load configuration using master pricing engine
   const loadConfig = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      
-      // Cast the imported JSON to our type
-      let configData = paverPatioConfigJson as any;
-      
-      // Check for base settings AND variables overrides from Services tab
-      const serviceConfigOverride = localStorage.getItem('service_config_paver_patio_sqft');
-      if (serviceConfigOverride) {
-        try {
-          const override = JSON.parse(serviceConfigOverride);
-          // Handle nested base settings structure properly
-          configData = {
-            ...configData,
-            baseSettings: {
-              laborSettings: { ...configData.baseSettings?.laborSettings, ...override.baseSettings?.laborSettings },
-              materialSettings: { ...configData.baseSettings?.materialSettings, ...override.baseSettings?.materialSettings },
-              businessSettings: { ...configData.baseSettings?.businessSettings, ...override.baseSettings?.businessSettings }
-            },
-            // Also apply variables overrides (equipment costs, cutting complexity, etc.)
-            variables: {
-              ...configData.variables,
-              ...(override.variables || {})
-            },
-            lastModified: override.lastModified || configData.lastModified
-          };
-          console.log('🔧 Applied service config overrides:', {
-            baseSettings: !!override.baseSettings,
-            variables: !!override.variables,
-            lastModified: override.lastModified
-          });
-        } catch (error) {
-          console.warn('Failed to apply service config override:', error);
-        }
-      }
-      
+
+      console.log('🚀 [QUICK CALCULATOR] Loading configuration from master pricing engine');
+
+      // Load live configuration from master pricing engine
+      const configData = await masterPricingEngine.loadPricingConfig();
       setConfig(configData);
-      
+
       // Load or initialize values - clear old format if incompatible
       let initialValues: PaverPatioValues;
       try {
@@ -552,58 +509,83 @@ export const usePaverPatioStore = (): PaverPatioStore => {
         initialValues = getDefaultValues(configData);
       }
       setValues(initialValues);
-      
-      // Calculate initial price with potentially updated base settings
-      const calculation = calculatePrice(configData, initialValues);
+
+      // Calculate initial price using master pricing engine
+      const calculation = await calculatePrice(configData, initialValues);
       setLastCalculation(calculation);
-      
+
+      console.log('✅ [QUICK CALCULATOR] Configuration loaded from master pricing engine');
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load configuration';
       setError(errorMessage);
-      console.error('Error loading paver patio config:', err);
+      console.error('Error loading paver patio config from master engine:', err);
+
+      // Fallback to local JSON configuration
+      console.warn('🔄 [QUICK CALCULATOR] Falling back to local JSON configuration');
+      try {
+        const configData = paverPatioConfigJson as any;
+        setConfig(configData);
+
+        const initialValues = getDefaultValues(configData);
+        setValues(initialValues);
+
+        const calculation = await calculatePrice(configData, initialValues);
+        setLastCalculation(calculation);
+
+        console.log('✅ [QUICK CALCULATOR] Fallback configuration loaded');
+      } catch (fallbackErr) {
+        console.error('❌ [CRITICAL] Fallback configuration also failed:', fallbackErr);
+      }
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   // Update a specific value
-  const updateValue = useCallback((category: keyof PaverPatioValues, variable: string, value: string | number) => {
+  const updateValue = useCallback(async (category: keyof PaverPatioValues, variable: string, value: string | number) => {
     if (!config) return;
-    
-    setValues(prev => {
-      const updated = {
-        ...prev,
-        [category]: {
-          ...prev[category],
-          [variable]: value,
-        },
-      };
-      
-      // Save to localStorage
-      saveStoredValues(updated);
-      
-      // Recalculate price
-      const calculation = calculatePrice(config, updated);
+
+    const updated = {
+      ...values,
+      [category]: {
+        ...values[category],
+        [variable]: value,
+      },
+    };
+
+    setValues(updated);
+
+    // Save to localStorage
+    saveStoredValues(updated);
+
+    // Recalculate price using master pricing engine
+    try {
+      const calculation = await calculatePrice(config, updated);
       setLastCalculation(calculation);
-      
-      return updated;
-    });
-  }, [config]);
+    } catch (error) {
+      console.error('Failed to recalculate price after value update:', error);
+    }
+  }, [config, values]);
 
   // Reset all values to defaults
-  const resetToDefaults = useCallback(() => {
+  const resetToDefaults = useCallback(async () => {
     if (!config) return;
 
     const defaultValues = getDefaultValues(config);
     setValues(defaultValues);
     saveStoredValues(defaultValues);
 
-    const calculation = calculatePrice(config, defaultValues);
-    setLastCalculation(calculation);
+    try {
+      const calculation = await calculatePrice(config, defaultValues);
+      setLastCalculation(calculation);
+    } catch (error) {
+      console.error('Failed to calculate price after reset:', error);
+    }
   }, [config]);
 
   // Reset to defaults and set square footage to 100 (for Quick Calculator)
-  const resetToDefaults100 = useCallback(() => {
+  const resetToDefaults100 = useCallback(async () => {
     if (!config) return;
 
     // Use true baseline values that result in exactly 24 hours for 100 sqft
@@ -611,40 +593,46 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     setValues(baselineValues);
     saveStoredValues(baselineValues);
 
-    // Calculate with exactly 100 sqft using baseline values
-    const calculation = calculatePrice(config, baselineValues, 100);
-    setLastCalculation(calculation);
+    try {
+      // Calculate with exactly 100 sqft using baseline values
+      const calculation = await calculatePrice(config, baselineValues, 100);
+      setLastCalculation(calculation);
 
-    console.log('🔄 Quick Calculator reset to true baseline:', {
-      teamSize: baselineValues.labor.teamSize,
-      accessDifficulty: baselineValues.siteAccess.accessDifficulty,
-      obstacleRemoval: baselineValues.siteAccess.obstacleRemoval,
-      cuttingComplexity: baselineValues.materials.cuttingComplexity,
-      expectedHours: '24.0 hours for 100 sqft'
-    });
+      console.log('🔄 Quick Calculator reset to true baseline:', {
+        teamSize: baselineValues.labor.teamSize,
+        accessDifficulty: baselineValues.siteAccess.accessDifficulty,
+        obstacleRemoval: baselineValues.siteAccess.obstacleRemoval,
+        cuttingComplexity: baselineValues.materials.cuttingComplexity,
+        expectedHours: '24.0 hours for 100 sqft'
+      });
+    } catch (error) {
+      console.error('Failed to calculate baseline price:', error);
+    }
   }, [config]);
 
   // Reset a specific category
-  const resetCategory = useCallback((category: keyof PaverPatioValues) => {
+  const resetCategory = useCallback(async (category: keyof PaverPatioValues) => {
     if (!config) return;
-    
+
     const defaultValues = getDefaultValues(config);
-    setValues(prev => {
-      const updated = {
-        ...prev,
-        [category]: defaultValues[category],
-      };
-      
-      saveStoredValues(updated);
-      const calculation = calculatePrice(config, updated);
+    const updated = {
+      ...values,
+      [category]: defaultValues[category],
+    };
+
+    setValues(updated);
+    saveStoredValues(updated);
+
+    try {
+      const calculation = await calculatePrice(config, updated);
       setLastCalculation(calculation);
-      
-      return updated;
-    });
-  }, [config]);
+    } catch (error) {
+      console.error('Failed to calculate price after category reset:', error);
+    }
+  }, [config, values]);
 
   // Calculate price for specific square footage
-  const calculatePriceForSqft = useCallback((sqft: number = 1): PaverPatioCalculationResult => {
+  const calculatePriceForSqft = useCallback(async (sqft: number = 1): Promise<PaverPatioCalculationResult> => {
     if (!config) {
       throw new Error('Configuration not loaded');
     }
@@ -655,7 +643,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
       allValues: values
     });
 
-    const calculation = calculatePrice(config, values, sqft);
+    const calculation = await calculatePrice(config, values, sqft);
 
     console.log('🔍 [DEBUG] Calculation result:', {
       total: calculation.tier2Results.total,
@@ -701,49 +689,55 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     }
   }, [config, values]);
 
-  // Load config on mount
+  // Load config on mount and set up real-time subscription
   useEffect(() => {
     loadConfig();
-  }, [loadConfig]);
 
-  // Listen for service configuration changes from Services tab (base settings AND variables)
+    // Subscribe to real-time configuration changes from Supabase
+    console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes');
+
+    const unsubscribe = subscribeToConfigChanges('paver_patio_sqft', undefined, async (newConfig) => {
+      console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
+
+      setConfig(newConfig);
+
+      // Recalculate with new configuration
+      try {
+        const calculation = await calculatePrice(newConfig, values);
+        setLastCalculation(calculation);
+        console.log('✅ [QUICK CALCULATOR] Pricing updated with real-time config changes');
+      } catch (error) {
+        console.error('Failed to recalculate price with real-time config:', error);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+        console.log('🔌 [QUICK CALCULATOR] Real-time subscription cleaned up');
+      }
+    };
+  }, [loadConfig, values]);
+
+  // Listen for service configuration changes from Services tab (now using master pricing engine)
   useEffect(() => {
-    const handleServiceConfigChange = (e: StorageEvent) => {
+    const handleServiceConfigChange = async (e: StorageEvent) => {
       if (e.key === 'service_config_paver_patio_sqft' && e.newValue && config) {
         try {
-          const updatedServiceConfig = JSON.parse(e.newValue);
+          console.log('🔄 [QUICK CALCULATOR] Service config changed, reloading from master pricing engine');
 
-          // Update the config with new base settings AND variables
-          const updatedConfig = {
-            ...config,
-            baseSettings: {
-              laborSettings: { ...config.baseSettings?.laborSettings, ...updatedServiceConfig.baseSettings?.laborSettings },
-              materialSettings: { ...config.baseSettings?.materialSettings, ...updatedServiceConfig.baseSettings?.materialSettings },
-              businessSettings: { ...config.baseSettings?.businessSettings, ...updatedServiceConfig.baseSettings?.businessSettings }
-            },
-            // Also update variables (equipment costs, cutting complexity, etc.)
-            variables: {
-              ...config.variables,
-              ...(updatedServiceConfig.variables || {})
-            },
-            lastModified: updatedServiceConfig.lastModified || config.lastModified
-          };
-
+          // Reload configuration from master pricing engine (which reads from Supabase)
+          const updatedConfig = await masterPricingEngine.loadPricingConfig();
           setConfig(updatedConfig);
 
-          console.log('🔄 Paver patio store updated from service config changes:', {
-            baseSettings: !!updatedServiceConfig.baseSettings,
-            variables: !!updatedServiceConfig.variables,
-            equipmentCosts: updatedServiceConfig.variables?.excavation?.equipmentRequired?.options
-          });
-          
-          // Recalculate price with new base settings
-          const calculation = calculatePrice(updatedConfig, values);
+          // Recalculate price with new configuration
+          const calculation = await calculatePrice(updatedConfig, values);
           setLastCalculation(calculation);
-          
-          console.log('🔄 Base settings updated from Services tab, Quick Calculator refreshed');
+
+          console.log('✅ [QUICK CALCULATOR] Configuration reloaded from master pricing engine');
         } catch (error) {
-          console.error('Error applying base settings update:', error);
+          console.error('Error reloading config from master pricing engine:', error);
         }
       }
     };
@@ -752,36 +746,27 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     return () => window.removeEventListener('storage', handleServiceConfigChange);
   }, [config, values]);
 
-  // Listen for immediate config updates from Services tab
+  // Listen for immediate config updates from Services tab (now using master pricing engine)
   useEffect(() => {
-    const handleConfigUpdate = (event: CustomEvent) => {
+    const handleConfigUpdate = async (event: CustomEvent) => {
       const { serviceId, updatedService } = event.detail;
 
       if (serviceId === 'paver_patio_sqft' && config) {
-        console.log('🔄 IMMEDIATE CONFIG UPDATE: Reloading configuration from Services tab changes');
+        try {
+          console.log('🔄 [QUICK CALCULATOR] IMMEDIATE CONFIG UPDATE: Reloading from master pricing engine');
 
-        // Update the config immediately with the new values
-        const mergedConfig = {
-          ...config,
-          baseSettings: {
-            laborSettings: { ...config.baseSettings?.laborSettings, ...updatedService.baseSettings?.laborSettings },
-            materialSettings: { ...config.baseSettings?.materialSettings, ...updatedService.baseSettings?.materialSettings },
-            businessSettings: { ...config.baseSettings?.businessSettings, ...updatedService.baseSettings?.businessSettings }
-          },
-          variables: {
-            ...config.variables,
-            ...(updatedService.variables || {})
-          },
-          lastModified: updatedService.lastModified || config.lastModified
-        };
+          // Reload configuration from master pricing engine
+          const mergedConfig = await masterPricingEngine.loadPricingConfig();
+          setConfig(mergedConfig);
 
-        setConfig(mergedConfig);
+          // Recalculate pricing with new config
+          const calculation = await calculatePrice(mergedConfig, values);
+          setLastCalculation(calculation);
 
-        // Recalculate pricing with new config
-        const calculation = calculatePrice(mergedConfig, values);
-        setLastCalculation(calculation);
-
-        console.log('✅ IMMEDIATE CONFIG UPDATE: Pricing recalculated with new configuration');
+          console.log('✅ [QUICK CALCULATOR] IMMEDIATE CONFIG UPDATE: Pricing recalculated with master engine');
+        } catch (error) {
+          console.error('Error handling immediate config update:', error);
+        }
       }
     };
 
@@ -811,13 +796,15 @@ export { calculateExpertPricing };
 
 /**
  * Load paver patio configuration for server-side use (without React hooks)
+ * NOW USES MASTER PRICING ENGINE
  */
-export const loadPaverPatioConfig = (): PaverPatioConfig => {
+export const loadPaverPatioConfig = async (): Promise<PaverPatioConfig> => {
   try {
-    // Import the JSON configuration directly
-    return paverPatioConfigJson as PaverPatioConfig;
+    // Use master pricing engine for live configuration
+    return await masterPricingEngine.loadPricingConfig();
   } catch (error) {
-    console.error('Failed to load paver patio config for server-side use:', error);
-    throw new Error('Paver patio configuration not available');
+    console.warn('Master pricing engine unavailable, falling back to JSON config:', error);
+    // Fallback to JSON configuration
+    return paverPatioConfigJson as PaverPatioConfig;
   }
 };

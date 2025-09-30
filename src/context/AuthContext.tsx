@@ -13,6 +13,7 @@ interface BetaUser {
   user_icon: string;
   is_active: boolean;
   is_admin: boolean; // 🎯 NEW: Admin field
+  company_id: string; // 🎯 NEW: Company association
   created_at: string;
 }
 
@@ -295,53 +296,86 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       console.log('✅ STEP 2: Supabase credentials validated');
 
-      // STEP 3: Construct query URL with proper encoding
-      const encodedName = encodeURIComponent(firstName.trim());
-      const requestUrl = `${supabaseUrl}/rest/v1/beta_users?first_name=ilike.${encodedName}&beta_code_id=eq.${betaCodeId}`;
-      console.log('🌐 STEP 3: Query URL constructed');
-      console.log('🔍 Query:', `first_name=ilike.${encodedName}&beta_code_id=eq.${betaCodeId}`);
+      // STEP 3: Initialize Supabase client
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      console.log('🌐 STEP 3: Supabase client initialized');
 
-      // STEP 4: Database query with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+      // STEP 4: Query beta_users table with company_id lookup
       const startTime = performance.now();
 
-      const response = await fetch(requestUrl, {
-        headers: {
-          'Authorization': `Bearer ${supabaseKey}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json'
-        },
-        signal: controller.signal
-      });
+      const { data: betaUsers, error: betaError } = await supabase
+        .from('beta_users')
+        .select('*')
+        .ilike('first_name', firstName.trim())
+        .eq('beta_code_id', parseInt(betaCodeId));
 
-      clearTimeout(timeoutId);
       const queryTime = performance.now() - startTime;
+      console.log(`⏱️ STEP 4: Beta users query completed in ${queryTime.toFixed(0)}ms`);
 
       // STEP 5: Response validation
-
-      if (!response.ok) {
+      if (betaError) {
         console.error('❌ STEP 5 FAILED: Database query error');
-        console.error('📄 Error details:', {
-          status: response.status,
-          statusText: response.statusText
-        });
-        
-        let userFriendlyError = 'Login failed - server error';
-        if (response.status === 401) {
-          userFriendlyError = 'Database authentication failed';
-        } else if (response.status === 404) {
-          userFriendlyError = 'Database table not found';
-        }
-        
+        console.error('📄 Error details:', betaError);
         console.groupEnd();
-        return { success: false, error: userFriendlyError };
+        return { success: false, error: 'Login failed - database error' };
       }
 
-      // STEP 6: Parse user data
-      const users = await response.json();
-      console.log('✅ STEP 6: Response parsed -', `${users.length} users found`);
+      if (!betaUsers || betaUsers.length === 0) {
+        console.log('❌ STEP 5 FAILED: No matching users found');
+        console.log('🔍 Search criteria:', {
+          firstName: firstName.trim(),
+          betaCodeId: betaCodeId,
+          caseSensitive: false
+        });
+        console.groupEnd();
+        return { success: false, error: 'Invalid username or password' };
+      }
+
+      // STEP 6: Get user with company_id from users table
+      const betaUser = betaUsers[0];
+      console.log('✅ STEP 6: Beta user found, fetching company data');
+      console.log('🔍 [DEBUG] Beta user from beta_users table:', {
+        betaUserId: betaUser.id,
+        firstName: betaUser.first_name,
+        betaCodeId: betaUser.beta_code_id,
+        isActive: betaUser.is_active,
+        hasCompanyId: !!betaUser.company_id,
+        companyIdFromBeta: betaUser.company_id || 'NOT_FOUND'
+      });
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, email, first_name, full_name, job_title, tech_uuid, beta_code_used, beta_code_id, user_icon, is_active, is_admin, company_id')
+        .eq('id', betaUser.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error('❌ STEP 6 FAILED: Could not fetch user company data');
+        console.error('📄 Error details:', userError);
+        console.log('🔍 [DEBUG] Query details:', {
+          betaUserId: betaUser.id,
+          queryTable: 'users',
+          queryCondition: `id = ${betaUser.id}`
+        });
+        console.groupEnd();
+        return { success: false, error: 'Login failed - user data incomplete' };
+      }
+
+      const users = [userData]; // Maintain compatibility with existing code
+      console.log('✅ STEP 6: User data with company_id fetched from users table');
+      console.log('🔍 [DEBUG] Complete user data from users table:', {
+        userId: userData.id,
+        email: userData.email,
+        firstName: userData.first_name,
+        jobTitle: userData.job_title,
+        techUuid: userData.tech_uuid,
+        isAdmin: userData.is_admin,
+        isActive: userData.is_active,
+        companyId: userData.company_id,
+        companyIdType: typeof userData.company_id,
+        companyIdLength: userData.company_id?.length || 0,
+        hasValidCompanyId: !!(userData.company_id && userData.company_id.length > 10)
+      });
       
       if (!Array.isArray(users)) {
         console.error('❌ STEP 6 FAILED: Invalid response format');
@@ -389,23 +423,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // STEP 9: Prepare user object
       const betaUser = userAccount as BetaUser;
-      
-      console.log('✅ STEP 9: User object prepared -', {
+
+      console.log('✅ STEP 9: User object prepared');
+      console.log('🔍 [DEBUG] Final BetaUser object being prepared:', {
         id: betaUser.id,
         name: betaUser.first_name,
         jobTitle: betaUser.job_title,
         techId: betaUser.tech_uuid?.slice(-8) || 'N/A',
         isAdmin: betaUser.is_admin || false,
-        betaCodeId: betaUser.beta_code_id
+        betaCodeId: betaUser.beta_code_id,
+        companyId: betaUser.company_id,
+        companyIdValid: !!(betaUser.company_id && betaUser.company_id.length > 10),
+        allProperties: Object.keys(betaUser)
       });
 
       // STEP 10: Update application state
       setUser(betaUser);
       setIsAdmin(betaUser.is_admin || false);
       localStorage.setItem('tradesphere_beta_user', JSON.stringify(betaUser));
-      
+
       console.log('✅ STEP 10: Application state updated');
-      console.log('💾 Local storage: User data saved');
+      console.log('💾 [DEBUG] Local storage: User data saved with company_id');
+      console.log('🔍 [DEBUG] Stored user data verification:', {
+        storedCompanyId: betaUser.company_id,
+        contextUserSet: !!betaUser,
+        adminFlagSet: betaUser.is_admin || false
+      });
       
       // Special admin login logging
       if (betaUser.is_admin) {

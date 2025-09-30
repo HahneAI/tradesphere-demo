@@ -634,6 +634,7 @@ const ChatInterface = () => {
       firstName: user.first_name,
       jobTitle: user.job_title,
       betaCodeId: user.beta_code_id,
+      companyId: user.company_id, // 🎯 NEW: Company context for RLS
       // 🏢 PHASE 4: Include customer details when available
       customerName: customerDetails?.name || null,
       customerAddress: customerDetails?.address || null,
