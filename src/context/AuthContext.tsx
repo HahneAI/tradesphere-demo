@@ -331,10 +331,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: 'Invalid username or password' };
       }
 
-      // STEP 6: Get user with company_id from users table
+      // STEP 6: Use beta_users data directly (company_id already seeded)
       const betaUser = betaUsers[0];
-      console.log('✅ STEP 6: Beta user found, fetching company data');
-      console.log('🔍 [DEBUG] Beta user from beta_users table:', {
+      console.log('✅ STEP 6: Beta user found with company_id');
+      console.log('🔍 [DEBUG] Beta user from beta_users table (with seeded company_id):', {
         betaUserId: betaUser.id,
         firstName: betaUser.first_name,
         betaCodeId: betaUser.beta_code_id,
@@ -343,86 +343,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyIdFromBeta: betaUser.company_id || 'NOT_FOUND'
       });
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, email, first_name, full_name, job_title, tech_uuid, beta_code_used, beta_code_id, user_icon, is_active, is_admin, company_id')
-        .eq('id', betaUser.id)
-        .single();
-
-      if (userError || !userData) {
-        console.error('❌ STEP 6 FAILED: Could not fetch user company data');
-        console.error('📄 Error details:', userError);
-        console.log('🔍 [DEBUG] Query details:', {
-          betaUserId: betaUser.id,
-          queryTable: 'users',
-          queryCondition: `id = ${betaUser.id}`
-        });
-        console.groupEnd();
-        return { success: false, error: 'Login failed - user data incomplete' };
-      }
-
-      const users = [userData]; // Maintain compatibility with existing code
-      console.log('✅ STEP 6: User data with company_id fetched from users table');
-      console.log('🔍 [DEBUG] Complete user data from users table:', {
-        userId: userData.id,
-        email: userData.email,
-        firstName: userData.first_name,
-        jobTitle: userData.job_title,
-        techUuid: userData.tech_uuid,
-        isAdmin: userData.is_admin,
-        isActive: userData.is_active,
-        companyId: userData.company_id,
-        companyIdType: typeof userData.company_id,
-        companyIdLength: userData.company_id?.length || 0,
-        hasValidCompanyId: !!(userData.company_id && userData.company_id.length > 10)
+      // No users table query needed - using beta_users directly
+      console.log('✅ STEP 6: Using beta_users data with seeded company_id');
+      console.log('🔍 [DEBUG] Complete user data from beta_users table:', {
+        userId: betaUser.id,
+        email: betaUser.email,
+        firstName: betaUser.first_name,
+        jobTitle: betaUser.job_title,
+        techUuid: betaUser.tech_uuid,
+        isAdmin: betaUser.is_admin || false,
+        isActive: betaUser.is_active,
+        companyId: betaUser.company_id,
+        companyIdType: typeof betaUser.company_id,
+        companyIdLength: betaUser.company_id?.length || 0,
+        hasValidCompanyId: !!(betaUser.company_id && betaUser.company_id.length > 10)
       });
-      
-      if (!Array.isArray(users)) {
-        console.error('❌ STEP 6 FAILED: Invalid response format');
-        console.groupEnd();
-        return { success: false, error: 'Invalid server response' };
-      }
 
-      // STEP 7: User existence check
-      if (users.length === 0) {
-        console.log('❌ STEP 7 FAILED: No matching users found');
-        console.log('🔍 Search criteria:', {
-          firstName: firstName.trim(),
-          betaCodeId: betaCodeId,
-          caseSensitive: false
-        });
-        console.groupEnd();
-        return { success: false, error: 'Invalid username or password' };
-      }
-
-      if (users.length > 1) {
-        console.warn('⚠️ STEP 7: Multiple users found - using first match');
-        console.log('🔍 Multiple users:', users.map(u => ({ 
-          name: u.first_name, 
-          id: u.id,
-          betaCode: u.beta_code_id 
-        })));
-      }
-
-      const userAccount = users[0];
+      // STEP 7: Account validation (using betaUser directly)
       console.log('✅ STEP 7: User account located');
 
       // STEP 8: Account status validation
-      if (!userAccount.is_active) {
+      if (!betaUser.is_active) {
         console.error('❌ STEP 8 FAILED: Account is deactivated');
         console.log('🔍 Account details:', {
-          id: userAccount.id,
-          name: userAccount.first_name,
-          active: userAccount.is_active,
-          created: userAccount.created_at?.split('T')[0]
+          id: betaUser.id,
+          name: betaUser.first_name,
+          active: betaUser.is_active,
+          created: betaUser.created_at?.split('T')[0]
         });
         console.groupEnd();
         return { success: false, error: 'Account is deactivated' };
       }
       console.log('✅ STEP 8: Account status validated - active');
 
-      // STEP 9: Prepare user object (merge userData into betaUser)
-      Object.assign(betaUser, userAccount);
+      // STEP 9: User object ready (betaUser already has all data including company_id)
 
       console.log('✅ STEP 9: User object prepared');
       console.log('🔍 [DEBUG] Final BetaUser object being prepared:', {
