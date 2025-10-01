@@ -1,3 +1,190 @@
+-- ============================================================================
+-- TRADESPHERE DATABASE SCHEMA DOCUMENTATION
+-- ============================================================================
+--
+-- SCHEMA ORGANIZATION & RELATIONSHIPS
+--
+-- This database supports a multi-tenant SaaS platform for trade businesses.
+-- The schema centers around COMPANIES, with all other entities linked via company_id.
+--
+-- ============================================================================
+-- CORE ENTITY HIERARCHY
+-- ============================================================================
+--
+-- 1. COMPANIES (Root Entity)
+--    - Primary identifier: id (UUID)
+--    - Secondary identifier: company_id (varchar, generated via generate_company_id())
+--    - Purpose: Represents individual trade businesses using the platform
+--    - Contains: billing info, branding (color_theme, ai_personality), subscription status
+--    - Referenced by: ALL other tables via company_id foreign key
+--
+-- 2. USERS (Authentication & Authorization)
+--    - Primary identifier: id (UUID, defaults to auth.uid() from Supabase Auth)
+--    - Links to: companies table via company_id
+--    - Purpose: Represents authenticated users in Supabase auth system
+--    - Note: This is for RLS policies - linked to Supabase's auth.users
+--    - Contains: email, role, title, is_head_user flag
+--    - IMPORTANT: Used by RLS policies to enforce data isolation
+--
+-- 3. BETA_USERS (Application-Level Users)
+--    - Primary identifier: id (UUID)
+--    - Unique identifiers: email, tech_uuid
+--    - Links to: companies via company_id, beta_codes via beta_code_used
+--    - Purpose: Application user accounts (separate from Supabase auth)
+--    - Contains: first_name, full_name, job_title, is_admin, user_icon
+--    - Note: Currently used for login/session management via localStorage
+--    - Relationship: May or may not have corresponding entry in users table
+--
+-- ============================================================================
+-- AUTHENTICATION MODEL (CURRENT STATE)
+-- ============================================================================
+--
+-- DUAL AUTHENTICATION SYSTEM:
+--
+-- A) Application-Level (beta_users table):
+--    - Users log in with first_name + beta_code_id
+--    - Credentials stored in beta_users table
+--    - Session persisted in localStorage as 'tradesphere_beta_user'
+--    - Contains company_id for multi-tenancy
+--
+-- B) Supabase Auth-Level (users table + auth.users):
+--    - Required for RLS policies to work
+--    - Anonymous auth sessions created during login
+--    - Links auth.uid() to company via users table
+--    - PROBLEM: Anonymous auth users NOT in users table → RLS fails
+--
+-- RLS POLICY PATTERN:
+--    Most tables use: "WHERE company_id IN (SELECT company_id FROM users WHERE id = auth.uid())"
+--    This requires authenticated user to exist in users table with company_id
+--
+-- ============================================================================
+-- DATA MODEL RELATIONSHIPS
+-- ============================================================================
+--
+-- SERVICE PRICING SYSTEM:
+--    service_pricing_configs
+--    ├── Belongs to: companies (via company_id)
+--    ├── Updated by: users (via updated_by)
+--    ├── Purpose: Store customizable pricing formulas per company per service
+--    ├── Key fields: hourly_labor_rate, profit_margin, variables_config (JSONB)
+--    └── Unique constraint: (company_id, service_name)
+--
+-- CUSTOMER INTERACTION TRACKING:
+--    "VC Usage" (demo_messages alternative name)
+--    ├── Belongs to: companies (via company_id)
+--    ├── Linked by: user_tech_id (references beta_users.tech_uuid)
+--    ├── Purpose: Store AI chat conversations with customers
+--    ├── Contains: user_input, ai_response, customer details, pricing calculations
+--    └── Used for: Customer list, conversation history, analytics
+--
+--    customer_interactions
+--    ├── Belongs to: companies (via company_id)
+--    ├── Tracks: view/edit/load actions on customer records
+--    ├── Purpose: Power "smart ordering" of customer list by recency
+--    └── Linked by: user_tech_id, customer_name
+--
+-- BETA CODE SYSTEM:
+--    beta_codes
+--    ├── Purpose: Invitation-only registration codes
+--    ├── Referenced by: beta_users.beta_code_used
+--    ├── Tracks: usage (used, used_by_email, used_at)
+--    └── Expires: 30 days after creation (expires_at)
+--
+-- PAYMENT SYSTEM:
+--    payments
+--    ├── Belongs to: companies (via company_id)
+--    ├── Purpose: Track subscription payments via Dwolla ACH
+--    ├── Contains: Dwolla IDs, bank account info, payment status
+--    └── Links to: companies.dwolla_customer_url
+--
+-- ============================================================================
+-- IMPORTANT TABLES DETAILS
+-- ============================================================================
+--
+-- service_pricing_configs:
+--    - Enables dynamic per-company pricing configuration
+--    - variables_config (JSONB): Complex nested pricing rules
+--      ├── labor: team size multipliers
+--      ├── materials: paver styles, cutting complexity, waste percentages
+--      ├── excavation: equipment costs, tearout complexity
+--      ├── siteAccess: access difficulty, obstacle removal costs
+--      └── complexity: overall project complexity multipliers
+--    - default_variables (JSONB): Default selections for calculations
+--    - version: Schema version for config format (currently '2.0.0')
+--    - RLS: Likely enforces company isolation via users table
+--
+-- "VC Usage":
+--    - Stores complete AI conversation threads
+--    - Performance metrics: processing_time_ms, ai_generation_time_ms, tokens
+--    - Customer data: name, email, phone, address (extracted from conversation)
+--    - Pricing data: services_count, confidence_score
+--    - View tracking: last_viewed_at, view_count (for smart ordering)
+--    - NOTE: Space in table name requires quotes in queries
+--
+-- beta_users:
+--    - company_id: Links user to their company (NULL = no company assigned)
+--    - is_admin: Grants access to admin features (Services tab, settings)
+--    - user_icon: Lucide icon name for avatar display
+--    - tech_uuid: Unique generated ID (format: TECH-XXXXXXXX-XXXX-XXXX)
+--    - Constraints: email UNIQUE, tech_uuid UNIQUE
+--
+-- companies:
+--    - Dual ID system: id (UUID primary key), company_id (varchar unique)
+--    - generate_company_id(): Function that creates human-readable IDs
+--    - subscription_status: 'trial' | 'active' | 'cancelled' | etc.
+--    - trial_end_date: Defaults to 14 days from creation
+--    - color_theme (JSONB): Custom branding colors
+--    - ai_personality: Customizes AI agent tone/style
+--
+-- ============================================================================
+-- RLS SECURITY MODEL
+-- ============================================================================
+--
+-- Row Level Security (RLS) is enabled on most tables to enforce multi-tenancy.
+-- Pattern: Users can only access data from their own company.
+--
+-- Typical RLS Policy Structure:
+--    FOR SELECT USING (
+--      company_id IN (
+--        SELECT company_id FROM users WHERE id = auth.uid()
+--      )
+--    )
+--
+-- This requires:
+--    1. User authenticated with Supabase (auth.uid() returns valid UUID)
+--    2. User exists in users table
+--    3. User has company_id set
+--    4. Record's company_id matches user's company_id
+--
+-- CURRENT CHALLENGE:
+--    - beta_users used for login, but may not have corresponding users entry
+--    - Anonymous auth creates auth.uid() but user not in users table
+--    - RLS policies block queries because subquery returns no rows
+--    - Solution needed: Link beta_users login to users table OR modify RLS
+--
+-- ============================================================================
+-- FOREIGN KEY RELATIONSHIPS (Visual Map)
+-- ============================================================================
+--
+--   companies (id)
+--   ├─→ beta_users.company_id
+--   ├─→ users.company_id
+--   ├─→ service_pricing_configs.company_id
+--   ├─→ "VC Usage".company_id
+--   ├─→ customer_interactions.company_id
+--   ├─→ demo_messages.company_id
+--   └─→ payments.company_id
+--
+--   users (id)
+--   └─→ service_pricing_configs.updated_by
+--
+--   beta_codes (code)
+--   └─→ beta_users.beta_code_used
+--
+-- ============================================================================
+-- CUSTOMER LIST FUNCTIONALITY
+-- ============================================================================
+--
 -- Customer List Database Integration Schema
 -- This file contains the SQL schema for customer list functionality with smart ordering
 

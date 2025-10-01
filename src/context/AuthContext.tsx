@@ -343,7 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyIdFromBeta: betaUser.company_id || 'NOT_FOUND'
       });
 
-      // STEP 6.5: Create authenticated Supabase session for RLS
+      // STEP 6.5: Create authenticated Supabase session for RLS + Sync to users table
       try {
         console.log('🔐 STEP 6.5: Creating authenticated Supabase session for RLS');
         const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
@@ -357,6 +357,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             hasSession: !!authData?.session,
             sessionExpiry: authData?.session?.expires_at
           });
+
+          // STEP 6.6: Sync to users table so RLS policies work
+          if (authData?.user?.id && betaUser.company_id && betaUser.email) {
+            try {
+              console.log('🔄 STEP 6.6: Syncing authenticated user to users table for RLS');
+
+              const { error: upsertError } = await supabase
+                .from('users')
+                .upsert({
+                  id: authData.user.id,
+                  company_id: betaUser.company_id,
+                  email: betaUser.email,
+                  role: betaUser.is_admin ? 'admin' : 'technician',
+                  title: betaUser.job_title || 'Team Member',
+                  is_head_user: betaUser.is_admin || false,
+                  updated_at: new Date().toISOString()
+                }, {
+                  onConflict: 'id'
+                });
+
+              if (upsertError) {
+                console.error('⚠️ STEP 6.6 WARNING: Failed to sync to users table (continuing login):', upsertError.message);
+              } else {
+                console.log('✅ STEP 6.6: User synced to users table successfully');
+                console.log('🔍 [DEBUG] Users table sync:', {
+                  authUserId: authData.user.id,
+                  companyId: betaUser.company_id,
+                  email: betaUser.email,
+                  role: betaUser.is_admin ? 'admin' : 'technician',
+                  message: 'RLS policies will now work correctly'
+                });
+              }
+            } catch (syncException) {
+              console.error('⚠️ STEP 6.6 WARNING: Users table sync exception (continuing login):', syncException.message);
+            }
+          } else {
+            console.warn('⚠️ STEP 6.6 SKIPPED: Missing required data for users table sync:', {
+              hasAuthId: !!authData?.user?.id,
+              hasCompanyId: !!betaUser.company_id,
+              hasEmail: !!betaUser.email
+            });
+          }
         }
       } catch (authException) {
         console.error('⚠️ STEP 6.5 WARNING: Auth exception (continuing login):', authException.message);
