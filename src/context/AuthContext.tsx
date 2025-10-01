@@ -343,6 +343,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyIdFromBeta: betaUser.company_id || 'NOT_FOUND'
       });
 
+      // STEP 6.5: Create authenticated Supabase session for RLS
+      try {
+        console.log('🔐 STEP 6.5: Creating authenticated Supabase session for RLS');
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+
+        if (authError) {
+          console.error('⚠️ STEP 6.5 WARNING: Anonymous auth failed (continuing login):', authError.message);
+        } else {
+          console.log('✅ STEP 6.5: Authenticated session created for RLS queries');
+          console.log('🔍 [DEBUG] Auth session details:', {
+            userId: authData?.user?.id,
+            hasSession: !!authData?.session,
+            sessionExpiry: authData?.session?.expires_at
+          });
+        }
+      } catch (authException) {
+        console.error('⚠️ STEP 6.5 WARNING: Auth exception (continuing login):', authException.message);
+      }
+
       // No users table query needed - using beta_users directly
       console.log('✅ STEP 6: Using beta_users data with seeded company_id');
       console.log('🔍 [DEBUG] Complete user data from beta_users table:', {

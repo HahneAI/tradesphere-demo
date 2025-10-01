@@ -13,10 +13,16 @@ export const getSupabase = (): SupabaseClient<Database> => {
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error('Supabase URL and Anon Key must be defined');
     }
-    
-    supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+    supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false
+      }
+    });
   }
-  
+
   return supabase;
 };
 
@@ -36,7 +42,13 @@ export const refreshSupabaseClient = () => {
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Supabase URL and Anon Key must be defined');
   }
-  
-  supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+
+  supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false
+    }
+  });
   return supabase;
 };
