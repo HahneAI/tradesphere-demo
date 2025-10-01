@@ -82,6 +82,14 @@ export class MasterPricingEngine {
   }
 
   /**
+   * Refresh the Supabase client instance (call after login to pick up auth session)
+   */
+  public refreshClient(): void {
+    this.supabase = getSupabase();
+    console.log('🔄 [MASTER ENGINE] Supabase client refreshed to pick up auth session');
+  }
+
+  /**
    * Load pricing configuration from Supabase
    * DEV MODE: Uses fallback company_id for development
    */

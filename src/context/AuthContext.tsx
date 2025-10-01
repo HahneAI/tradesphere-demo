@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { refreshSupabaseClient } from '../services/supabase';
+import { masterPricingEngine } from '../pricing-system/core/calculations/master-pricing-engine';
 
 interface BetaUser {
   id: string;
@@ -388,6 +390,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   role: betaUser.is_admin ? 'admin' : 'technician',
                   message: 'RLS policies will now work correctly'
                 });
+
+                // STEP 6.7: Refresh Supabase singleton clients to pick up auth session
+                try {
+                  console.log('🔄 STEP 6.7: Refreshing Supabase clients to pick up auth session');
+                  refreshSupabaseClient();
+                  masterPricingEngine.refreshClient();
+                  console.log('✅ STEP 6.7: Supabase clients refreshed - auth session now active');
+                } catch (refreshException) {
+                  console.error('⚠️ STEP 6.7 WARNING: Failed to refresh Supabase clients:', refreshException.message);
+                }
               }
             } catch (syncException) {
               console.error('⚠️ STEP 6.6 WARNING: Users table sync exception (continuing login):', syncException.message);
