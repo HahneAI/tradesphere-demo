@@ -63,15 +63,20 @@ export interface CalculationResult {
 
 export class MasterPricingEngine {
   private static instance: MasterPricingEngine;
-  private supabase: SupabaseClient;
   private configCache: Map<string, PricingConfigRow> = new Map();
   private subscriptions: Map<string, any> = new Map();
 
-  private constructor() {
-    this.supabase = getSupabase();
+  /**
+   * Always get fresh Supabase client with current auth state
+   * This ensures we pick up auth sessions created after singleton initialization
+   */
+  private get supabase(): SupabaseClient {
+    return getSupabase();
+  }
 
-    // Debug logging for Supabase client initialization
-    console.log('🚀 [MASTER ENGINE] Using authenticated Supabase client');
+  private constructor() {
+    // Debug logging for master engine initialization
+    console.log('🚀 [MASTER ENGINE] Master pricing engine initialized');
   }
 
   public static getInstance(): MasterPricingEngine {
@@ -79,14 +84,6 @@ export class MasterPricingEngine {
       MasterPricingEngine.instance = new MasterPricingEngine();
     }
     return MasterPricingEngine.instance;
-  }
-
-  /**
-   * Refresh the Supabase client instance (call after login to pick up auth session)
-   */
-  public refreshClient(): void {
-    this.supabase = getSupabase();
-    console.log('🔄 [MASTER ENGINE] Supabase client refreshed to pick up auth session');
   }
 
   /**

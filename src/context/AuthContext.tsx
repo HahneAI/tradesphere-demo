@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { refreshSupabaseClient } from '../services/supabase';
-import { masterPricingEngine } from '../pricing-system/core/calculations/master-pricing-engine';
 
 interface BetaUser {
   id: string;
@@ -391,14 +390,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   message: 'RLS policies will now work correctly'
                 });
 
-                // STEP 6.7: Refresh Supabase singleton clients to pick up auth session
+                // STEP 6.7: Refresh Supabase singleton client to pick up auth session
                 try {
-                  console.log('🔄 STEP 6.7: Refreshing Supabase clients to pick up auth session');
+                  console.log('🔄 STEP 6.7: Refreshing Supabase singleton client');
                   refreshSupabaseClient();
-                  masterPricingEngine.refreshClient();
-                  console.log('✅ STEP 6.7: Supabase clients refreshed - auth session now active');
+                  console.log('✅ STEP 6.7: Supabase client refreshed - auth session now active');
                 } catch (refreshException) {
-                  console.error('⚠️ STEP 6.7 WARNING: Failed to refresh Supabase clients:', refreshException.message);
+                  console.error('⚠️ STEP 6.7 WARNING: Failed to refresh Supabase client:', refreshException.message);
+                }
+
+                // STEP 6.8: Verify auth session is working
+                try {
+                  console.log('🔍 STEP 6.8: Verifying auth session is accessible');
+                  const { data: { session: testSession } } = await supabase.auth.getSession();
+                  console.log('✅ STEP 6.8: Auth session confirmed:', {
+                    hasSession: !!testSession,
+                    userId: testSession?.user?.id,
+                    expiresAt: testSession?.expires_at,
+                    message: 'Master pricing engine will now have authenticated access'
+                  });
+                } catch (verifyException) {
+                  console.error('⚠️ STEP 6.8 WARNING: Auth verification failed:', verifyException.message);
                 }
               }
             } catch (syncException) {
