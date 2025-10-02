@@ -547,7 +547,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     } finally {
       setIsLoading(false);
     }
-  }, [companyId]);
+  }, []); // Empty deps - companyId accessed from closure
 
   // Update a specific value
   const updateValue = useCallback(async (category: keyof PaverPatioValues, variable: string, value: string | number) => {
@@ -615,7 +615,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     } catch (error) {
       console.error('Failed to calculate baseline price:', error);
     }
-  }, [config]);
+  }, []); // Empty deps - config accessed from closure via state
 
   // Reset a specific category
   const resetCategory = useCallback(async (category: keyof PaverPatioValues) => {
@@ -701,27 +701,20 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     // Guard: Don't proceed without companyId
     if (!companyId || companyId.trim() === '') {
       console.error('❌ [QUICK CALCULATOR] Cannot subscribe without company_id');
+      setError('No company ID available');
+      setIsLoading(false);
       return;
     }
 
     loadConfig();
 
-    // Subscribe to real-time configuration changes from Supabase
+    // Subscribe ONCE to real-time configuration changes from Supabase
     console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes', { companyId });
 
     const unsubscribe = masterPricingEngine.subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
-        console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
-
+      console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
       setConfig(newConfig);
-
-      // Recalculate with new configuration
-      try {
-        const calculation = await calculatePrice(newConfig, values);
-        setLastCalculation(calculation);
-        console.log('✅ [QUICK CALCULATOR] Pricing updated with real-time config changes');
-      } catch (error) {
-        console.error('Failed to recalculate price with real-time config:', error);
-      }
+      // Note: Recalculation handled by separate useEffect on config change
     });
 
     // Cleanup subscription on unmount
@@ -731,61 +724,11 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
         console.log('🔌 [QUICK CALCULATOR] Real-time subscription cleaned up');
       }
     };
-  }, [loadConfig, values, companyId]);
+  }, [companyId]); // ONLY companyId - no function dependencies
 
-  // Listen for service configuration changes from Services tab (now using master pricing engine)
-  useEffect(() => {
-    const handleServiceConfigChange = async (e: StorageEvent) => {
-      if (e.key === 'service_config_paver_patio_sqft' && e.newValue && config) {
-        try {
-          console.log('🔄 [QUICK CALCULATOR] Service config changed, reloading from master pricing engine');
+  // REMOVED: Redundant storage event listener - Supabase subscription handles real-time updates
 
-          // Reload configuration from master pricing engine (which reads from Supabase)
-          const updatedConfig = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
-          setConfig(updatedConfig);
-
-          // Recalculate price with new configuration
-          const calculation = await calculatePrice(updatedConfig, values);
-          setLastCalculation(calculation);
-
-          console.log('✅ [QUICK CALCULATOR] Configuration reloaded from master pricing engine');
-        } catch (error) {
-          console.error('Error reloading config from master pricing engine:', error);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleServiceConfigChange);
-    return () => window.removeEventListener('storage', handleServiceConfigChange);
-  }, [config, values, companyId]);
-
-  // Listen for immediate config updates from Services tab (now using master pricing engine)
-  useEffect(() => {
-    const handleConfigUpdate = async (event: CustomEvent) => {
-      const { serviceId, updatedService } = event.detail;
-
-      if (serviceId === 'paver_patio_sqft' && config) {
-        try {
-          console.log('🔄 [QUICK CALCULATOR] IMMEDIATE CONFIG UPDATE: Reloading from master pricing engine');
-
-          // Reload configuration from master pricing engine
-          const mergedConfig = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
-          setConfig(mergedConfig);
-
-          // Recalculate pricing with new config
-          const calculation = await calculatePrice(mergedConfig, values);
-          setLastCalculation(calculation);
-
-          console.log('✅ [QUICK CALCULATOR] IMMEDIATE CONFIG UPDATE: Pricing recalculated with master engine');
-        } catch (error) {
-          console.error('Error handling immediate config update:', error);
-        }
-      }
-    };
-
-    window.addEventListener('paver-config-updated', handleConfigUpdate as EventListener);
-    return () => window.removeEventListener('paver-config-updated', handleConfigUpdate as EventListener);
-  }, [config, values, companyId]);
+  // REMOVED: Redundant custom event listener - Supabase subscription handles real-time updates
 
   return {
     config,

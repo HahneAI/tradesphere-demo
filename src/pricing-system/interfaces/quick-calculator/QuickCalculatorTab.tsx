@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -17,19 +17,19 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
   const store = usePaverPatioStore(user?.company_id || '');
+  const hasReset = useRef(false);
 
-  // Reset to defaults every time the Quick Calculator opens or closes
+  // Reset to defaults when opening (prevent infinite loop by using useRef)
   useEffect(() => {
-    if (store.resetToDefaults100) {
-      if (isOpen) {
-        // Reset when opening
-        store.resetToDefaults100();
-      } else {
-        // Also reset when closing to ensure clean state for next open
-        store.resetToDefaults100();
-      }
+    if (isOpen && !hasReset.current && store.resetToDefaults100) {
+      store.resetToDefaults100();
+      hasReset.current = true;
     }
-  }, [isOpen, store.resetToDefaults100]);
+
+    if (!isOpen) {
+      hasReset.current = false; // Reset flag when closing
+    }
+  }, [isOpen]); // Remove store.resetToDefaults100 from deps to prevent loop
 
   if (!isOpen) return null;
 

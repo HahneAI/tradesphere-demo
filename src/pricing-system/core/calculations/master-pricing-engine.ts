@@ -90,25 +90,28 @@ export class MasterPricingEngine {
 
   /**
    * Load pricing configuration from Supabase
-   * DEV MODE: Uses fallback company_id for development
+   * REQUIRES company_id - no dev mode fallback
    */
   public async loadPricingConfig(
     serviceName: string = 'paver_patio_sqft',
     companyId?: string
   ): Promise<PaverPatioConfig> {
+    // CRITICAL: Reject empty/undefined immediately - NO DEV MODE
+    if (!companyId || companyId.trim() === '') {
+      console.error('❌ [MASTER ENGINE] No company_id provided - returning fallback config');
+      return this.getFallbackConfig();
+    }
+
     try {
       // Check authentication status
       const { data: { session } } = await this.supabase.auth.getSession();
-      console.log('🔐 [MASTER ENGINE] Auth session present?', !!session);
-      console.log('🔐 [MASTER ENGINE] User ID:', session?.user?.id);
 
-      // DEV MODE: Use fallback company_id if not provided
-      const targetCompanyId = companyId || await this.getDevModeCompanyId();
+      // Use companyId directly - NO getDevModeCompanyId() call
+      const targetCompanyId = companyId;
 
       console.log('🔍 [MASTER ENGINE] Loading pricing config:', {
         serviceName,
         companyId: targetCompanyId,
-        mode: companyId ? 'production' : 'development',
         hasAuth: !!session
       });
 
