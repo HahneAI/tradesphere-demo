@@ -21,10 +21,8 @@ export const getSupabase = (): SupabaseClient<Database> => {
 
     supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,  // Explicitly use localStorage
-        storageKey: 'tradesphere-auth-token',  // Custom storage key for better organization
-        autoRefreshToken: true,
+        persistSession: false,  // DISABLED: No session persistence - fixes stuck loading screen
+        autoRefreshToken: false,  // DISABLED: No auto refresh needed without persistence
         detectSessionInUrl: false,
         flowType: 'pkce'  // Use PKCE flow for better security
       }
@@ -53,12 +51,10 @@ export const refreshSupabaseClient = () => {
 
   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
-      persistSession: true,
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      storageKey: 'tradesphere-auth-token',
-      autoRefreshToken: true,
+      persistSession: false,  // DISABLED: No session persistence - fixes stuck loading screen
+      autoRefreshToken: false,  // DISABLED: No auto refresh needed without persistence
       detectSessionInUrl: false,
-      flowType: 'pkce'
+      flowType: 'pkce'  // Use PKCE flow for better security
     }
   });
   return supabase;

@@ -91,8 +91,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Emergency timeout: Force loading to false after 5 seconds
+    const timeoutId = setTimeout(() => {
+      console.warn('⚠️ AUTH_CONTEXT - Timeout reached, forcing loading to false');
+      setLoading(false);
+    }, 5000);
+
     return () => {
       console.log('🔴 AUTH_CONTEXT - Cleaning up auth listener');
+      clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
@@ -104,11 +111,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('📥 AUTH_CONTEXT - Fetching user data for:', userId);
 
     try {
-      const { data, error } = await supabase
+      // Add 3 second timeout to prevent hanging
+      const fetchPromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('User data fetch timeout')), 3000)
+      );
+
+      const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('❌ AUTH_CONTEXT - Failed to fetch user data:', error);
@@ -130,6 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('💥 AUTH_CONTEXT - Error fetching user data:', error);
+      // Clear any invalid session
+      await supabase.auth.signOut();
     } finally {
       console.log('🏁 AUTH_CONTEXT - Setting loading to false');
       setLoading(false);
