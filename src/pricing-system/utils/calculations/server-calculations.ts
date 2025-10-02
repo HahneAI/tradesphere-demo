@@ -142,12 +142,12 @@ async function calculateLegacyFallback(values: PaverPatioValues, sqft: number): 
   const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
   const obstacleCost = obstacleOption?.value ?? 0;
 
-  // Final calculation
+  // Final calculation (per master-formula.md: subtotal → complexity → profit)
   const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
-  const profit = subtotal * profitMargin;
-  const beforeComplexity = subtotal + profit;
   const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
-  const total = beforeComplexity * complexityMultiplier;
+  const adjustedTotal = subtotal * complexityMultiplier;  // Apply complexity FIRST
+  const profit = adjustedTotal * profitMargin;            // Profit on adjusted total
+  const total = adjustedTotal + profit;                    // Add profit to get final
 
   return {
     tier1Results: {

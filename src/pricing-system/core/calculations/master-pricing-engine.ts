@@ -370,14 +370,18 @@ export class MasterPricingEngine {
     const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
     const obstacleCost = obstacleOption?.value ?? 0;
 
-    // 5. Subtotal and profit
+    // 5. Subtotal
     const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
-    const profit = subtotal * profitMargin;
-    const beforeComplexity = subtotal + profit;
 
-    // 6. Apply complexity multiplier
+    // 6. Apply complexity multiplier to subtotal FIRST (per master-formula.md)
     const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
-    const total = beforeComplexity * complexityMultiplier;
+    const adjustedTotal = subtotal * complexityMultiplier;
+
+    // 7. Calculate profit on adjusted total (after complexity)
+    const profit = adjustedTotal * profitMargin;
+
+    // 8. Final total
+    const total = adjustedTotal + profit;
 
     console.log('💰 [MASTER ENGINE] Tier 2 calculation:', {
       laborCost: laborCost.toFixed(2),

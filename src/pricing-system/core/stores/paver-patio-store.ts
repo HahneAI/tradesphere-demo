@@ -141,7 +141,7 @@ const calculateExpertPricing = (
   const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
   const baseProductivity = config?.baseSettings?.laborSettings?.baseProductivity?.value ?? 50;
   const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
-  const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
+  const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.20;
 
   // 🔍 [QUICK CALCULATOR DEBUG] Actual config values from paver-patio-formula.json
   console.log('🔍 [QUICK CALCULATOR DEBUG] Actual Config Values from JSON:', {
@@ -336,10 +336,8 @@ const calculateExpertPricing = (
     allObstacleOptions: obstacleVar?.options
   });
 
-  // Calculate subtotal and apply complexity multiplier
+  // Calculate subtotal
   const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
-  const profit = subtotal * profitMargin;
-  const beforeComplexity = subtotal + profit;
 
   // Convert string complexity to numeric multiplier
   const complexityValue = values?.complexity?.overallComplexity;
@@ -354,8 +352,15 @@ const calculateExpertPricing = (
     }
   };
 
+  // Apply complexity multiplier to subtotal FIRST (per master-formula.md)
   const complexityMultiplier = getComplexityMultiplier(complexityValue || 'simple');
-  const total = beforeComplexity * complexityMultiplier;
+  const adjustedTotal = subtotal * complexityMultiplier;
+
+  // Calculate profit on adjusted total (after complexity)
+  const profit = adjustedTotal * profitMargin;
+
+  // Final total
+  const total = adjustedTotal + profit;
 
   // 🔍 [QUICK CALCULATOR DEBUG] Final calculation results
   console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Final Calculation Results:', {
@@ -364,12 +369,12 @@ const calculateExpertPricing = (
     equipmentCost: equipmentCost.toFixed(2),
     obstacleCost: obstacleCost.toFixed(2),
     subtotal: subtotal.toFixed(2),
-    profitMargin: (profitMargin * 100).toFixed(1) + '%',
-    profit: profit.toFixed(2),
-    beforeComplexity: beforeComplexity.toFixed(2),
     complexityValue: complexityValue,
     complexityType: typeof complexityValue,
     complexityMultiplier: complexityMultiplier,
+    adjustedTotal: adjustedTotal.toFixed(2),
+    profitMargin: (profitMargin * 100).toFixed(1) + '%',
+    profit: profit.toFixed(2),
     finalTotal: total.toFixed(2),
     pricePerSqft: (total / sqft).toFixed(2)
   });

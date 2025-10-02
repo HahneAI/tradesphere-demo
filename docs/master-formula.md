@@ -28,7 +28,7 @@ The paver patio pricing system uses a **two-tier calculation approach** that sep
 ```
 Base Man-Hours = (sqft ÷ daily_productivity) × team_size × 8_hours_per_day
 
-Example: 100 sqft ÷ 100 sqft/day × 3 people × 8 hours = 24 base hours
+Example: 100 sqft ÷ 50 sqft/day × 3 people × 8 hours = 48 base hours
 ```
 
 ### Tier 1 Variables (Affect Labor Time Only)
@@ -42,19 +42,23 @@ Example: 100 sqft ÷ 100 sqft/day × 3 people × 8 hours = 24 base hours
 
 ### Critical Rules for Tier 1
 
-1. **Base-Independent Variables**: Each percentage applies to the original base hours
-   - Wrong: `24 × 1.2 × 1.5 × 1.4 = 60.48 hours` (multiplicative/exponential)
-   - Right: `24 + (24 × 0.2) + (24 × 0.5) + (24 × 0.4) + 6 = 56.4 hours` (base-independent)
+1. **Calculate Base Hours First**: Always determine base man-hours before applying any variables
+   - Formula: `(sqft ÷ daily_productivity) × team_size × 8_hours_per_day`
+   - Example: `(100 ÷ 50) × 3 × 8 = 48 base hours`
 
-2. **Independent Variable Effects**: Each variable's impact is predictable and separate
-   - Base: 24 hours
-   - +20% tearout = 24 × 0.2 = +4.8 hours (always the same regardless of other variables)
-   - +50% access = 24 × 0.5 = +12.0 hours (independent of tearout complexity)
-   - +40% team = 24 × 0.4 = +9.6 hours (independent of other factors)
-   - Total: 24 + 4.8 + 12.0 + 9.6 + 6 = 56.4 hours
+2. **Apply Each Percentage to Base Hours**: All variable percentages apply to the BASE hours independently, not cascading
+   - Wrong (cascading): `48 × 1.2 × 1.5 = 86.4 hours` (exponential)
+   - Right (parallel): `48 + (48 × 0.2) + (48 × 0.5) = 48 + 9.6 + 24 = 81.6 hours`
+   
+3. **Sum All Additional Hours**: Calculate each variable's additional hours, then add them all together
+   - Step 1: Calculate base = 48 hours
+   - Step 2: Tearout +20% of base = +9.6 hours
+   - Step 3: Access +50% of base = +24 hours
+   - Step 4: Total = 48 + 9.6 + 24 = 81.6 hours
 
-3. **Fixed Hours**: Some variables add fixed hours, not percentages
+4. **Fixed Hours Add Last**: Some variables add fixed hours, not percentages
    - Cutting complexity adds 0, 6, or 12 fixed hours regardless of project size
+   - These are added after all percentage-based calculations
 
 ---
 
@@ -71,8 +75,9 @@ Example: 100 sqft ÷ 100 sqft/day × 3 people × 8 hours = 24 base hours
 3. **Equipment Cost** = `daily_rate × project_days`
 4. **Obstacle Cost** = `flat_fees` (not percentages)
 5. **Subtotal** = Sum of all above
-6. **Profit Margin** = `subtotal × profit_percentage`
-7. **Final Total** = `(subtotal + profit) × complexity_multiplier`
+6. **Complexity Adjustment** = `subtotal × complexity_multiplier`
+7. **Profit Margin** = `adjusted_total × profit_percentage`
+8. **Final Total** = `adjusted_total + profit`
 
 ### Tier 2 Variables (Affect Price Only)
 
@@ -82,8 +87,31 @@ Example: 100 sqft ÷ 100 sqft/day × 3 people × 8 hours = 24 base hours
 | **Pattern Complexity** | Percentage | Material waste factor | Complex: +25% waste |
 | **Equipment Required** | Daily Rate | Cost per project day | Light machinery: $250/day |
 | **Obstacle Removal** | Flat Fee | One-time cost | Minor obstacles: $500 flat |
-| **Profit Margin** | Percentage | Applied to subtotal | Standard: 15% |
-| **Project Complexity** | Multiplier | Final adjustment | Complex: ×1.3 |
+| **Project Complexity** | Multiplier | Applied to subtotal | Complex: ×1.3 |
+| **Profit Margin** | Percentage | Final adjustment to total | Standard: 20% |
+
+---
+
+## Material Cost Base Pricing (CRITICAL)
+
+### What's Included in the $5.84/sqft Baseline
+
+The **$5.84 per square foot** baseline material cost is specifically calculated from **Quiet Village's SiteOne pricing** and includes:
+
+✅ **Base paver patio block** (standard pavers)  
+✅ **Base rock types at proper depths** (gravel/aggregate base)  
+✅ **Fabric at 1:1 square foot ratio** (landscape fabric)
+
+### What's NOT Included
+
+❌ **Liners** - Not factored into baseline  
+❌ **Sand** - Not factored into baseline
+
+### Why This Matters
+
+This baseline represents the most common paver patio installation using industry-standard materials at regional supplier pricing. The $5.84/sqft gives contractors a realistic starting point that reflects actual material costs they'll encounter when purchasing from SiteOne through Quiet Village.
+
+**Admin Note**: This baseline is configurable and should be updated when supplier pricing changes or when using different material sources.
 
 ---
 
@@ -91,46 +119,80 @@ Example: 100 sqft ÷ 100 sqft/day × 3 people × 8 hours = 24 base hours
 
 ### Tier 1 Calculation:
 ```
-Base: 100 sqft ÷ 100 sqft/day = 1 day
-Hours: 1 day × 3 people × 8 hours = 24 hours
+Base: 100 sqft ÷ 50 sqft/day = 2 days
+Hours: 2 days × 3 people × 8 hours = 48 hours
 No additional factors (all defaults)
-Result: 24.0 total man-hours
+Result: 48.0 total man-hours
 ```
 
 ### Tier 2 Calculation:
 ```
-Labor: 24 hours × $25/hour = $600.00
+Labor: 48 hours × $25/hour = $1,200.00
 Materials: 100 sqft × $5.84/sqft = $584.00  
 Equipment: $0 (hand tools)
 Obstacles: $0 (none)
-Subtotal: $1,184.00
-Profit (15%): +$177.60
-Final Total: $1,361.60
-Price per sqft: $13.62
+Subtotal: $1,784.00
+Complexity (1.0×): $1,784.00
+Profit (20%): +$356.80
+Final Total: $2,140.80
+Price per sqft: $21.41
 ```
 
 ---
 
 ## Configuration Structure
 
-### Base Settings (Admin Editable)
+### Base Settings Overview
+
+These are the fundamental values that drive all calculations in the pricing tool. These settings are **admin-editable**, meaning authorized users can update them in the admin panel to reflect current market conditions, company policies, or regional variations.
+
+**Labor Settings** control how quickly work gets done and what it costs:
+- **Hourly Labor Rate**: What you pay per worker per hour ($25/hour is Missouri baseline)
+- **Optimal Team Size**: How many workers make the most efficient crew (3 people is industry standard)
+- **Base Productivity**: How much area one optimal team completes per day (50 sqft/day is realistic)
+
+**Material Settings** control material costs:
+- **Base Material Cost**: Cost per square foot for standard materials ($5.84/sqft from Quiet Village's SiteOne pricing)
+
+**Business Settings** control profit and overhead:
+- **Profit Margin Target**: Percentage added to final price for profit (20% is conservative but realistic)
+
+### Base Settings (Admin Editable) - Technical Structure
 ```javascript
 {
   "laborSettings": {
     "hourlyLaborRate": { "value": 25, "unit": "$/hour/person" },
     "optimalTeamSize": { "value": 3, "unit": "people" },
-    "baseProductivity": { "value": 100, "unit": "sqft/day" }
+    "baseProductivity": { "value": 50, "unit": "sqft/day" }
   },
   "materialSettings": {
     "baseMaterialCost": { "value": 5.84, "unit": "$/sqft" }
   },
   "businessSettings": {
-    "profitMarginTarget": { "value": 0.15, "unit": "percentage" }
+    "profitMarginTarget": { "value": 0.20, "unit": "percentage" }
   }
 }
 ```
 
-### Variable Types
+---
+
+### Variable Configuration Overview
+
+Variables are the project-specific factors that customers select when getting a quote. Each variable is **admin-editable** and can be customized with different options and values.
+
+**How Variables Work:**
+- Each variable has a **type** (select dropdown, slider, etc.)
+- Each variable belongs to **Tier 1** (affects labor time) or **Tier 2** (affects costs)
+- Each variable has an **effect** that determines how it changes the calculation
+- Options within each variable have **values** that represent the adjustment amount
+
+**Example: Tearout Complexity**
+- This is a dropdown menu customers see when getting a quote
+- It asks "What are we removing?" (grass, concrete, asphalt, etc.)
+- It belongs to Tier 1, so it only affects labor time, not direct costs
+- Each option adds a percentage of additional labor time to the base hours
+
+### Variable Types (Admin Editable) - Technical Structure
 ```javascript
 {
   "tearoutComplexity": {
@@ -152,11 +214,11 @@ Price per sqft: $13.62
 
 ### For Calculation Functions:
 1. Always separate Tier 1 and Tier 2 calculations
-2. Apply Tier 1 variables as additive percentages
+2. Apply Tier 1 variables as additive percentages TO BASE HOURS
 3. Pass total hours to Tier 2, never recalculate
 4. Apply material and equipment costs independently
-5. Profit margin applies to subtotal only
-6. Complexity multiplier is final adjustment
+5. Complexity multiplier applies to subtotal before profit
+6. Profit margin is the final adjustment
 
 ### For Display Components:
 1. Show percentages as "+20%" not "×1.2" 
@@ -170,21 +232,21 @@ Price per sqft: $13.62
 2. Tier 2 equipment uses daily dollar amounts
 3. Tier 2 obstacles use flat dollar amounts
 4. Material waste uses percentage values
-5. Profit margin uses decimal values (0.15 = 15%)
+5. Profit margin uses decimal values (0.20 = 20%)
 
 ---
 
 ## Testing Validation
 
 ### Simple Test Case:
-- 100 sqft, all defaults → 24 hours, $13.62/sqft
+- 100 sqft, all defaults → 48 hours, $21.41/sqft
 
-### Complex Test Case:
+### Complex Test Case:  
 - 100 sqft, concrete tearout (+20%), moderate access (+50%), 2-person team (+40%), moderate cutting (+6 fixed hours), light equipment ($250/day), minor obstacles ($500)
-- Expected: 56.4 hours (24 + 4.8 + 12.0 + 9.6 + 6), ~$45/sqft
+- Expected: ~132 hours, ~$58/sqft
 
 ### Critical Checkpoints:
-1. ✅ Baseline case shows exactly 24 hours
+1. ✅ Baseline case shows exactly 48 hours
 2. ✅ Variables show as percentages (+20%) not multipliers (×1.2)
 3. ✅ Equipment shows daily rates ($250/day)
 4. ✅ Final calculations match expert validation ranges
@@ -202,29 +264,7 @@ Price per sqft: $13.62
 - "Conservative multipliers produce realistic quotes (max 130% vs original 400%)"
 
 **Industry Standards:**
-- 100 sqft/day baseline for 3-person optimal team
-- $25/hour per person is Missouri market baseline
-- 15% profit margin is conservative but realistic
+- 50 sqft/day baseline for 3-person optimal team
+- $25/hour per person is Missouri market baseline  
+- 20% profit margin is conservative but realistic
 - Material waste: 0% minimal, 15% moderate, 25% complex patterns
-
----
-
-## Implementation Update Notes
-
-**Date**: September 24, 2025
-**Change**: Modified from "running total" to "base-independent" variable system
-**Reason**: Each variable should have predictable, independent effects on pricing
-
-### What Changed:
-- **Old System**: Each percentage applied to the previously adjusted total (compounding effect)
-  - Example: 24h → 28.8h (+20%) → 43.2h (+50%) → 60.5h (+40%) = 66.5h total
-- **New System**: Each percentage applies to the original base hours (independent effects)
-  - Example: 24h + (24×0.2) + (24×0.5) + (24×0.4) + 6h = 56.4h total
-
-### Business Benefits:
-1. **Predictable Variables**: A +20% tearout always adds exactly 4.8 hours to any 100 sqft job
-2. **Independent Adjustments**: Changes to one variable don't affect others
-3. **Easier Training**: Each variable's impact is consistent regardless of other selections
-4. **Better Pricing Control**: Variables can be adjusted independently without unexpected interactions
-
-**For Tom's Review**: This change maintains the two-tier system while making each variable's business impact more predictable and independent. Ready for validation in second meeting.
