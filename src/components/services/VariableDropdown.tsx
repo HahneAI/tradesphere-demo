@@ -7,6 +7,7 @@ interface VariableDropdownProps {
   value: string;
   onChange: (value: string) => void;
   visualConfig: any;
+  categoryColor?: string;
   disabled?: boolean;
 }
 
@@ -15,8 +16,10 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
   value,
   onChange,
   visualConfig,
+  categoryColor,
   disabled = false,
 }) => {
+  const accentColor = categoryColor || visualConfig.colors.primary;
   const selectedOption = variable.options[value];
 
   // Helper function following Tom's expert guidelines for consistent formatting
@@ -117,11 +120,11 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
 
       {/* Selected Option Details */}
       {selectedOption && (
-        <div 
+        <div
           className="p-3 rounded-lg border-l-4"
-          style={{ 
-            backgroundColor: visualConfig.colors.primary + '08',
-            borderLeftColor: visualConfig.colors.primary,
+          style={{
+            backgroundColor: accentColor + '08',
+            borderLeftColor: accentColor,
           }}
         >
           <div className="flex items-center justify-between mb-1">
@@ -131,7 +134,7 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
             <span
               className="text-sm font-mono px-2 py-1 rounded"
               style={{
-                backgroundColor: visualConfig.colors.primary,
+                backgroundColor: accentColor,
                 color: visualConfig.colors.text.onPrimary,
               }}
             >

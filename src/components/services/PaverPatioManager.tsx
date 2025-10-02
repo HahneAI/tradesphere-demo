@@ -141,6 +141,39 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
     return selectedOption.value === 0 ? 'Default' : `${selectedOption.value}`;
   };
 
+  // Category color scheme for visual distinction
+  const getCategoryColors = (categoryKey: keyof PaverPatioValues) => {
+    const colorSchemes = {
+      excavation: {
+        accent: '#f59e0b', // amber-500
+        background: '#f59e0b10', // amber with 6% opacity
+        dot: '#f59e0b',
+      },
+      siteAccess: {
+        accent: '#f43f5e', // rose-500
+        background: '#f43f5e10', // rose with 6% opacity
+        dot: '#f43f5e',
+      },
+      materials: {
+        accent: '#3b82f6', // blue-500
+        background: '#3b82f610', // blue with 6% opacity
+        dot: '#3b82f6',
+      },
+      labor: {
+        accent: '#10b981', // emerald-500
+        background: '#10b98110', // emerald with 6% opacity
+        dot: '#10b981',
+      },
+      complexity: {
+        accent: '#a855f7', // purple-500
+        background: '#a855f710', // purple with 6% opacity
+        dot: '#a855f7',
+      },
+    };
+
+    return colorSchemes[categoryKey] || colorSchemes.materials;
+  };
+
   const renderVariableSection = (
     categoryKey: keyof PaverPatioValues,
     categoryConfig: any,
@@ -152,25 +185,28 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
     }
 
     const isExpanded = expandedSections.has(categoryKey);
-    
+    const categoryColors = getCategoryColors(categoryKey);
+
     return (
-      <div 
+      <div
         key={categoryKey}
-        className="border rounded-lg overflow-hidden"
-        style={{ 
+        className="border-l-4 border rounded-lg overflow-hidden"
+        style={{
           backgroundColor: visualConfig.colors.surface,
-          borderColor: visualConfig.colors.text.secondary + '20'
+          borderColor: visualConfig.colors.text.secondary + '20',
+          borderLeftColor: categoryColors.accent,
         }}
       >
         {/* Section Header */}
         <button
           onClick={() => toggleSection(categoryKey)}
           className="w-full p-4 flex items-center justify-between hover:opacity-80 transition-opacity"
+          style={{ backgroundColor: categoryColors.background }}
         >
           <div className="flex items-center space-x-3">
-            <div 
+            <div
               className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: visualConfig.colors.primary }}
+              style={{ backgroundColor: categoryColors.dot }}
             />
             <div className="text-left">
               <h3 className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
@@ -222,6 +258,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
                         value={currentValue || variableConfig.default}
                         onChange={(value) => handleValueChange(categoryKey, variableKey, value)}
                         visualConfig={visualConfig}
+                        categoryColor={categoryColors.accent}
                       />
                     ) : (
                       <VariableDropdown
@@ -229,6 +266,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
                         value={currentValue || variableConfig.default}
                         onChange={(value) => handleValueChange(categoryKey, variableKey, value)}
                         visualConfig={visualConfig}
+                        categoryColor={categoryColors.accent}
                       />
                     )}
                   </div>
