@@ -13,6 +13,7 @@ export interface WebhookPayload {
   sessionId: string;
   userName?: string;      // Renamed from firstName
   userId?: string;        // Renamed from techId (now uses auth.uid())
+  companyId?: string;     // User's company_id for multi-tenant analytics
   // 🏢 PHASE 2: Customer details fields (optional)
   customerName?: string;
   customerAddress?: string;
@@ -257,6 +258,7 @@ export class MessageStorageService {
         user_tech_id: payload.userId || null,      // Updated from techId (now auth.uid())
         session_id: payload.sessionId,
         beta_code_id: null,                        // Deprecated - no longer used
+        company_id: payload.companyId || null,     // Company UUID for multi-tenant analytics
         user_input: cleanedUserInput,
         ai_response: cleanedAiResponse,
         interaction_number: interactionNumber,

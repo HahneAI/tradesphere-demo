@@ -15,10 +15,10 @@ import { PricingResult } from './PricingCalculatorService';
 export interface ChatAgentInput {
   originalMessage: string;
   sessionId: string;
-  firstName: string;  // Logged-in user's name
+  userName: string;  // Logged-in user's name (migrated from firstName)
   collectionResult: CollectionResult;
   pricingResult?: PricingResult;
-  betaCodeId?: number;
+  userId?: string;  // User's auth.uid() for user-specific context (migrated from betaCodeId)
   // 📋 PHASE 2C: Customer context for conversation continuity
   customerName?: string;  // Customer's name (optional - for when pricing for a customer)
   previousContext?: {
@@ -55,7 +55,7 @@ export class MainChatAgentService {
   static async generateResponse(input: ChatAgentInput): Promise<ChatAgentResponse> {
     console.log('🤖 MASTER FORMULA CHAT AGENT START');
     console.log(`🔥 ALL REQUESTS → PAVER PATIO MASTER FORMULA`);
-    console.log(`Customer: ${input.firstName} | Session: ${input.sessionId}`);
+    console.log(`Customer: ${input.userName} | Session: ${input.sessionId}`);
     console.log(`Complete Services: ${input.collectionResult.services.length}`);
     console.log(`Incomplete Services: ${input.collectionResult.incompleteServices.length}`);
     
@@ -80,7 +80,7 @@ export class MainChatAgentService {
       const dataPrompt = this.buildContextPrompt(input, conversationType);
 
       // 🚀 NEW: Use enhanced few-shot learning approach with dual-path intelligence
-      const aiResponse = await this.processWithEnhancedFewShot(input.sessionId, dataPrompt, input.firstName, input.customerName, input.previousContext);
+      const aiResponse = await this.processWithEnhancedFewShot(input.sessionId, dataPrompt, input.userName, input.customerName, input.previousContext);
 
       const response: ChatAgentResponse = {
         message: aiResponse.content,
@@ -99,7 +99,7 @@ export class MainChatAgentService {
 
       // Fallback response
       return {
-        message: `Thank you for your interest, ${input.firstName}. I'm having trouble processing your request right now. Could you please tell me more about your landscaping project?`,
+        message: `Thank you for your interest, ${input.userName}. I'm having trouble processing your request right now. Could you please tell me more about your landscaping project?`,
         requiresClarification: true,
         clarifyingQuestions: ['What type of landscaping project are you planning?'],
         conversationType: 'clarification_needed',
@@ -112,10 +112,10 @@ export class MainChatAgentService {
    * Enhanced few-shot learning approach with dual-path intelligence and interaction summary context
    */
   private static async processWithEnhancedFewShot(
-    sessionId: string, 
-    dataPrompt: string, 
-    firstName: string, 
-    customerName?: string, 
+    sessionId: string,
+    dataPrompt: string,
+    userName: string,
+    customerName?: string,
     previousContext?: any
   ): Promise<any> {
     
@@ -259,7 +259,7 @@ Your revised quote for Jennifer increases from the previous $5,000.00 to $6,250.
     prompt += '\n\n--- CUSTOMER CONTEXT INFORMATION ---\n';
     
     // 🆔 NEW: Always include the logged-in user's name
-    prompt += `USER'S NAME: ${input.firstName || 'Unknown'}\n`;
+    prompt += `USER'S NAME: ${input.userName || 'Unknown'}\n`;
     
     // 📋 CUSTOMER CONTEXT: Include previous conversation context for continuity
     if (input.customerName && input.previousContext) {

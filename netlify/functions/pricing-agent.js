@@ -170,7 +170,7 @@ export const handler = async (event, context) => {
       userName: payload.userName,
       collectionResult,
       pricingResult,
-      companyId: payload.companyId,
+      userId: payload.userId,  // User-specific context (auth.uid())
       // 📋 PHASE 2C: Include previous interaction context
       customerName: payload.customerName,
       previousContext: previousContext
