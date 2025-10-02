@@ -14,6 +14,7 @@ import type { PaverPatioValues, PaverPatioCalculationResult } from '../../core/m
 export interface ProjectTotal {
   totalCost: number;
   totalLaborHours: number;
+  totalLaborDays?: number;  // Labor hours converted to business days
   totalMaterialCost: number;
   totalLaborCost: number;
   totalProfit: number;
@@ -299,10 +300,16 @@ export class PricingCalculatorService {
       category: 'hardscaping'
     };
 
-    // Create project totals
+    // Create project totals with complete tier 1 & tier 2 breakdown
     const projectTotals: ProjectTotal = {
       totalCost: masterFormulaResult.tier2Results.total,
-      totalLaborHours: masterFormulaResult.tier1Results.totalManHours
+      totalLaborHours: masterFormulaResult.tier1Results.totalManHours,
+      totalLaborDays: masterFormulaResult.tier1Results.totalDays,
+      totalMaterialCost: masterFormulaResult.tier2Results.totalMaterialCost,
+      totalLaborCost: masterFormulaResult.tier2Results.laborCost,
+      totalProfit: masterFormulaResult.tier2Results.profit,
+      complexity: 1.0,  // Default complexity multiplier
+      confidence: masterFormulaResult.confidence || 0.9
     };
 
     const result: PricingResult = {
@@ -315,7 +322,11 @@ export class PricingCalculatorService {
     console.log('🔄 MASTER FORMULA CONVERSION COMPLETE:');
     console.log(`  Service: ${serviceQuote.serviceName}`);
     console.log(`  Total: $${result.totals.totalCost.toFixed(2)}`);
-    console.log(`  Hours: ${result.totals.totalLaborHours.toFixed(1)}h`);
+    console.log(`  Labor Hours: ${result.totals.totalLaborHours.toFixed(1)}h`);
+    console.log(`  Labor Days: ${result.totals.totalLaborDays?.toFixed(1)} days`);
+    console.log(`  Labor Cost: $${result.totals.totalLaborCost.toFixed(2)}`);
+    console.log(`  Material Cost: $${result.totals.totalMaterialCost.toFixed(2)}`);
+    console.log(`  Profit: $${result.totals.totalProfit.toFixed(2)}`);
 
     return result;
   }

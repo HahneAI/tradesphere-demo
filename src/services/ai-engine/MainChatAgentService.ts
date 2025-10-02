@@ -286,11 +286,27 @@ Your revised quote for Jennifer increases from the previous $5,000.00 to $6,250.
    */
   private static buildDataPrompt(input: ChatAgentInput, conversationType: string): string {
     if (conversationType === 'complete_quote' && input.pricingResult) {
-      const services = input.pricingResult.services.map(service => 
-        `• ${service.serviceName} (${service.quantity} ${service.unit}): $${service.totalPrice.toFixed(2)} | ${service.laborHours} hours`
+      const services = input.pricingResult.services.map(service =>
+        `• ${service.serviceName} (${service.quantity} ${service.unit}): $${service.totalPrice.toFixed(2)} | ${service.laborHours.toFixed(1)} hours`
       ).join('\n');
-      
-      return `SERVICES:\n${services}\n\nTOTALS:\nTotal Cost: $${input.pricingResult.totals.totalCost.toFixed(2)}\nTotal Hours: ${input.pricingResult.totals.totalLaborHours.toFixed(2)}`;
+
+      // Build comprehensive pricing breakdown with tier 1 & tier 2 details
+      const totals = input.pricingResult.totals;
+      let breakdown = `SERVICES:\n${services}\n\n`;
+      breakdown += `TIER 1 - LABOR ANALYSIS:\n`;
+      breakdown += `• Total Labor Hours: ${totals.totalLaborHours.toFixed(1)} hours\n`;
+      if (totals.totalLaborDays) {
+        breakdown += `• Estimated Duration: ${totals.totalLaborDays.toFixed(1)} business days\n`;
+      }
+      breakdown += `• Labor Cost: $${totals.totalLaborCost.toFixed(2)}\n\n`;
+
+      breakdown += `TIER 2 - COST BREAKDOWN:\n`;
+      breakdown += `• Material Cost: $${totals.totalMaterialCost.toFixed(2)}\n`;
+      breakdown += `• Labor Cost: $${totals.totalLaborCost.toFixed(2)}\n`;
+      breakdown += `• Profit Margin: $${totals.totalProfit.toFixed(2)}\n`;
+      breakdown += `• TOTAL PROJECT COST: $${totals.totalCost.toFixed(2)}`;
+
+      return breakdown;
     }
     return `Customer needs help with: ${input.originalMessage}`;
   }
