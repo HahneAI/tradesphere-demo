@@ -10,6 +10,7 @@ interface User {
   title: string;           // 'Operations Manager', etc.
   is_head_user: boolean;   // Company owner flag
   is_admin: boolean;       // Admin privileges
+  user_icon?: string;      // Lucide icon name (User, TreePine, etc.)
   created_at: string;
   updated_at: string;
 }
@@ -20,6 +21,7 @@ interface AuthContextType {
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
+  updateUserIcon: (iconName: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -196,12 +198,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  /**
+   * Update user icon
+   */
+  const updateUserIcon = async (iconName: string): Promise<boolean> => {
+    console.log('🎨 AUTH_CONTEXT - Updating user icon to:', iconName);
+
+    if (!user) {
+      console.error('❌ AUTH_CONTEXT - No user logged in');
+      return false;
+    }
+
+    try {
+      // Update users table
+      const { error } = await supabase
+        .from('users')
+        .update({
+          user_icon: iconName,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('❌ AUTH_CONTEXT - Failed to update user icon:', error);
+        return false;
+      }
+
+      // Update local state
+      const updatedUser = {
+        ...user,
+        user_icon: iconName,
+        updated_at: new Date().toISOString()
+      };
+
+      setUser(updatedUser);
+      console.log('✅ AUTH_CONTEXT - User icon updated successfully');
+      return true;
+
+    } catch (error) {
+      console.error('💥 AUTH_CONTEXT - Update user icon error:', error);
+      return false;
+    }
+  };
+
   const value = {
     user,
     loading,
     isAdmin,
     signIn,
-    signOut
+    signOut,
+    updateUserIcon
   };
 
   return (
