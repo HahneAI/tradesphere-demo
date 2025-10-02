@@ -483,6 +483,13 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
   // Load configuration using master pricing engine
   const loadConfig = useCallback(async () => {
+    if (!companyId || companyId.trim() === '') {
+      console.error('❌ [QUICK CALCULATOR] Cannot load config without company_id');
+      setError('User company data not available');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -692,8 +699,8 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   // Load config on mount and set up real-time subscription
   useEffect(() => {
     // Guard: Don't proceed without companyId
-    if (!companyId) {
-      console.error('[QUICK CALCULATOR] No company_id - skipping config load and subscription');
+    if (!companyId || companyId.trim() === '') {
+      console.error('❌ [QUICK CALCULATOR] Cannot subscribe without company_id');
       return;
     }
 
