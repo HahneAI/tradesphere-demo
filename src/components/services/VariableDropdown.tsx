@@ -26,38 +26,57 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
   const formatVariableDisplay = (variableKey: string, option: any) => {
     if (!option) return 'N/A';
 
+    // Overall complexity - show as percentage with proper format
+    if (variableKey === 'overallComplexity') {
+      if (option.value === 0 || option.value === 1.0) return 'Baseline';
+      return `(+${option.value}%)`;
+    }
+
     // Tier 1 variables (labor time factors) - show as percentages
     if (['tearoutComplexity', 'accessDifficulty', 'teamSize'].includes(variableKey)) {
-      return option.value === 0 ? 'Baseline' : `+${option.value}%`;
+      if (option.value === 0) return 'Baseline';
+      return `+${option.value}%`;
     }
 
     // Equipment costs - show daily rates
     if (variableKey === 'equipmentRequired') {
-      return option.value === 0 ? 'Hand tools' : `$${option.value}/day`;
+      if (option.value === 0) return 'Hand tools';
+      return `$${option.value}/day`;
     }
 
     // Obstacle costs - show flat fees
     if (variableKey === 'obstacleRemoval') {
-      return option.value === 0 ? 'None' : `$${option.value}`;
+      if (option.value === 0) return 'None';
+      return `$${option.value}`;
     }
 
-    // Material factors - show percentages
-    if (['paverStyle', 'patternComplexity'].includes(variableKey)) {
-      return option.value === 0 ? 'Standard' : `+${option.value}%`;
+    // Paver style - show percentage markup
+    if (variableKey === 'paverStyle') {
+      if (option.value === 0 || option.multiplier === 1.0) return 'Standard';
+      const multiplier = option.multiplier || option.value || 0;
+      return `+${((multiplier - 1) * 100).toFixed(0)}%`;
+    }
+
+    // Pattern complexity - show waste percentage
+    if (variableKey === 'patternComplexity') {
+      if (option.wastePercentage === 0 || option.wastePercentage === undefined) return 'Baseline';
+      return `+${option.wastePercentage}% waste`;
     }
 
     // Cutting complexity - show combined effects
     if (variableKey === 'cuttingComplexity') {
-      if (option.fixedLaborHours && option.materialWaste) {
-        return `+${option.fixedLaborHours}h, +${option.materialWaste}% waste`;
-      } else if (option.fixedLaborHours) {
-        return `+${option.fixedLaborHours}h fixed`;
-      }
-      return option.value === 0 ? 'Minimal' : `+${option.value}%`;
+      const hasLabor = option.fixedLaborHours && option.fixedLaborHours > 0;
+      const hasWaste = option.materialWaste && option.materialWaste > 0;
+
+      if (!hasLabor && !hasWaste) return 'Baseline';
+      if (hasLabor && hasWaste) return `+${option.fixedLaborHours}h, +${option.materialWaste}% waste`;
+      if (hasLabor) return `+${option.fixedLaborHours}h fixed`;
+      if (hasWaste) return `+${option.materialWaste}% waste`;
     }
 
-    // Default fallback
-    return option.value === 0 ? 'Default' : `${option.value}`;
+    // Default fallback - check for undefined values
+    if (option.value === undefined || option.value === 0) return 'Baseline';
+    return `${option.value}`;
   };
 
   // Get variable key from the variable object for formatting
@@ -105,11 +124,17 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
             focusRingColor: visualConfig.colors.primary + '20',
           }}
         >
-          {Object.entries(variable.options).map(([key, option]) => (
-            <option key={key} value={key}>
-              {option.label} ({formatVariableDisplay(variableKey, option)}) - {option.description}
-            </option>
-          ))}
+          {Object.entries(variable.options || {})
+            .sort((a, b) => {
+              const aVal = a[1].value ?? a[1].multiplier ?? 0;
+              const bVal = b[1].value ?? b[1].multiplier ?? 0;
+              return aVal - bVal;
+            })
+            .map(([key, option]) => (
+              <option key={key} value={key}>
+                {option.label} ({formatVariableDisplay(variableKey, option)})
+              </option>
+            ))}
         </select>
         
         {/* Dropdown Arrow */}

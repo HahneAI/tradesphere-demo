@@ -70,7 +70,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
         }}
       >
         <div
-          className="w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
+          className="w-full max-w-6xl h-[90vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
           style={{ backgroundColor: visualConfig.colors.surface }}
           onClick={(e) => e.stopPropagation()}
         >
