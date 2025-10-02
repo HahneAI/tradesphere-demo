@@ -12,6 +12,13 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
+import {
+  getTearoutPercentage,
+  getAccessPercentage,
+  getTeamSizePercentage,
+  getMaterialMultiplier,
+  getComplexityMultiplier
+} from '../../utils/calculations/pricing-helpers';
 
 export interface PricingConfigRow {
   id: string;
@@ -299,9 +306,9 @@ export class MasterPricingEngine {
     let adjustedHours = baseHours;
 
     // Apply base-independent variable system
-    const tearoutPercentage = this.getTearoutPercentage(values.excavation.tearoutComplexity);
-    const accessPercentage = this.getAccessPercentage(values.siteAccess.accessDifficulty);
-    const teamSizePercentage = this.getTeamSizePercentage(values.labor.teamSize);
+    const tearoutPercentage = getTearoutPercentage(values.excavation.tearoutComplexity);
+    const accessPercentage = getAccessPercentage(values.siteAccess.accessDifficulty);
+    const teamSizePercentage = getTeamSizePercentage(values.labor.teamSize);
 
     // Apply each variable as independent percentage of base hours
     if (tearoutPercentage > 0) {
@@ -343,7 +350,7 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste
-    const materialMultiplier = this.getMaterialMultiplier(values.materials.paverStyle);
+    const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
     const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
     const cuttingVar = config?.variables?.materials?.cuttingComplexity;
@@ -369,7 +376,7 @@ export class MasterPricingEngine {
     const beforeComplexity = subtotal + profit;
 
     // 6. Apply complexity multiplier
-    const complexityMultiplier = this.getComplexityMultiplier(values.complexity.overallComplexity);
+    const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
     const total = beforeComplexity * complexityMultiplier;
 
     console.log('💰 [MASTER ENGINE] Tier 2 calculation:', {
@@ -497,52 +504,6 @@ export class MasterPricingEngine {
         }
       }
     } as PaverPatioConfig;
-  }
-
-  // Helper functions
-  private getTearoutPercentage(tearoutComplexity: string): number {
-    switch (tearoutComplexity) {
-      case 'grass': return 0;
-      case 'concrete': return 20;
-      case 'asphalt': return 30;
-      default: return 0;
-    }
-  }
-
-  private getAccessPercentage(accessDifficulty: string): number {
-    switch (accessDifficulty) {
-      case 'easy': return 0;
-      case 'moderate': return 50;
-      case 'difficult': return 100;
-      default: return 0;
-    }
-  }
-
-  private getTeamSizePercentage(teamSize: string): number {
-    switch (teamSize) {
-      case 'twoPerson': return 40;
-      case 'threePlus': return 0;
-      default: return 0;
-    }
-  }
-
-  private getMaterialMultiplier(paverStyle: string): number {
-    switch (paverStyle) {
-      case 'standard': return 1.0;
-      case 'premium': return 1.2;
-      default: return 1.0;
-    }
-  }
-
-  private getComplexityMultiplier(complexity: string | number): number {
-    if (typeof complexity === 'number') return complexity;
-    switch (complexity) {
-      case 'simple': return 1.0;
-      case 'standard': return 1.1;
-      case 'complex': return 1.3;
-      case 'extreme': return 1.5;
-      default: return 1.0;
-    }
   }
 }
 

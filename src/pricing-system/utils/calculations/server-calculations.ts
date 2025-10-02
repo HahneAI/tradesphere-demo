@@ -7,6 +7,13 @@
 
 import type { PaverPatioValues, PaverPatioCalculationResult } from '../../core/master-formula/formula-types';
 import { masterPricingEngine } from '../../core/calculations/master-pricing-engine';
+import {
+  getTearoutPercentage,
+  getAccessPercentage,
+  getTeamSizePercentage,
+  getMaterialMultiplier,
+  getComplexityMultiplier
+} from './pricing-helpers';
 
 /**
  * DEPRECATED: Use masterPricingEngine.loadPricingConfig() instead
@@ -78,7 +85,7 @@ async function calculateLegacyFallback(values: PaverPatioValues, sqft: number): 
   const optimalTeamSize = config.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
   const baseProductivity = config.baseSettings?.laborSettings?.baseProductivity?.value ?? 50;
   const baseMaterialCost = config.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
-  const profitMargin = config.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.15;
+  const profitMargin = config.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.20;  // Fixed: Must match master engine (20%)
 
   console.log('🔍 [FALLBACK] Using JSON config values:', {
     hourlyRate,
@@ -167,52 +174,8 @@ async function calculateLegacyFallback(values: PaverPatioValues, sqft: number): 
   };
 }
 
-// Helper functions for base-independent percentage system
-// These return percentages that match the JSON configuration exactly
-function getTearoutPercentage(tearoutComplexity: string): number {
-  switch (tearoutComplexity) {
-    case 'grass': return 0;        // JSON: 0% additional
-    case 'concrete': return 20;    // JSON: 20% additional
-    case 'asphalt': return 30;     // JSON: 30% additional
-    default: return 0;
-  }
-}
-
-function getAccessPercentage(accessDifficulty: string): number {
-  switch (accessDifficulty) {
-    case 'easy': return 0;         // JSON: 0% additional
-    case 'moderate': return 50;    // JSON: 50% additional
-    case 'difficult': return 100;  // JSON: 100% additional
-    default: return 0;
-  }
-}
-
-function getMaterialMultiplier(paverStyle: string): number {
-  // Material multiplier still used for material costs, not labor hours
-  switch (paverStyle) {
-    case 'standard': return 1.0;
-    case 'premium': return 1.2;
-    default: return 1.0;
-  }
-}
-
-function getTeamSizePercentage(teamSize: string): number {
-  switch (teamSize) {
-    case 'twoPerson': return 40;   // JSON: 40% additional for smaller team
-    case 'threePlus': return 0;    // JSON: 0% (optimal team size)
-    default: return 0;
-  }
-}
-
-function getComplexityMultiplier(complexity: string): number {
-  switch (complexity) {
-    case 'simple': return 1.0;    // JSON: 100% (Simple Project)
-    case 'standard': return 1.1;  // JSON: 110% (Standard Project)
-    case 'complex': return 1.3;   // JSON: 130% (Complex Project)
-    case 'extreme': return 1.5;   // JSON: 150% (Extreme Complexity)
-    default: return 1.0;          // Default to simple
-  }
-}
+// Helper functions now imported from shared pricing-helpers.ts module
+// This eliminates code duplication and ensures consistency with master pricing engine
 
 /**
  * Simple calculation service factory for Netlify functions
