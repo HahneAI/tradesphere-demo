@@ -38,7 +38,7 @@ Example: 100 sqft ÷ 50 sqft/day × 3 people × 8 hours = 48 base hours
 | **Tearout Complexity** | Percentage | +0% to +30% labor time | Concrete: +20% more time |
 | **Access Difficulty** | Percentage | +0% to +100% labor time | Tight spaces: +50% more time |
 | **Team Size** | Percentage | +0% to +40% labor time | 2-person team: +40% more time |
-| **Cutting Complexity** | Fixed Hours | +0 to +12 hours | Moderate cutting: +6 fixed hours |
+| **Cutting Complexity** | Fixed Hours + Material Waste | +0 to +12 hours, +0% to +25% waste | Moderate: +6h, +15% waste |
 
 ### Critical Rules for Tier 1
 
@@ -83,12 +83,39 @@ Example: 100 sqft ÷ 50 sqft/day × 3 people × 8 hours = 48 base hours
 
 | Variable | Type | Effect | Example |
 |----------|------|---------|---------|
-| **Paver Style** | Percentage | Material cost multiplier | Premium: +30% material cost |
-| **Pattern Complexity** | Percentage | Material waste factor | Complex: +25% waste |
+| **Paver Style** | Percentage | Material cost multiplier | Premium: +20% material cost |
 | **Equipment Required** | Daily Rate | Cost per project day | Light machinery: $250/day |
 | **Obstacle Removal** | Flat Fee | One-time cost | Minor obstacles: $500 flat |
 | **Project Complexity** | Multiplier | Applied to subtotal | Complex: ×1.3 |
 | **Profit Margin** | Percentage | Final adjustment to total | Standard: 20% |
+
+**Note:** Pattern Complexity has been removed. All material waste is now handled by Cutting Complexity variable (which affects both Tier 1 labor hours and Tier 2 material waste).
+
+---
+
+## Cutting Complexity: Dual-Tier Variable (CRITICAL)
+
+**Cutting Complexity is unique** - it's the ONLY variable that affects BOTH tiers of the calculation:
+
+### Tier 1 Effect: Fixed Labor Hours
+- **Minimal (Baseline):** 0 fixed hours added
+- **Moderate:** +6 fixed hours added to labor time
+- **Complex:** +12 fixed hours added to labor time
+
+### Tier 2 Effect: Material Waste Percentage
+- **Minimal (Baseline):** 0% material waste
+- **Moderate:** +15% material waste added to material costs
+- **Complex:** +25% material waste added to material costs
+
+### Why This Dual Effect?
+
+Complex cuts require both:
+1. **More Time:** Intricate cutting patterns take longer (fixed hours)
+2. **More Waste:** More cuts = more wasted material (percentage of material cost)
+
+**Example:** Moderate cutting on a 100 sqft patio adds:
+- Tier 1: +6 hours to labor time
+- Tier 2: +15% waste to $584 materials = +$87.60 additional material cost
 
 ---
 
@@ -98,13 +125,13 @@ Example: 100 sqft ÷ 50 sqft/day × 3 people × 8 hours = 48 base hours
 
 The **$5.84 per square foot** baseline material cost is specifically calculated from **Quiet Village's SiteOne pricing** and includes:
 
-✅ **Base paver patio block** (standard pavers)  
-✅ **Base rock types at proper depths** (gravel/aggregate base)  
+✅ **Base paver patio block** (standard pavers)
+✅ **Base rock types at proper depths** (gravel/aggregate base)
 ✅ **Fabric at 1:1 square foot ratio** (landscape fabric)
 
 ### What's NOT Included
 
-❌ **Liners** - Not factored into baseline  
+❌ **Liners** - Not factored into baseline
 ❌ **Sand** - Not factored into baseline
 
 ### Why This Matters
@@ -241,9 +268,10 @@ Variables are the project-specific factors that customers select when getting a 
 ### Simple Test Case:
 - 100 sqft, all defaults → 48 hours, $21.41/sqft
 
-### Complex Test Case:  
-- 100 sqft, concrete tearout (+20%), moderate access (+50%), 2-person team (+40%), moderate cutting (+6 fixed hours), light equipment ($250/day), minor obstacles ($500)
-- Expected: ~132 hours, ~$58/sqft
+### Complex Test Case:
+- 100 sqft, concrete tearout (+20%), moderate access (+50%), 2-person team (+40%), moderate cutting (+6 fixed hours, +15% waste), light equipment ($250/day), minor obstacles ($500)
+- Expected Tier 1: 48 base + 9.6 (tearout) + 24 (access) + 19.2 (team) + 6 (cutting) = 106.8 hours
+- Expected Tier 2: Materials $584 + $87.60 waste (15%) = $671.60, plus labor, equipment, obstacles → ~$62/sqft
 
 ### Critical Checkpoints:
 1. ✅ Baseline case shows exactly 48 hours

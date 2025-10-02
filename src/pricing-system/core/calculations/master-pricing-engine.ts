@@ -321,6 +321,13 @@ export class MasterPricingEngine {
       adjustedHours += baseHours * (teamSizePercentage / 100);
     }
 
+    // Add fixed cutting hours (per master-formula.md spec)
+    const cuttingVar = config?.variables?.materials?.cuttingComplexity;
+    const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+    if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
+      adjustedHours += cuttingOption.fixedLaborHours;
+    }
+
     const totalManHours = adjustedHours;
     const totalDays = totalManHours / (optimalTeamSize * 8);
 

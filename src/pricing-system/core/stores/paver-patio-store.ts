@@ -290,21 +290,16 @@ const calculateExpertPricing = (
     calculation: `${sqft} sqft × $${baseMaterialCost}/sqft × ${styleMultiplier} = $${materialCostBase.toFixed(2)}`
   });
 
-  // Material waste calculations with null guards
+  // Material waste calculations - ONLY use cutting complexity (pattern complexity removed)
   const cuttingWaste = (cuttingOption?.materialWaste ?? 0) / 100;
-  const patternVar = config?.variables?.materials?.patternComplexity as PaverPatioVariable;
-  const patternOption = patternVar?.options?.[values?.materials?.patternComplexity ?? 'minimal'];
-  const patternWaste = (patternOption?.wastePercentage ?? 0) / 100;
-  const materialWasteCost = materialCostBase * (cuttingWaste + patternWaste);
+  const materialWasteCost = materialCostBase * cuttingWaste;
   const totalMaterialCost = materialCostBase + materialWasteCost;
 
   // 🔍 [QUICK CALCULATOR DEBUG] Material waste calculation
   console.log('🔍 [QUICK CALCULATOR DEBUG] Tier 2 Material Waste:', {
     cuttingComplexity: values?.materials?.cuttingComplexity,
     cuttingWastePercent: cuttingOption?.materialWaste ?? 0,
-    patternComplexity: values?.materials?.patternComplexity,
-    patternWastePercent: patternOption?.wastePercentage ?? 0,
-    totalWastePercent: ((cuttingWaste + patternWaste) * 100).toFixed(1) + '%',
+    totalWastePercent: (cuttingWaste * 100).toFixed(1) + '%',
     materialWasteCost: materialWasteCost.toFixed(2),
     totalMaterialCost: totalMaterialCost.toFixed(2)
   });
