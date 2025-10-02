@@ -5,6 +5,7 @@ import { VariableDropdown } from './VariableDropdown';
 import { VariableSlider } from './VariableSlider';
 import { PricingPreview } from './PricingPreview';
 import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
+import { useAuth } from '../../context/AuthContext';
 
 interface PaverPatioManagerProps {
   visualConfig: any;
@@ -15,7 +16,8 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
   visualConfig,
   theme,
 }) => {
-  const store = usePaverPatioStore();
+  const { user } = useAuth();
+  const store = usePaverPatioStore(user?.company_id);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['excavation', 'siteAccess', 'materials', 'labor', 'complexity'])
   );

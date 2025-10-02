@@ -474,7 +474,7 @@ const calculateLegacyFallback = (
 };
 
 // Custom hook for paver patio store
-export const usePaverPatioStore = (): PaverPatioStore => {
+export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   const [config, setConfig] = useState<PaverPatioConfig | null>(null);
   const [values, setValues] = useState<PaverPatioValues>({} as PaverPatioValues);
   const [isLoading, setIsLoading] = useState(true);
@@ -487,10 +487,10 @@ export const usePaverPatioStore = (): PaverPatioStore => {
       setIsLoading(true);
       setError(null);
 
-      console.log('🚀 [QUICK CALCULATOR] Loading configuration from master pricing engine');
+      console.log('🚀 [QUICK CALCULATOR] Loading configuration from master pricing engine', { companyId });
 
-      // Load live configuration from master pricing engine
-      const configData = await masterPricingEngine.loadPricingConfig();
+      // Load live configuration from master pricing engine with company_id
+      const configData = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
       setConfig(configData);
 
       // Load or initialize values - clear old format if incompatible
@@ -540,7 +540,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [companyId]);
 
   // Update a specific value
   const updateValue = useCallback(async (category: keyof PaverPatioValues, variable: string, value: string | number) => {
@@ -694,9 +694,9 @@ export const usePaverPatioStore = (): PaverPatioStore => {
     loadConfig();
 
     // Subscribe to real-time configuration changes from Supabase
-    console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes');
+    console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes', { companyId });
 
-    const unsubscribe = subscribeToConfigChanges('paver_patio_sqft', undefined, async (newConfig) => {
+    const unsubscribe = subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
       console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
 
       setConfig(newConfig);
@@ -728,7 +728,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
           console.log('🔄 [QUICK CALCULATOR] Service config changed, reloading from master pricing engine');
 
           // Reload configuration from master pricing engine (which reads from Supabase)
-          const updatedConfig = await masterPricingEngine.loadPricingConfig();
+          const updatedConfig = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
           setConfig(updatedConfig);
 
           // Recalculate price with new configuration
@@ -744,7 +744,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
 
     window.addEventListener('storage', handleServiceConfigChange);
     return () => window.removeEventListener('storage', handleServiceConfigChange);
-  }, [config, values]);
+  }, [config, values, companyId]);
 
   // Listen for immediate config updates from Services tab (now using master pricing engine)
   useEffect(() => {
@@ -756,7 +756,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
           console.log('🔄 [QUICK CALCULATOR] IMMEDIATE CONFIG UPDATE: Reloading from master pricing engine');
 
           // Reload configuration from master pricing engine
-          const mergedConfig = await masterPricingEngine.loadPricingConfig();
+          const mergedConfig = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
           setConfig(mergedConfig);
 
           // Recalculate pricing with new config
@@ -772,7 +772,7 @@ export const usePaverPatioStore = (): PaverPatioStore => {
 
     window.addEventListener('paver-config-updated', handleConfigUpdate as EventListener);
     return () => window.removeEventListener('paver-config-updated', handleConfigUpdate as EventListener);
-  }, [config, values]);
+  }, [config, values, companyId]);
 
   return {
     config,
@@ -798,10 +798,10 @@ export { calculateExpertPricing };
  * Load paver patio configuration for server-side use (without React hooks)
  * NOW USES MASTER PRICING ENGINE
  */
-export const loadPaverPatioConfig = async (): Promise<PaverPatioConfig> => {
+export const loadPaverPatioConfig = async (companyId?: string): Promise<PaverPatioConfig> => {
   try {
     // Use master pricing engine for live configuration
-    return await masterPricingEngine.loadPricingConfig();
+    return await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
   } catch (error) {
     console.warn('Master pricing engine unavailable, falling back to JSON config:', error);
     // Fallback to JSON configuration

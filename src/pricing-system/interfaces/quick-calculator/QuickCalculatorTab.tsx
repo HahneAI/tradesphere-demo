@@ -16,7 +16,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
-  const store = usePaverPatioStore();
+  const store = usePaverPatioStore(user?.company_id);
 
   // Reset to defaults every time the Quick Calculator opens or closes
   useEffect(() => {

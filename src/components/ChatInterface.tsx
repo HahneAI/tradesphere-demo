@@ -457,10 +457,9 @@ const ChatInterface = () => {
       fieldCount: Object.keys(payload).length,
       fields: Object.keys(payload),
       userContext: {
-        techId: payload.techId?.slice(-8) || 'N/A',
-        firstName: payload.firstName,
-        jobTitle: payload.jobTitle,
-        betaCodeId: payload.betaCodeId
+        userId: payload.userId?.slice(-8) || 'N/A',
+        userName: payload.userName,
+        userTitle: payload.userTitle
       },
       messagePreview: payload.message.substring(0, 50) + (payload.message.length > 50 ? '...' : '')
     });
@@ -1385,7 +1384,7 @@ const ChatInterface = () => {
 
   const handleFeedbackSubmit = async (feedbackText: string) => {
     try {
-      await sendFeedback(user?.first_name || 'Anonymous', feedbackText);
+      await sendFeedback(user?.name || 'Anonymous', feedbackText);
       setShowFeedbackPopup(false);
     } catch (error) {
       console.error("Failed to send feedback from chat interface", error);

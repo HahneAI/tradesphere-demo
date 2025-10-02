@@ -3,6 +3,7 @@ import * as Icons from 'lucide-react';
 import { usePaverPatioStore } from '../../pricing-system/core/stores/paver-patio-store';
 import { PricingPreview } from './PricingPreview';
 import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
+import { useAuth } from '../../context/AuthContext';
 
 interface PaverPatioReadOnlyProps {
   visualConfig: any;
@@ -15,7 +16,8 @@ export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
   theme,
   userName = 'User',
 }) => {
-  const store = usePaverPatioStore();
+  const { user } = useAuth();
+  const store = usePaverPatioStore(user?.company_id);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['materials', 'complexity']) // Show most relevant sections by default
   );
