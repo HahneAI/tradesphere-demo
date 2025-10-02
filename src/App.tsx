@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from './context/AuthContext';
 import AuthForm from './components/AuthForm';
 import ChatInterface from './components/ChatInterface';
@@ -27,8 +27,14 @@ function App() {
   const [isExitingLoading, setIsExitingLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Track whether we've completed the initial load to decouple authLoading from isLoading
+  const hasCompletedInitialLoad = useRef(false);
+
   const isMinDurationPassed = useAppLoading();
-  const isLoading = authLoading || !isMinDurationPassed;
+  // Only include authLoading during initial mount, not after initial load completes
+  const isLoading = hasCompletedInitialLoad.current
+    ? false
+    : (authLoading || !isMinDurationPassed);
 
   const setAppStateWithAnimation = (newStage: AppState) => {
     setAnimationState('out');
@@ -44,6 +50,7 @@ function App() {
 
     if (!isLoading && !isTransitioning) {
       console.log('📍 Initial load complete, transitioning from loading screen');
+      hasCompletedInitialLoad.current = true; // Mark initial load as complete
       setIsTransitioning(true);
       setIsExitingLoading(true);
       const timer = setTimeout(() => {
@@ -63,7 +70,8 @@ function App() {
 
   // Handle auth state changes after initial load
   useEffect(() => {
-    if (!isLoading && !isTransitioning && appState !== 'loading') {
+    // Remove isLoading check - after initial load, authLoading shouldn't block transitions
+    if (!isTransitioning && appState !== 'loading') {
       if (user && appState !== 'authenticated') {
         console.log('🔄 User logged in, transitioning to authenticated state');
         setIsTransitioning(true);
@@ -76,7 +84,7 @@ function App() {
         setTimeout(() => setIsTransitioning(false), 500);
       }
     }
-  }, [user, appState, isLoading, isTransitioning]);
+  }, [user, appState, isTransitioning]);
 
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';
