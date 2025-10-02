@@ -137,11 +137,14 @@
 --    - ai_personality: Customizes AI agent tone/style
 --
 -- ============================================================================
--- RLS SECURITY MODEL
+-- RLS SECURITY MODEL (UPDATED FOR SUPABASE AUTH)
 -- ============================================================================
 --
 -- Row Level Security (RLS) is enabled on most tables to enforce multi-tenancy.
 -- Pattern: Users can only access data from their own company.
+--
+-- Authentication: Supabase Auth with email/password
+-- Users table: Links auth.uid() to company_id
 --
 -- Typical RLS Policy Structure:
 --    FOR SELECT USING (
@@ -151,16 +154,20 @@
 --    )
 --
 -- This requires:
---    1. User authenticated with Supabase (auth.uid() returns valid UUID)
---    2. User exists in users table
+--    1. User authenticated with Supabase Auth (email/password)
+--    2. auth.uid() matches users.id
 --    3. User has company_id set
 --    4. Record's company_id matches user's company_id
 --
--- CURRENT CHALLENGE:
---    - beta_users used for login, but may not have corresponding users entry
---    - Anonymous auth creates auth.uid() but user not in users table
---    - RLS policies block queries because subquery returns no rows
---    - Solution needed: Link beta_users login to users table OR modify RLS
+-- AUTHENTICATION FLOW:
+--    - User logs in with email/password via supabase.auth.signInWithPassword()
+--    - Supabase Auth creates session with auth.uid()
+--    - Application fetches user record from users table
+--    - RLS policies use auth.uid() to enforce company isolation
+--
+-- DEPRECATED TABLES:
+--    - beta_users: Replaced by Supabase Auth + users table
+--    - beta_codes: No longer used (admin accounts created manually)
 --
 -- ============================================================================
 -- FOREIGN KEY RELATIONSHIPS (Visual Map)
