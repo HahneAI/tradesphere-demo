@@ -16,7 +16,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
-  const store = usePaverPatioStore(user?.company_id);
+  const store = usePaverPatioStore(user?.company_id || '');
 
   // Reset to defaults every time the Quick Calculator opens or closes
   useEffect(() => {
@@ -32,6 +32,17 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   }, [isOpen, store.resetToDefaults100]);
 
   if (!isOpen) return null;
+
+  // Guard: Don't render calculator without company_id
+  if (!user?.company_id) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-6 max-w-md">
+          <p className="text-gray-800">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

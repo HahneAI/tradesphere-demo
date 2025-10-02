@@ -691,13 +691,18 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
   // Load config on mount and set up real-time subscription
   useEffect(() => {
+    // Guard: Don't proceed without companyId
+    if (!companyId) {
+      console.error('[QUICK CALCULATOR] No company_id - skipping config load and subscription');
+      return;
+    }
+
     loadConfig();
 
     // Subscribe to real-time configuration changes from Supabase
     console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes', { companyId });
 
-    const unsubscribe = companyId
-      ? masterPricingEngine.subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
+    const unsubscribe = masterPricingEngine.subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
         console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
 
       setConfig(newConfig);
@@ -710,8 +715,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       } catch (error) {
         console.error('Failed to recalculate price with real-time config:', error);
       }
-    })
-      : () => {}; // Return empty unsubscribe function if no companyId
+    });
 
     // Cleanup subscription on unmount
     return () => {
@@ -720,7 +724,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
         console.log('🔌 [QUICK CALCULATOR] Real-time subscription cleaned up');
       }
     };
-  }, [loadConfig, values]);
+  }, [loadConfig, values, companyId]);
 
   // Listen for service configuration changes from Services tab (now using master pricing engine)
   useEffect(() => {

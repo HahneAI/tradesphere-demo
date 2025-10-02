@@ -65,6 +65,8 @@ export class MasterPricingEngine {
   private static instance: MasterPricingEngine;
   private configCache: Map<string, PricingConfigRow> = new Map();
   private subscriptions: Map<string, any> = new Map();
+  private devModeCallCount: number = 0;
+  private devModeLastReset: number = Date.now();
 
   /**
    * Always get fresh Supabase client with current auth state
@@ -395,10 +397,26 @@ export class MasterPricingEngine {
 
   /**
    * Get development mode company ID (first company in database)
+   * RATE LIMITED to prevent infinite loops
    */
   private async getDevModeCompanyId(): Promise<string> {
+    // Reset counter every 10 seconds
+    const now = Date.now();
+    if (now - this.devModeLastReset > 10000) {
+      this.devModeCallCount = 0;
+      this.devModeLastReset = now;
+    }
+
+    this.devModeCallCount++;
+
+    if (this.devModeCallCount > 5) {
+      const errorMsg = `❌ [CRITICAL] getDevModeCompanyId called ${this.devModeCallCount} times in 10s - INFINITE LOOP DETECTED`;
+      console.error(errorMsg);
+      throw new Error('Infinite loop detected in getDevModeCompanyId - check component company_id guards');
+    }
+
     try {
-      console.log('🔍 [DEV MODE] Looking up first company ID...');
+      console.log(`🔍 [DEV MODE] Looking up first company ID (call ${this.devModeCallCount}/5)...`);
 
       const { data, error } = await this.supabase
         .from('companies')
