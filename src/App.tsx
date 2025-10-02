@@ -21,14 +21,19 @@ type AnimationState = 'in' | 'out';
 function App() {
   const { user, loading: authLoading } = useAuth();
 
-  const [appState, setAppState] = useState<AppState>('loading');
+  // 🚨 DEMO MODE: Skip loading screen and go straight to authenticated state
+  const DEMO_MODE = true;
+  const initialState: AppState = DEMO_MODE ? 'authenticated' : 'loading';
+
+  const [appState, setAppState] = useState<AppState>(initialState);
   const [animationState, setAnimationState] = useState<AnimationState>('in');
   const [currentAppState, setCurrentAppState] = useState<AppState>(appState);
   const [isExitingLoading, setIsExitingLoading] = useState(false);
 
   const isMinDurationPassed = useAppLoading();
   // Simple loading check - wait for BOTH auth and minimum duration
-  const isLoading = authLoading || !isMinDurationPassed;
+  // In demo mode, never show loading
+  const isLoading = DEMO_MODE ? false : (authLoading || !isMinDurationPassed);
 
   const setAppStateWithAnimation = (newStage: AppState) => {
     setAnimationState('out');
@@ -42,6 +47,12 @@ function App() {
   // Single effect for ALL state transitions
   useEffect(() => {
     document.title = 'TradeSphere - AI Pricing Assistant';
+
+    // Skip all transitions in demo mode - start authenticated
+    if (DEMO_MODE) {
+      console.log('🚨 DEMO MODE: Staying in authenticated state');
+      return;
+    }
 
     console.log('🔍 [APP] useEffect triggered:', {
       isLoading,
@@ -81,7 +92,7 @@ function App() {
         setAppStateWithAnimation('login');
       }
     }
-  }, [isLoading, user, appState, authLoading, isMinDurationPassed]);
+  }, [isLoading, user, appState, authLoading, isMinDurationPassed, DEMO_MODE]);
 
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';

@@ -29,14 +29,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   console.log('🟢 AUTH_CONTEXT - Provider mounting (Supabase Auth)...');
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+
+  // 🚨 DEMO MODE: Hardcoded admin user for presentation
+  const DEMO_MODE = true;
+  const DEMO_USER: User = {
+    id: 'cd7ad550-37f3-477a-975e-a34b226b7332',
+    email: 'anthony@test.com',
+    name: 'Anthony',
+    company_id: '08f0827a-608f-485a-a19f-e0c55ecf6484',
+    role: 'admin',
+    title: 'Owner',
+    is_head_user: true,
+    is_admin: true,
+    user_icon: 'User',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  const [user, setUser] = useState<User | null>(DEMO_MODE ? DEMO_USER : null);
+  const [loading, setLoading] = useState(DEMO_MODE ? false : true);
+  const [isAdmin, setIsAdmin] = useState(DEMO_MODE ? true : false);
 
   const supabase = getSupabase();
 
   // Initialize auth state and listen for changes
   useEffect(() => {
+    // Skip auth initialization in demo mode
+    if (DEMO_MODE) {
+      console.log('🚨 DEMO MODE: Skipping Supabase auth initialization');
+      return;
+    }
+
     console.log('🔐 AUTH_CONTEXT - Initializing Supabase Auth listener');
 
     // Get initial session
