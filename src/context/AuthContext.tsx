@@ -49,8 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         fetchUserData(session.user.id);
       } else {
+        console.log('ℹ️ AUTH_CONTEXT - No session found, setting loading to false');
         setLoading(false);
       }
+    }).catch((error) => {
+      console.error('❌ AUTH_CONTEXT - Session check failed:', error);
+      setLoading(false);
     });
 
     // Listen for auth state changes
@@ -64,11 +68,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' && session?.user) {
           await fetchUserData(session.user.id);
         } else if (event === 'SIGNED_OUT') {
+          console.log('👋 AUTH_CONTEXT - User signed out, clearing state');
           setUser(null);
           setIsAdmin(false);
           setLoading(false);
         } else if (event === 'TOKEN_REFRESHED') {
           console.log('✅ AUTH_CONTEXT - Token refreshed successfully');
+          // Don't change loading state on token refresh
+        } else if (event === 'INITIAL_SESSION') {
+          // Handle initial session event
+          if (!session) {
+            console.log('ℹ️ AUTH_CONTEXT - Initial session event with no session');
+            setLoading(false);
+          }
+        } else {
+          console.log('ℹ️ AUTH_CONTEXT - Unhandled auth event:', event);
         }
       }
     );
@@ -107,10 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         setUser(data);
         setIsAdmin(data.is_admin);
+      } else {
+        console.warn('⚠️ AUTH_CONTEXT - No user data found for ID:', userId);
       }
     } catch (error) {
       console.error('💥 AUTH_CONTEXT - Error fetching user data:', error);
     } finally {
+      console.log('🏁 AUTH_CONTEXT - Setting loading to false');
       setLoading(false);
     }
   };
