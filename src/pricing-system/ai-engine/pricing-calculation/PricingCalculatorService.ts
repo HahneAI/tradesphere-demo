@@ -55,7 +55,7 @@ export class PricingCalculatorService {
    * MASTER FORMULA CALCULATION - Complete internal pricing system
    * All services processed through advanced two-tier paver patio calculation
    */
-  async calculatePricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
+  async calculatePricing(services: ExtractedService[], companyId?: string): Promise<PricingResult> {
     const startTime = Date.now();
 
     console.log('🔥 MASTER FORMULA PRICING CALCULATION START');
@@ -92,7 +92,7 @@ export class PricingCalculatorService {
           }
         }
 
-        return this.calculateMasterFormulaPricing(services, betaCodeId);
+        return this.calculateMasterFormulaPricing(services, companyId);
       }
 
       // Fallback for empty services
@@ -113,9 +113,9 @@ export class PricingCalculatorService {
       let result: PricingResult;
 
       if (services.length === 1) {
-        result = await this.calculateSingleService(services[0], betaCodeId);
+        result = await this.calculateSingleService(services[0], companyId);
       } else {
-        result = await this.calculateMultipleServices(services, betaCodeId);
+        result = await this.calculateMultipleServices(services, companyId);
       }
 
       const calculationTime = Date.now() - startTime;
@@ -144,7 +144,7 @@ export class PricingCalculatorService {
         });
       }
 
-      console.log(`✅ PRICING COMPLETE: ${calculationTime}ms (Beta Code: ${betaCodeId || 'default'})`);
+      console.log(`✅ PRICING COMPLETE: ${calculationTime}ms (Company: ${companyId || 'default'})`);
       console.log(`   Total Cost: $${result.totals.totalCost}`);
       console.log(`   Total Hours: ${result.totals.totalLaborHours}h`);
 
@@ -165,19 +165,19 @@ export class PricingCalculatorService {
   }
 
   /**
-   * Calculate pricing for a single service with beta code ID support
+   * Calculate pricing for a single service with company ID support
    */
-  private async calculateSingleService(service: ExtractedService, betaCodeId?: number): Promise<PricingResult> {
-    console.log(`🔢 Single service calculation: ${service.serviceName} (Beta Code: ${betaCodeId || 'default'})`);
-    
+  private async calculateSingleService(service: ExtractedService, companyId?: string): Promise<PricingResult> {
+    console.log(`🔢 Single service calculation: ${service.serviceName} (Company: ${companyId || 'default'})`);
+
     // Step 1: Clear any existing quantities in the sheet
-    await this.sheetsClient.clearQuantities(betaCodeId);
-    
+    await this.sheetsClient.clearQuantities(companyId);
+
     // Step 2: Write the service quantity
-    await this.sheetsClient.writeServiceQuantity(service.row, service.quantity, betaCodeId);
-    
+    await this.sheetsClient.writeServiceQuantity(service.row, service.quantity, companyId);
+
     // Step 3: Read the calculated results for individual service breakdown
-    const sheetResults = await this.sheetsClient.readCalculationResults([service.row], betaCodeId);
+    const sheetResults = await this.sheetsClient.readCalculationResults([service.row], companyId);
     const sheetResult = sheetResults[0];
 
     const serviceQuote: ServiceQuote = {
@@ -194,7 +194,7 @@ export class PricingCalculatorService {
 
     // Step 4: Read project totals from C34 and D34 for accurate totals
     console.log(`🔢 Reading project totals from sheet cells...`);
-    const projectTotals = await this.sheetsClient.readProjectTotals(betaCodeId);
+    const projectTotals = await this.sheetsClient.readProjectTotals(companyId);
 
     return {
       services: [serviceQuote],
@@ -207,7 +207,7 @@ export class PricingCalculatorService {
   /**
    * Calculate pricing using master formula for paver patio requests
    */
-  private async calculateMasterFormulaPricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
+  private async calculateMasterFormulaPricing(services: ExtractedService[], companyId?: string): Promise<PricingResult> {
     console.log('🔥 MASTER FORMULA CALCULATION START');
 
     const startTime = Date.now();
@@ -321,25 +321,25 @@ export class PricingCalculatorService {
   }
 
   /**
-   * Calculate pricing for multiple services with beta code ID support
+   * Calculate pricing for multiple services with company ID support
    */
-  private async calculateMultipleServices(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
-    console.log(`🔢 Multi-service calculation: ${services.length} services (Beta Code: ${betaCodeId || 'default'})`);
-    
+  private async calculateMultipleServices(services: ExtractedService[], companyId?: string): Promise<PricingResult> {
+    console.log(`🔢 Multi-service calculation: ${services.length} services (Company: ${companyId || 'default'})`);
+
     // Step 1: Clear any existing quantities in the sheet
-    await this.sheetsClient.clearQuantities(betaCodeId);
-    
+    await this.sheetsClient.clearQuantities(companyId);
+
     // Step 2: Write all service quantities
     const updates = services.map(service => ({
       row: service.row,
       quantity: service.quantity
     }));
-    
-    await this.sheetsClient.writeMultipleQuantities(updates, betaCodeId);
-    
+
+    await this.sheetsClient.writeMultipleQuantities(updates, companyId);
+
     // Step 3: Read all calculated results for individual service breakdown
     const rows = services.map(service => service.row);
-    const sheetResults = await this.sheetsClient.readCalculationResults(rows, betaCodeId);
+    const sheetResults = await this.sheetsClient.readCalculationResults(rows, companyId);
 
     // Map results back to our format for detailed breakdown
     const serviceQuotes: ServiceQuote[] = services.map((service, index) => {
@@ -361,7 +361,7 @@ export class PricingCalculatorService {
 
     // Step 4: Read project totals from C34 and D34 for accurate totals
     console.log(`🔢 Reading project totals from sheet cells...`);
-    const projectTotals = await this.sheetsClient.readProjectTotals(betaCodeId);
+    const projectTotals = await this.sheetsClient.readProjectTotals(companyId);
 
     return {
       services: serviceQuotes, // Individual service breakdown
@@ -374,19 +374,19 @@ export class PricingCalculatorService {
   /**
    * Handle special irrigation pricing logic
    */
-  async calculateIrrigationPricing(services: ExtractedService[], betaCodeId?: number): Promise<PricingResult> {
-    console.log(`💧 IRRIGATION PRICING CALCULATION (Beta Code: ${betaCodeId || 'default'})`);
+  async calculateIrrigationPricing(services: ExtractedService[], companyId?: string): Promise<PricingResult> {
+    console.log(`💧 IRRIGATION PRICING CALCULATION (Company: ${companyId || 'default'})`);
 
     const irrigationServices = services.filter(s => s.serviceName.includes('Irrigation'));
     const regularServices = services.filter(s => !s.serviceName.includes('Irrigation'));
 
     // Handle irrigation setup + zones
     const enhancedServices = this.processIrrigationServices(irrigationServices);
-    
+
     // Combine with regular services
     const allServices = [...enhancedServices, ...regularServices];
 
-    return this.calculateMultipleServices(allServices, betaCodeId);
+    return this.calculateMultipleServices(allServices, companyId);
   }
 
   /**

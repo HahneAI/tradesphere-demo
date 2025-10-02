@@ -17,7 +17,7 @@
 --
 -- ============================================================================
 
--- -- WARNING: This schema is for context only and is not meant to be run.
+-- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
 CREATE TABLE public.VC Usage (
@@ -186,13 +186,16 @@ CREATE TABLE public.service_pricing_configs (
 );
 CREATE TABLE public.users (
   id uuid NOT NULL DEFAULT auth.uid(),
-  company_id uuid,
+  company_id uuid NOT NULL,
   email character varying NOT NULL,
   role character varying NOT NULL,
-  title character varying,
   is_head_user boolean DEFAULT false,
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
+  is_admin boolean DEFAULT false,
+  user_icon character varying NOT NULL DEFAULT 'User'::character varying,
+  name character varying NOT NULL DEFAULT 'User'::character varying,
+  title character varying,
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
 );
