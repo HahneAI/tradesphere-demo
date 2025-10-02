@@ -245,10 +245,10 @@ export class PricingCalculatorService {
 
     try {
       // Load the paver patio configuration
-      const config = loadPaverPatioConfig();
+      const config = await loadPaverPatioConfig();
 
       // Execute master formula calculation
-      const masterFormulaResult: PaverPatioCalculationResult = calculateExpertPricing(
+      const masterFormulaResult: PaverPatioCalculationResult = await calculateExpertPricing(
         config,
         paverPatioValues,
         sqft
