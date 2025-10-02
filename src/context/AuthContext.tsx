@@ -5,6 +5,7 @@ import { getSupabase } from '../services/supabase';
 interface User {
   id: string;              // auth.uid()
   email: string;
+  name?: string;           // User display name (optional until migrated)
   company_id: string;      // UUID string
   role: string;            // 'office_staff', 'field_tech', etc.
   title: string;           // 'Operations Manager', etc.

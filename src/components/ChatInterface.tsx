@@ -294,12 +294,12 @@ const ChatInterface = () => {
       console.warn("No user context for session generation, using basic session ID");
       return `quote_session_${Date.now()}`;
     }
-    
-    const userPrefix = user.first_name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const betaId = user.beta_code_id;
+
+    const userPrefix = (user.name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const userId = user.id.substring(0, 8);
     const timestamp = Date.now();
-    
-    return `quote_session_${userPrefix}_${betaId}_${timestamp}`;
+
+    return `quote_session_${userPrefix}_${userId}_${timestamp}`;
   };
   
   const sessionIdRef = useRef<string>(generateSessionId());
@@ -374,10 +374,10 @@ const ChatInterface = () => {
 
   // 🔄 AUTH TIMING FIX: Load customers when auth becomes available and dropdown is open
   useEffect(() => {
-    if (showCustomerDropdown && user?.tech_uuid && recentCustomerSessions.length === 0 && !isLoadingCustomers) {
+    if (showCustomerDropdown && user?.id && recentCustomerSessions.length === 0 && !isLoadingCustomers) {
       loadRecentCustomers();
     }
-  }, [showCustomerDropdown, user?.tech_uuid]);
+  }, [showCustomerDropdown, user?.id]);
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -424,24 +424,22 @@ const ChatInterface = () => {
       timestamp: new Date().toISOString(),
       sessionId: sessionIdRef.current,
       source: 'TradeSphere',
-      techId: user.tech_uuid,
-      firstName: user.first_name,
-      jobTitle: user.job_title,
-      betaCodeId: user.beta_code_id
+      userId: user.id,
+      userName: user.name,
+      userTitle: user.title
     };
-    
+
     // 🔧 CRITICAL: Validate ALL user context fields are present
-    const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'];
+    const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'userId', 'userName', 'userTitle'];
     const missingFields = requiredFields.filter(field => !payload[field] || payload[field] === '');
-    
+
     if (missingFields.length > 0) {
       console.error('❌ STEP 4 FAILED: Missing required payload fields -', missingFields);
       console.error('🔍 User object inspection:', {
         userExists: !!user,
-        techId: user?.tech_uuid || 'MISSING',
-        firstName: user?.first_name || 'MISSING',
-        jobTitle: user?.job_title || 'MISSING', 
-        betaCodeId: user?.beta_code_id || 'MISSING'
+        userId: user?.id || 'MISSING',
+        userName: user?.name || 'MISSING',
+        userTitle: user?.title || 'MISSING'
       });
       console.groupEnd();
       throw new Error(`Missing user context fields: ${missingFields.join(', ')}`);
@@ -556,24 +554,23 @@ const ChatInterface = () => {
       // STEP 9: Success logging with comprehensive details
       console.log('✅ STEP 9: Webhook transmission successful');
       console.log('📊 Final metrics:', {
-        techId: user.tech_uuid.slice(-8),
-        firstName: user.first_name,
+        userId: user.id.slice(-8),
+        userName: user.name,
         sessionId: sessionIdRef.current.slice(-12),
         webhookLatency: `${webhookLatency.toFixed(2)}ms`,
         payloadSize: `${payloadSize} bytes`,
         timestamp: new Date().toISOString().slice(11, 23) // Just time portion
       });
-      
+
       // 🔧 CRITICAL: Log final payload confirmation for Make.com debugging
       console.log('📤 PAYLOAD SENT TO MAKE.COM:', {
-        message: 'Payload verification - all 8 fields included',
+        message: 'Payload verification - all required fields included',
         actualFieldsSent: Object.keys(payload),
-        expectedFields: ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'],
+        expectedFields: ['message', 'timestamp', 'sessionId', 'source', 'userId', 'userName', 'userTitle'],
         userContextIncluded: {
-          techId: !!payload.techId,
-          firstName: !!payload.firstName,
-          jobTitle: !!payload.jobTitle, 
-          betaCodeId: !!payload.betaCodeId
+          userId: !!payload.userId,
+          userName: !!payload.userName,
+          userTitle: !!payload.userTitle
         },
         payloadJsonLength: payloadJson.length
       });
@@ -630,10 +627,9 @@ const ChatInterface = () => {
       timestamp: new Date().toISOString(),
       sessionId: sessionIdRef.current,
       source: 'TradeSphere_Native',
-      techId: user.tech_uuid,
-      firstName: user.first_name,
-      jobTitle: user.job_title,
-      betaCodeId: user.beta_code_id,
+      userId: user.id,
+      userName: user.name,
+      userTitle: user.title,
       companyId: user.company_id, // 🎯 NEW: Company context for RLS
       // 🏢 PHASE 4: Include customer details when available
       customerName: customerDetails?.name || null,
@@ -858,17 +854,18 @@ const ChatInterface = () => {
 
   // ORIGINAL: User context initialization
   useEffect(() => {
-    if (user && !sessionIdRef.current.includes(user.first_name.toLowerCase())) {
+    if (user && user.name && !sessionIdRef.current.includes(user.name.toLowerCase())) {
       handleRefreshChat();
     }
   }, [user]);
 
   // ORIGINAL: Personalized welcome message
   useEffect(() => {
-    if (user && messages.length === 1 && !messages[0].text.includes(user.first_name)) {
+    if (user && user.name && messages.length === 1 && !messages[0].text.includes(user.name)) {
+      const capitalizedName = user.name.charAt(0).toUpperCase() + user.name.slice(1).toLowerCase();
       setMessages([{
         id: '1',
-        text: `Hey ${user.first_name.charAt(0).toUpperCase() + user.first_name.slice(1).toLowerCase()}, what's the customer scoop?`,
+        text: `Hey ${capitalizedName}, what's the customer scoop?`,
         sender: 'ai',
         timestamp: new Date(),
         sessionId: sessionIdRef.current
@@ -989,8 +986,8 @@ const ChatInterface = () => {
     }
 
     sessionIdRef.current = generateSessionId();
-    const personalizedWelcome = user.first_name 
-      ? `Hey ${user.first_name.charAt(0).toUpperCase() + user.first_name.slice(1).toLowerCase()}, what's the customer scoop?`
+    const personalizedWelcome = user.name
+      ? `Hey ${user.name.charAt(0).toUpperCase() + user.name.slice(1).toLowerCase()}, what's the customer scoop?`
       : welcomeMessage;
 
     setMessages([{
@@ -1397,8 +1394,8 @@ const ChatInterface = () => {
 
   // Handle customer loading from CustomersTab
   const handleLoadCustomer = async (customer: any, historicalMessages: Message[]) => {
-    if (!user?.tech_uuid || !customer.customer_name) {
-      console.error('Cannot load customer: missing tech_uuid or customer name');
+    if (!user?.id || !customer.customer_name) {
+      console.error('Cannot load customer: missing user id or customer name');
       return;
     }
 
@@ -1409,7 +1406,7 @@ const ChatInterface = () => {
       // Load customer context using the service
       const response = await customerContextService.loadCustomerContext(
         customer.customer_name,
-        user.tech_uuid,
+        user.id,
         customer.session_id
       );
 
@@ -1483,16 +1480,16 @@ const ChatInterface = () => {
   // 🏢 PHASE 5: Load recent customer sessions using existing infrastructure
   const loadRecentCustomers = async () => {
     // Enhanced authentication and state guards
-    if (!user?.tech_uuid || isLoadingCustomers) {
+    if (!user?.id || isLoadingCustomers) {
       return;
     }
 
     setIsLoadingCustomers(true);
-    
+
     try {
       // Use existing chat-messages endpoint with customer lookup flag
       const response = await fetch(
-        `/.netlify/functions/chat-messages?recent_customers=true&tech_id=${user.tech_uuid}`,
+        `/.netlify/functions/chat-messages?recent_customers=true&user_id=${user.id}`,
         {
           method: 'GET',
           headers: {
@@ -1542,7 +1539,7 @@ const ChatInterface = () => {
 
   // 🔄 PHASE 2D: Preload customer conversation context with smooth UX
   const preloadCustomerContext = async (customerName: string, sessionId?: string) => {
-    if (!user?.tech_uuid) return;
+    if (!user?.id) return;
 
     try {
       setIsPreloadingContext(true);
@@ -1560,7 +1557,7 @@ const ChatInterface = () => {
 
       // Build query URL
       const queryParams = new URLSearchParams({
-        tech_id: user.tech_uuid
+        user_id: user.id
       });
       if (sessionId) {
         queryParams.set('session_id', sessionId);
@@ -1791,7 +1788,7 @@ const ChatInterface = () => {
                     const newState = !showCustomerDropdown;
                     setShowCustomerDropdown(newState);
                     // 🏢 PHASE 5: Load recent customers when dropdown opens (with auth timing protection)
-                    if (newState && recentCustomerSessions.length === 0 && user?.tech_uuid) {
+                    if (newState && recentCustomerSessions.length === 0 && user?.id) {
                       loadRecentCustomers();
                     }
                   }}
@@ -2120,10 +2117,10 @@ const ChatInterface = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>
-                    {user?.first_name || 'User'}
+                    {user?.name || 'User'}
                   </p>
                   <p className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                    {user?.job_title || 'Technician'}
+                    {user?.title || 'Technician'}
                   </p>
                 </div>
               </div>
@@ -2419,7 +2416,7 @@ const ChatInterface = () => {
         isOpen={showNotesPopup}
         onClose={() => setShowNotesPopup(false)}
         isAdmin={isAdmin}
-        userName={user?.first_name || 'Anonymous'}
+        userName={user?.name || 'Anonymous'}
       />
 
 
@@ -2467,7 +2464,7 @@ const ChatInterface = () => {
         isOpen={showFeedbackPopup}
         onClose={() => setShowFeedbackPopup(false)}
         onSubmit={handleFeedbackSubmit}
-        userName={user?.first_name || 'Anonymous'}
+        userName={user?.name || 'Anonymous'}
       />
 
       {/* iOS Voice Guidance Modal - TEMPORARILY HIDDEN */}

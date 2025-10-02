@@ -530,27 +530,11 @@ export const masterPricingEngine = MasterPricingEngine.getInstance();
 
 /**
  * Get current user's company ID from auth context
+ * DEPRECATED: Company ID should be passed from components with AuthContext access
+ * This function no longer works after migration to Supabase Auth
  */
 const getCurrentUserCompanyId = (): string | undefined => {
-  try {
-    const storedUser = localStorage.getItem('tradesphere_beta_user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      console.log('🔍 [MASTER ENGINE DEBUG] Retrieved user company_id from auth:', {
-        hasStoredUser: true,
-        userId: userData.id,
-        firstName: userData.first_name,
-        companyId: userData.company_id,
-        companyIdType: typeof userData.company_id,
-        companyIdValid: !!(userData.company_id && userData.company_id.length > 10)
-      });
-      return userData.company_id;
-    } else {
-      console.warn('🔍 [MASTER ENGINE DEBUG] No stored user found in localStorage');
-    }
-  } catch (error) {
-    console.warn('Could not get user company_id from auth context:', error);
-  }
+  console.warn('⚠️ [MASTER ENGINE] getCurrentUserCompanyId is deprecated - pass company_id explicitly');
   return undefined;
 };
 

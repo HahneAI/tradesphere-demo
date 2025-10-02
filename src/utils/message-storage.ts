@@ -11,9 +11,8 @@ import { createClient } from '@supabase/supabase-js';
 
 export interface WebhookPayload {
   sessionId: string;
-  firstName?: string;
-  techId?: string;
-  betaCodeId?: number;
+  userName?: string;      // Renamed from firstName
+  userId?: string;        // Renamed from techId (now uses auth.uid())
   // 🏢 PHASE 2: Customer details fields (optional)
   customerName?: string;
   customerAddress?: string;
@@ -114,9 +113,8 @@ export class MessageStorageService {
       console.log(`📝 [MessageStorage] Session: ${payload.sessionId}, Length: ${response.length}`);
       console.log('🔍 [MessageStorage] Payload details:', {
         sessionId: payload.sessionId,
-        firstName: payload.firstName,
-        techId: payload.techId,
-        betaCodeId: payload.betaCodeId
+        userName: payload.userName,
+        userId: payload.userId
       });
       
       const { url, key } = this.getEnvironmentCredentials();
@@ -143,7 +141,7 @@ export class MessageStorageService {
         session_id: payload.sessionId,
         message_text: cleanedResponse,
         sender: 'ai',
-        tech_id: payload.techId || null,
+        tech_id: payload.userId || null,  // Now uses auth.uid()
         created_at: new Date().toISOString(),
         message_source: metadata.source || 'native_pricing_agent'
         // No metadata field - keeping it simple to match DB schema
@@ -255,10 +253,10 @@ export class MessageStorageService {
       
       // 🏢 PHASE 2: VC Usage record with customer fields + analytics
       const vcUsageData = {
-        user_name: payload.firstName || null,
-        user_tech_id: payload.techId || null,
+        user_name: payload.userName || null,       // Updated from firstName
+        user_tech_id: payload.userId || null,      // Updated from techId (now auth.uid())
         session_id: payload.sessionId,
-        beta_code_id: payload.betaCodeId || null,
+        beta_code_id: null,                        // Deprecated - no longer used
         user_input: cleanedUserInput,
         ai_response: cleanedAiResponse,
         interaction_number: interactionNumber,

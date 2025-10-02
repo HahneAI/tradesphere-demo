@@ -96,28 +96,11 @@ const loadServices = (): ServiceConfig[] => {
 
 /**
  * Get current user's company ID from auth context
+ * DEPRECATED: Company ID should be passed from components with AuthContext access
+ * This function no longer works after migration to Supabase Auth
  */
 const getCurrentUserCompanyId = (): string | undefined => {
-  try {
-    const storedUser = localStorage.getItem('tradesphere_beta_user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      console.log('🔍 [SERVICES DEBUG] Retrieved user company_id for Supabase write:', {
-        hasStoredUser: true,
-        userId: userData.id,
-        firstName: userData.first_name,
-        companyId: userData.company_id,
-        companyIdType: typeof userData.company_id,
-        companyIdValid: !!(userData.company_id && userData.company_id.length > 10),
-        willUseForSupabase: true
-      });
-      return userData.company_id;
-    } else {
-      console.warn('🔍 [SERVICES DEBUG] No stored user found in localStorage - cannot write to Supabase');
-    }
-  } catch (error) {
-    console.warn('Could not get user company_id from auth context:', error);
-  }
+  console.warn('⚠️ [SERVICES STORE] getCurrentUserCompanyId is deprecated - pass company_id explicitly');
   return undefined;
 };
 

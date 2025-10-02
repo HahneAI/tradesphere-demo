@@ -66,9 +66,9 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
 
   // Recently viewed tracking state with localStorage persistence
   const [recentlyViewedCustomers, setRecentlyViewedCustomers] = useState<Set<string>>(() => {
-    if (typeof window !== 'undefined' && user?.tech_uuid) {
+    if (typeof window !== 'undefined' && user?.id) {
       try {
-        const stored = localStorage.getItem(`recentlyViewed_${user.tech_uuid}`);
+        const stored = localStorage.getItem(`recentlyViewed_${user.id}`);
         return stored ? new Set(JSON.parse(stored)) : new Set();
       } catch {
         return new Set();
@@ -79,29 +79,29 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
 
   // Persist recently viewed customers to localStorage
   useEffect(() => {
-    if (user?.tech_uuid && recentlyViewedCustomers.size > 0) {
+    if (user?.id && recentlyViewedCustomers.size > 0) {
       try {
         const recentArray = Array.from(recentlyViewedCustomers).slice(0, 20); // Keep only last 20
-        localStorage.setItem(`recentlyViewed_${user.tech_uuid}`, JSON.stringify(recentArray));
+        localStorage.setItem(`recentlyViewed_${user.id}`, JSON.stringify(recentArray));
       } catch (error) {
         console.warn('Failed to persist recently viewed customers:', error);
       }
     }
-  }, [recentlyViewedCustomers, user?.tech_uuid]);
+  }, [recentlyViewedCustomers, user?.id]);
 
   // Fetch customers on component mount and when modal opens
   useEffect(() => {
-    if (user?.tech_uuid) {
+    if (user?.id) {
       fetchCustomers();
     }
-  }, [user?.tech_uuid]);
+  }, [user?.id]);
 
   // Auto-refresh when modal opens
   useEffect(() => {
-    if (isOpen && user?.tech_uuid) {
+    if (isOpen && user?.id) {
       fetchCustomers();
     }
-  }, [isOpen, user?.tech_uuid]);
+  }, [isOpen, user?.id]);
 
   // Debounced search effect
   const debouncedSearch = useCallback(
@@ -147,7 +147,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
   }, [customers, debouncedSearchQuery, recentlyViewedCustomers]);
 
   const fetchCustomers = async (isRefresh = false) => {
-    if (!user?.tech_uuid) return;
+    if (!user?.id) return;
 
     if (isRefresh) {
       setIsRefreshing(true);
@@ -155,10 +155,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
     } else {
       setIsLoading(true);
     }
-    
+
     try {
       const { customers: customerData, error } = await customerService.getCustomerList(
-        user.tech_uuid,
+        user.id,
         { limit: 100 }
       );
 
@@ -207,12 +207,12 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
         customer_phone: customer.customer_phone || ''
       });
       setShowEditModal(true);
-    } else if (onLoadCustomer && customer.customer_name && user?.tech_uuid) {
+    } else if (onLoadCustomer && customer.customer_name && user?.id) {
       // Load customer context and conversation history
       try {
         // Track customer interaction for smart ordering
         await customerService.trackCustomerInteraction(
-          user.tech_uuid,
+          user.id,
           customer.customer_name,
           customer.session_id,
           'load'
@@ -241,14 +241,14 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
   };
 
   const handleSaveCustomer = async () => {
-    if (!selectedCustomer || !user?.tech_uuid) return;
+    if (!selectedCustomer || !user?.id) return;
 
     hapticFeedback.impact('medium');
-    
+
     try {
       const { success, error } = await customerService.updateCustomerDetails(
         selectedCustomer.session_id,
-        user.tech_uuid,
+        user.id,
         {
           customer_name: editData.customer_name,
           customer_address: editData.customer_address,
