@@ -55,6 +55,19 @@ function App() {
     }
   }, [isLoading, user]);
 
+  // Handle auth state changes after initial load
+  useEffect(() => {
+    if (!isLoading && appState !== 'loading') {
+      if (user && appState !== 'authenticated') {
+        console.log('🔄 User logged in, transitioning to authenticated state');
+        setAppStateWithAnimation('authenticated');
+      } else if (!user && appState === 'authenticated') {
+        console.log('🔄 User logged out, transitioning to login state');
+        setAppStateWithAnimation('login');
+      }
+    }
+  }, [user, appState, isLoading]);
+
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';
     return (
