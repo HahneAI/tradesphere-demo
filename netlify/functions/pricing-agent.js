@@ -22,7 +22,7 @@ export const handler = async (event, context) => {
   console.log('🔍 Environment check:', {
     hasSupabaseUrl: !!process.env.SUPABASE_URL,
     hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
-    hasOpenAI: !!process.env.OPENAI_API_KEY,
+    hasOpenAI: !!process.env.VITE_OPENAI_API_KEY_MINI,
     nodeVersion: process.version
   });
 
