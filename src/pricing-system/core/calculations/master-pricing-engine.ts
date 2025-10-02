@@ -528,31 +528,5 @@ export class MasterPricingEngine {
 // Export singleton instance
 export const masterPricingEngine = MasterPricingEngine.getInstance();
 
-/**
- * Get current user's company ID from auth context
- * DEPRECATED: Company ID should be passed from components with AuthContext access
- * This function no longer works after migration to Supabase Auth
- */
-const getCurrentUserCompanyId = (): string | undefined => {
-  console.warn('⚠️ [MASTER ENGINE] getCurrentUserCompanyId is deprecated - pass company_id explicitly');
-  return undefined;
-};
-
-// Export convenience functions with automatic company context
-export const loadPricingConfig = (serviceName?: string, companyId?: string) =>
-  masterPricingEngine.loadPricingConfig(serviceName, companyId || getCurrentUserCompanyId());
-
-export const calculatePricing = (values: PaverPatioValues, sqft?: number, serviceName?: string, companyId?: string) =>
-  masterPricingEngine.calculatePricing(values, sqft, serviceName, companyId || getCurrentUserCompanyId());
-
-export const subscribeToConfigChanges = (serviceName: string = 'paver_patio_sqft', companyId?: string, onUpdate?: (config: PaverPatioConfig) => void) => {
-  const actualCompanyId = companyId || getCurrentUserCompanyId();
-  const actualCallback = onUpdate || (() => {});
-
-  if (!actualCompanyId) {
-    console.warn('No company_id available for subscription - using development mode');
-    return () => {}; // Return empty unsubscribe function
-  }
-
-  return masterPricingEngine.subscribeToConfigChanges(serviceName, actualCompanyId, actualCallback);
-};
+// Export only the master pricing engine instance - all components should use this directly
+// and pass company_id from AuthContext

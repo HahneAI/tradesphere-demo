@@ -94,21 +94,9 @@ const loadServices = (): ServiceConfig[] => {
   }
 };
 
-/**
- * Get current user's company ID from auth context
- * DEPRECATED: Company ID should be passed from components with AuthContext access
- * This function no longer works after migration to Supabase Auth
- */
-const getCurrentUserCompanyId = (): string | undefined => {
-  console.warn('⚠️ [SERVICES STORE] getCurrentUserCompanyId is deprecated - pass company_id explicitly');
-  return undefined;
-};
-
 // Save updated configuration to Supabase (new primary method)
-const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig) => {
+const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig, companyId?: string) => {
   try {
-    const companyId = getCurrentUserCompanyId();
-
     if (!companyId) {
       console.warn('⚠️ No company_id available, falling back to localStorage only');
       await saveServiceConfigLegacy(serviceId, updatedService);
@@ -271,7 +259,7 @@ const loadServiceWithOverrides = (defaultService: ServiceConfig): ServiceConfig 
   return defaultService;
 };
 
-export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
+export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsStore => {
   const [services, setServices] = useState<ServiceConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -334,7 +322,7 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
         };
 
         // Save to Supabase (async)
-        saveServiceConfig(serviceId, updatedService).catch(error => {
+        saveServiceConfig(serviceId, updatedService, companyId).catch(error => {
           console.error('Failed to save base setting:', error);
         });
 
@@ -343,7 +331,7 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
       return service;
     });
 
-  }, [services]);
+  }, [services, companyId]);
 
   const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
     setServices(prev => {
@@ -436,9 +424,9 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
             lastModified: new Date().toISOString().split('T')[0]
           };
 
-          // Save to localStorage
+          // Save to Supabase
           try {
-            saveServiceConfig(serviceId, updatedService);
+            saveServiceConfig(serviceId, updatedService, companyId);
           } catch (error) {
             console.error('Failed to save service variables:', error);
           }

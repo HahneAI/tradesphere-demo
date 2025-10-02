@@ -6,7 +6,7 @@
  */
 
 import type { PaverPatioValues, PaverPatioCalculationResult } from '../../core/master-formula/formula-types';
-import { masterPricingEngine, calculatePricing } from '../../core/calculations/master-pricing-engine';
+import { masterPricingEngine } from '../../core/calculations/master-pricing-engine';
 
 /**
  * DEPRECATED: Use masterPricingEngine.loadPricingConfig() instead
@@ -14,7 +14,7 @@ import { masterPricingEngine, calculatePricing } from '../../core/calculations/m
  */
 export async function loadPaverPatioConfig() {
   console.warn('⚠️ [DEPRECATED] loadPaverPatioConfig() - Use masterPricingEngine.loadPricingConfig() instead');
-  return await masterPricingEngine.loadPricingConfig();
+  return await masterPricingEngine.loadPricingConfig('paver_patio_sqft', undefined);
 }
 
 /**
@@ -41,7 +41,7 @@ export async function calculateExpertPricing(
 
   try {
     // Use master pricing engine for live Supabase calculation
-    const result = await calculatePricing(actualValues, sqft);
+    const result = await masterPricingEngine.calculatePricing(actualValues, sqft);
 
     console.log('✅ [SERVER] Master engine calculation complete:', {
       total: result.tier2Results.total,

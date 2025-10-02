@@ -74,7 +74,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   theme,
 }) => {
   const { user } = useAuth();
-  const { getService, updateServiceVariables } = useServiceBaseSettings();
+  const { getService, updateServiceVariables } = useServiceBaseSettings(user?.company_id);
   const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials' | 'complexity'>('equipment');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 

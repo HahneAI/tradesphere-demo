@@ -8,7 +8,7 @@ import type {
 } from '../master-formula/formula-types';
 
 // Import master pricing engine for unified calculations
-import { masterPricingEngine, calculatePricing, subscribeToConfigChanges } from '../calculations/master-pricing-engine';
+import { masterPricingEngine } from '../calculations/master-pricing-engine';
 
 // Import the JSON configuration (fallback only)
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
@@ -411,7 +411,7 @@ const calculatePrice = async (
 
   try {
     // Use master pricing engine for live Supabase calculation
-    const result = await calculatePricing(values, sqft);
+    const result = await masterPricingEngine.calculatePricing(values, sqft);
 
     console.log('✅ [QUICK CALCULATOR] Master engine calculation complete:', {
       total: result.tier2Results.total,
@@ -696,8 +696,9 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     // Subscribe to real-time configuration changes from Supabase
     console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes', { companyId });
 
-    const unsubscribe = subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
-      console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
+    const unsubscribe = companyId
+      ? masterPricingEngine.subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
+        console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
 
       setConfig(newConfig);
 
@@ -709,7 +710,8 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       } catch (error) {
         console.error('Failed to recalculate price with real-time config:', error);
       }
-    });
+    })
+      : () => {}; // Return empty unsubscribe function if no companyId
 
     // Cleanup subscription on unmount
     return () => {
