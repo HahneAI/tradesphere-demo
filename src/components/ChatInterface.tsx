@@ -29,7 +29,7 @@ import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
 import { ServicesPage } from './ServicesPage';
-import { QuickCalculatorTab } from './QuickCalculatorTab';
+import QuickCalculatorTab from '../pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -294,12 +294,12 @@ const ChatInterface = () => {
       console.warn("No user context for session generation, using basic session ID");
       return `quote_session_${Date.now()}`;
     }
-    
-    const userPrefix = user.first_name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const betaId = user.beta_code_id;
+
+    const userPrefix = (user.name || 'user').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const userId = user.id.substring(0, 8);
     const timestamp = Date.now();
-    
-    return `quote_session_${userPrefix}_${betaId}_${timestamp}`;
+
+    return `quote_session_${userPrefix}_${userId}_${timestamp}`;
   };
   
   const sessionIdRef = useRef<string>(generateSessionId());
@@ -374,11 +374,10 @@ const ChatInterface = () => {
 
   // 🔄 AUTH TIMING FIX: Load customers when auth becomes available and dropdown is open
   useEffect(() => {
-    if (showCustomerDropdown && user?.tech_uuid && recentCustomerSessions.length === 0 && !isLoadingCustomers) {
-      console.log('🔄 Auth became available while dropdown open - loading customers');
+    if (showCustomerDropdown && user?.id && recentCustomerSessions.length === 0 && !isLoadingCustomers) {
       loadRecentCustomers();
     }
-  }, [showCustomerDropdown, user?.tech_uuid]);
+  }, [showCustomerDropdown, user?.id]);
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -392,17 +391,13 @@ const ChatInterface = () => {
   const sendUserMessageToMake = async (userMessageText: string) => {
     const debugPrefix = `🔗 WEBHOOK [${sessionIdRef.current.slice(-8)}]`;
     
-    console.group(`${debugPrefix} Starting message transmission`);
-    console.log('📤 Message:', userMessageText.substring(0, 100) + (userMessageText.length > 100 ? '...' : ''));
+    // Debug logging removed for production
     
     // STEP 1: Validate webhook URL configuration
     if (!MAKE_WEBHOOK_URL || MAKE_WEBHOOK_URL === 'YOUR_MAKE_WEBHOOK_URL') {
       console.error('❌ STEP 1 FAILED: Make.com webhook URL not configured');
-      console.log('🔍 Current value:', MAKE_WEBHOOK_URL || 'undefined');
-      console.groupEnd();
       throw new Error("Webhook URL not configured - check environment variables");
     }
-    console.log('✅ STEP 1: Webhook URL validated');
 
     // STEP 2: Validate URL format
     try {
@@ -410,7 +405,6 @@ const ChatInterface = () => {
       if (!webhookUrl.hostname.includes('make.com')) {
         console.warn('⚠️ STEP 2: Webhook URL does not appear to be a Make.com URL');
       }
-      console.log('✅ STEP 2: URL format valid -', webhookUrl.hostname);
     } catch (urlError) {
       console.error('❌ STEP 2 FAILED: Invalid webhook URL format');
       console.groupEnd();
@@ -423,11 +417,6 @@ const ChatInterface = () => {
       console.groupEnd();
       throw new Error("User not authenticated");
     }
-    console.log('✅ STEP 3: User authenticated -', {
-      name: user.first_name,
-      techId: user.tech_uuid.slice(-8),
-      betaId: user.beta_code_id
-    });
 
     // STEP 4: Prepare payload with validation
     const payload = {
@@ -435,24 +424,22 @@ const ChatInterface = () => {
       timestamp: new Date().toISOString(),
       sessionId: sessionIdRef.current,
       source: 'TradeSphere',
-      techId: user.tech_uuid,
-      firstName: user.first_name,
-      jobTitle: user.job_title,
-      betaCodeId: user.beta_code_id
+      userId: user.id,
+      userName: user.name,
+      userTitle: user.title
     };
-    
+
     // 🔧 CRITICAL: Validate ALL user context fields are present
-    const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'];
+    const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'userId', 'userName', 'userTitle'];
     const missingFields = requiredFields.filter(field => !payload[field] || payload[field] === '');
-    
+
     if (missingFields.length > 0) {
       console.error('❌ STEP 4 FAILED: Missing required payload fields -', missingFields);
       console.error('🔍 User object inspection:', {
         userExists: !!user,
-        techId: user?.tech_uuid || 'MISSING',
-        firstName: user?.first_name || 'MISSING',
-        jobTitle: user?.job_title || 'MISSING', 
-        betaCodeId: user?.beta_code_id || 'MISSING'
+        userId: user?.id || 'MISSING',
+        userName: user?.name || 'MISSING',
+        userTitle: user?.title || 'MISSING'
       });
       console.groupEnd();
       throw new Error(`Missing user context fields: ${missingFields.join(', ')}`);
@@ -470,10 +457,9 @@ const ChatInterface = () => {
       fieldCount: Object.keys(payload).length,
       fields: Object.keys(payload),
       userContext: {
-        techId: payload.techId?.slice(-8) || 'N/A',
-        firstName: payload.firstName,
-        jobTitle: payload.jobTitle,
-        betaCodeId: payload.betaCodeId
+        userId: payload.userId?.slice(-8) || 'N/A',
+        userName: payload.userName,
+        userTitle: payload.userTitle
       },
       messagePreview: payload.message.substring(0, 50) + (payload.message.length > 50 ? '...' : '')
     });
@@ -481,7 +467,6 @@ const ChatInterface = () => {
     // STEP 5: Performance tracking setup
     const startTime = performance.now();
     setProcessingStartTime(Date.now());
-    console.log('⏱️ STEP 5: Performance tracking started');
 
     // STEP 6: Create abort controller for timeout handling
     const controller = new AbortController();
@@ -491,7 +476,6 @@ const ChatInterface = () => {
     }, 15000); // 15 second timeout
 
     try {
-      console.log('🚀 STEP 7: Sending webhook request...');
       
       // 🔧 CRITICAL: Verify JSON serialization before transmission
       let payloadJson;
@@ -534,11 +518,6 @@ const ChatInterface = () => {
       
       // STEP 8: Response validation with detailed logging
       const webhookLatency = performance.now() - startTime;
-      console.log('📡 STEP 8: Response received -', {
-        status: response.status,
-        statusText: response.statusText,
-        latency: `${webhookLatency.toFixed(2)}ms`
-      });
 
       // Track performance metrics
       setPerformanceMetrics(prev => ({
@@ -574,24 +553,23 @@ const ChatInterface = () => {
       // STEP 9: Success logging with comprehensive details
       console.log('✅ STEP 9: Webhook transmission successful');
       console.log('📊 Final metrics:', {
-        techId: user.tech_uuid.slice(-8),
-        firstName: user.first_name,
+        userId: user.id.slice(-8),
+        userName: user.name,
         sessionId: sessionIdRef.current.slice(-12),
         webhookLatency: `${webhookLatency.toFixed(2)}ms`,
         payloadSize: `${payloadSize} bytes`,
         timestamp: new Date().toISOString().slice(11, 23) // Just time portion
       });
-      
+
       // 🔧 CRITICAL: Log final payload confirmation for Make.com debugging
       console.log('📤 PAYLOAD SENT TO MAKE.COM:', {
-        message: 'Payload verification - all 8 fields included',
+        message: 'Payload verification - all required fields included',
         actualFieldsSent: Object.keys(payload),
-        expectedFields: ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'],
+        expectedFields: ['message', 'timestamp', 'sessionId', 'source', 'userId', 'userName', 'userTitle'],
         userContextIncluded: {
-          techId: !!payload.techId,
-          firstName: !!payload.firstName,
-          jobTitle: !!payload.jobTitle, 
-          betaCodeId: !!payload.betaCodeId
+          userId: !!payload.userId,
+          userName: !!payload.userName,
+          userTitle: !!payload.userTitle
         },
         payloadJsonLength: payloadJson.length
       });
@@ -633,12 +611,7 @@ const ChatInterface = () => {
     
     // 🏢 PHASE 4: Log customer context when present
     if (customerDetails) {
-      console.log('👤 Customer Context:', {
-        name: customerDetails.name,
-        hasAddress: !!customerDetails.address,
-        hasEmail: !!customerDetails.email,
-        hasPhone: !!customerDetails.phone
-      });
+      // Customer context available for processing
     }
     
     // Validate user authentication
@@ -653,10 +626,10 @@ const ChatInterface = () => {
       timestamp: new Date().toISOString(),
       sessionId: sessionIdRef.current,
       source: 'TradeSphere_Native',
-      techId: user.tech_uuid,
-      firstName: user.first_name,
-      jobTitle: user.job_title,
-      betaCodeId: user.beta_code_id,
+      userId: user.id,
+      userName: user.name,
+      userTitle: user.title,
+      companyId: user.company_id, // 🎯 NEW: Company context for RLS
       // 🏢 PHASE 4: Include customer details when available
       customerName: customerDetails?.name || null,
       customerAddress: customerDetails?.address || null,
@@ -667,7 +640,6 @@ const ChatInterface = () => {
     const startTime = performance.now();
     
     try {
-      console.log('🚀 Sending to native pricing agent...');
       
       const response = await fetch(NATIVE_PRICING_AGENT_URL, {
         method: 'POST',
@@ -713,11 +685,8 @@ const ChatInterface = () => {
 
   // 🔧 SIMPLIFIED: Fixed polling with proper URL construction
   const pollForAiMessages = async () => {
-    const debugPrefix = `📡 POLL [${sessionIdRef.current.slice(-8)}]`;
-    
     // Quick validation before polling
     if (!sessionIdRef.current) {
-      console.warn(`${debugPrefix} Skipped - No session ID`);
       return;
     }
     
@@ -729,10 +698,7 @@ const ChatInterface = () => {
     const shouldDetailLog = isAdmin || (Date.now() - (processingStartTime || 0)) < 30000;
     
     if (shouldDetailLog) {
-      console.log(`${debugPrefix} Starting poll`, {
-        since: sinceParam.slice(11, 23), // Just time portion
-        url: currentApiUrl.slice(-20), // Just end of URL
-      });
+      // Starting poll request
     }
     
     try {
@@ -740,11 +706,7 @@ const ChatInterface = () => {
       const pollLatency = performance.now() - pollStart;
       
       if (!response.ok) {
-        console.error(`${debugPrefix} HTTP Error -`, {
-          status: response.status,
-          statusText: response.statusText,
-          latency: `${pollLatency.toFixed(2)}ms`
-        });
+        // HTTP error occurred
         
         // Don't spam errors for common issues
         if (response.status !== 404 && response.status !== 429) {
@@ -756,15 +718,11 @@ const ChatInterface = () => {
       const newAiMessages = await response.json();
       
       if (shouldDetailLog) {
-        console.log(`${debugPrefix} Response -`, {
-          messages: newAiMessages.length,
-          latency: `${pollLatency.toFixed(2)}ms`,
-          status: response.status
-        });
+        // Response received
       }
       
       if (newAiMessages.length > 0) {
-        console.log(`🎉 ${debugPrefix} New messages received -`, newAiMessages.length);
+        // New messages received
         
         // 🏢 ENTERPRISE: Calculate total response time
         if (processingStartTime) {
@@ -787,7 +745,7 @@ const ChatInterface = () => {
           }));
 
         if (processedMessages.length !== newAiMessages.length) {
-          console.warn(`${debugPrefix} Filtered out ${newAiMessages.length - processedMessages.length} invalid messages`);
+          // Some messages were filtered out
         }
 
         setMessages(prev => {
@@ -798,7 +756,7 @@ const ChatInterface = () => {
             setIsLoading(false);
             lastPollTimeRef.current = new Date();
             
-            console.log(`✅ ${debugPrefix} Added ${uniqueNewMessages.length} new messages to chat`);
+            // Added new messages to chat
             
             // 🔄 DUAL TESTING: Check completion based on mode
             if (uniqueNewMessages.some(msg => msg.sender === 'ai')) {
@@ -818,13 +776,11 @@ const ChatInterface = () => {
                 );
                 
                 if (hasMakeResponse && hasNativeResponse) {
-                  console.log('🎯 DUAL TESTING: Both responses received - returning to idle');
                   setIsLoading(false);
                 }
               } else {
                 // Single mode: Return to idle after ANY AI response
                 if (recentAIMessages.length > 0) {
-                  console.log('📱 SINGLE MODE: Response received - returning to idle');
                   setIsLoading(false);
                 }
               }
@@ -832,14 +788,14 @@ const ChatInterface = () => {
             
             return [...prev, ...uniqueNewMessages];
           } else {
-            console.log(`🔄 ${debugPrefix} No new unique messages (${processedMessages.length} already exist)`);
+            // No new unique messages
             return prev;
           }
         });
       } else {
         // Only log no messages if we're in detailed logging mode
         if (shouldDetailLog && pollLatency > 100) {
-          console.log(`${debugPrefix} No new messages (${pollLatency.toFixed(2)}ms)`);
+          // No new messages found
         }
       }
       
@@ -847,11 +803,7 @@ const ChatInterface = () => {
       const pollLatency = performance.now() - pollStart;
       
       // Enhanced error logging
-      console.error(`❌ ${debugPrefix} Polling failed -`, {
-        error: error.message,
-        latency: `${pollLatency.toFixed(2)}ms`,
-        timestamp: new Date().toISOString().slice(11, 23)
-      });
+      console.error('❌ Polling failed:', error.message);
       
       // Network connectivity check for admins
       if (isAdmin && error.message?.includes('fetch')) {
@@ -863,14 +815,11 @@ const ChatInterface = () => {
 
   // 🔍 DEBUG: Simple polling rollback to isolate 400 error
   useEffect(() => {
-    console.log('🔍 DEBUG: Starting simple 2-second polling');
     const polling = setInterval(() => {
-      console.log('🔍 DEBUG: Polling attempt...');
       pollForAiMessages();
     }, 2000);
-    
+
     return () => {
-      console.log('🔍 DEBUG: Cleaning up polling interval');
       clearInterval(polling);
     };
   }, []); // Simplified dependency array
@@ -904,22 +853,22 @@ const ChatInterface = () => {
 
   // ORIGINAL: User context initialization
   useEffect(() => {
-    if (user && !sessionIdRef.current.includes(user.first_name.toLowerCase())) {
+    if (user && user.name && !sessionIdRef.current.includes(user.name.toLowerCase())) {
       handleRefreshChat();
     }
   }, [user]);
 
   // ORIGINAL: Personalized welcome message
   useEffect(() => {
-    if (user && messages.length === 1 && !messages[0].text.includes(user.first_name)) {
+    if (user && user.name && messages.length === 1 && !messages[0].text.includes(user.name)) {
+      const capitalizedName = user.name.charAt(0).toUpperCase() + user.name.slice(1).toLowerCase();
       setMessages([{
         id: '1',
-        text: `Hey ${user.first_name.charAt(0).toUpperCase() + user.first_name.slice(1).toLowerCase()}, what's the customer scoop?`,
+        text: `Hey ${capitalizedName}, what's the customer scoop?`,
         sender: 'ai',
         timestamp: new Date(),
         sessionId: sessionIdRef.current
       }]);
-      console.log('✅ Personalized initial welcome for:', user.first_name);
     }
   }, [user]);
 
@@ -944,13 +893,11 @@ const ChatInterface = () => {
         const group = grouped[i];
         if (group.type === 'dual' && group.dual) {
           if (isMake && !group.dual.make && group.dual.waitingFor === 'make') {
-            console.log('✅ SLOT FILLING: Make.com response filled waiting slot');
             group.dual.make = newMessage;
             group.dual.waitingFor = null; // Both slots now filled
             return true; // Successfully filled existing slot
           }
           if (isNative && !group.dual.native && group.dual.waitingFor === 'native') {
-            console.log('✅ SLOT FILLING: Native response filled waiting slot');
             group.dual.native = newMessage;
             group.dual.waitingFor = null; // Both slots now filled
             return true; // Successfully filled existing slot
@@ -1038,8 +985,8 @@ const ChatInterface = () => {
     }
 
     sessionIdRef.current = generateSessionId();
-    const personalizedWelcome = user.first_name 
-      ? `Hey ${user.first_name.charAt(0).toUpperCase() + user.first_name.slice(1).toLowerCase()}, what's the customer scoop?`
+    const personalizedWelcome = user.name
+      ? `Hey ${user.name.charAt(0).toUpperCase() + user.name.slice(1).toLowerCase()}, what's the customer scoop?`
       : welcomeMessage;
 
     setMessages([{
@@ -1054,12 +1001,6 @@ const ChatInterface = () => {
     setInputText('');
     lastPollTimeRef.current = new Date();
 
-    console.log('🔄 Chat refreshed with new user session:', sessionIdRef.current);
-    console.log('👤 User context:', { 
-      name: user.first_name, 
-      betaId: user.beta_code_id,
-      techId: user.tech_uuid 
-    });
   };
 
   const handleSendMessage = async () => {
@@ -1093,7 +1034,6 @@ const ChatInterface = () => {
 
     try {
       if (DUAL_TESTING_ENABLED) {
-        console.log('🔄 DUAL TESTING: Sending to both Make.com and Native Pipeline');
         
         // Send to both endpoints simultaneously
         const promises = [
@@ -1129,11 +1069,9 @@ const ChatInterface = () => {
         
       } else if (USE_NATIVE_PRIMARY) {
         // 🚀 PHASE 1: Native-first pipeline (new default)
-        console.log('🚀 NATIVE PRIMARY: Using native pipeline as primary');
         await sendUserMessageToNative(userMessageText);
       } else {
         // Fallback to Make.com for backward compatibility
-        console.log('🔗 MAKE.COM FALLBACK: Using Make.com pipeline');
         await sendUserMessageToMake(userMessageText);
       }
     } catch (error) {
@@ -1192,7 +1130,6 @@ const ChatInterface = () => {
   useEffect(() => {
     // Clean up voice state when speech recognition stops listening
     if (!listening && isRecording) {
-      console.log('🎤 Speech recognition stopped - cleaning up state');
       setIsRecording(false);
       setVoiceError(null);
       
@@ -1253,7 +1190,6 @@ const ChatInterface = () => {
         
         // Restart pause detection
         const pauseTimer = setTimeout(() => {
-          console.log('🎤 Auto-stopping voice input after 8s pause');
           try {
             SpeechRecognition.stopListening();
           } catch (error) {
@@ -1307,11 +1243,9 @@ const ChatInterface = () => {
       }
       setIsRecording(false);
       
-      console.log('🎤 Voice recording stopped manually');
       
       // If we have transcript text, let user edit it
       if (transcript.trim()) {
-        console.log('🎤 Transcript available for editing:', transcript.length, 'characters');
       }
     } else {
       // Start recording with enhanced pause detection
@@ -1336,7 +1270,6 @@ const ChatInterface = () => {
         
         // Set up fallback timeout (30 seconds)
         const fallbackTimeout = setTimeout(() => {
-          console.log('🎤 Auto-stopping voice input after 30s fallback timeout');
           try {
             SpeechRecognition.stopListening();
           } catch (error) {
@@ -1356,8 +1289,7 @@ const ChatInterface = () => {
           }
           
           const pauseTimer = setTimeout(() => {
-            console.log('🎤 Auto-stopping voice input after 8s pause');
-            try {
+              try {
               SpeechRecognition.stopListening();
             } catch (error) {
               console.warn('🎤 Error stopping speech recognition in pause detection:', error);
@@ -1452,7 +1384,7 @@ const ChatInterface = () => {
 
   const handleFeedbackSubmit = async (feedbackText: string) => {
     try {
-      await sendFeedback(user?.first_name || 'Anonymous', feedbackText);
+      await sendFeedback(user?.name || 'Anonymous', feedbackText);
       setShowFeedbackPopup(false);
     } catch (error) {
       console.error("Failed to send feedback from chat interface", error);
@@ -1461,8 +1393,8 @@ const ChatInterface = () => {
 
   // Handle customer loading from CustomersTab
   const handleLoadCustomer = async (customer: any, historicalMessages: Message[]) => {
-    if (!user?.tech_uuid || !customer.customer_name) {
-      console.error('Cannot load customer: missing tech_uuid or customer name');
+    if (!user?.id || !customer.customer_name) {
+      console.error('Cannot load customer: missing user id or customer name');
       return;
     }
 
@@ -1473,7 +1405,7 @@ const ChatInterface = () => {
       // Load customer context using the service
       const response = await customerContextService.loadCustomerContext(
         customer.customer_name,
-        user.tech_uuid,
+        user.id,
         customer.session_id
       );
 
@@ -1494,7 +1426,6 @@ const ChatInterface = () => {
         const isNewCustomerLoad = !previousCustomerName;
 
         if (isCustomerSwitch || isNewCustomerLoad) {
-          console.log(`🔄 Loading customer ${customer.customer_name} - resetting chat first`);
           setMessages([]); // Reset chat first
         }
 
@@ -1531,7 +1462,6 @@ const ChatInterface = () => {
           setShowCustomerForm(false);
         }
 
-        console.log(`✅ Customer context loaded: ${customer.customer_name} (${response.conversationHistory.length} messages)`);
       } else {
         console.error('Failed to load customer context:', response.error);
         // Could show error message to user here
@@ -1549,21 +1479,16 @@ const ChatInterface = () => {
   // 🏢 PHASE 5: Load recent customer sessions using existing infrastructure
   const loadRecentCustomers = async () => {
     // Enhanced authentication and state guards
-    if (!user?.tech_uuid || isLoadingCustomers) {
-      console.log('⚠️ Skipping customer load - auth not ready or already loading:', {
-        hasTechUuid: !!user?.tech_uuid,
-        isLoading: isLoadingCustomers
-      });
+    if (!user?.id || isLoadingCustomers) {
       return;
     }
 
     setIsLoadingCustomers(true);
-    console.log('👤 Loading recent customers for tech:', user.tech_uuid);
-    
+
     try {
       // Use existing chat-messages endpoint with customer lookup flag
       const response = await fetch(
-        `/.netlify/functions/chat-messages?recent_customers=true&tech_id=${user.tech_uuid}`,
+        `/.netlify/functions/chat-messages?recent_customers=true&user_id=${user.id}`,
         {
           method: 'GET',
           headers: {
@@ -1581,7 +1506,6 @@ const ChatInterface = () => {
       }
       
       const customers = await response.json();
-      console.log('👤 Recent customers loaded:', customers.length);
       
       setRecentCustomerSessions(customers);
       
@@ -1595,7 +1519,6 @@ const ChatInterface = () => {
 
   // 🏢 PHASE 5: Handle customer selection from recent customers
   const handleCustomerSelect = async (customer: any) => {
-    console.log('👤 Selected customer:', customer.customerName);
     
     setCustomerDetails({
       name: customer.customerName || '',
@@ -1615,7 +1538,7 @@ const ChatInterface = () => {
 
   // 🔄 PHASE 2D: Preload customer conversation context with smooth UX
   const preloadCustomerContext = async (customerName: string, sessionId?: string) => {
-    if (!user?.tech_uuid) return;
+    if (!user?.id) return;
 
     try {
       setIsPreloadingContext(true);
@@ -1630,11 +1553,10 @@ const ChatInterface = () => {
         });
       }, 50);
 
-      console.log('🔄 Preloading customer context:', { customerName, sessionId });
 
       // Build query URL
       const queryParams = new URLSearchParams({
-        tech_id: user.tech_uuid
+        user_id: user.id
       });
       if (sessionId) {
         queryParams.set('session_id', sessionId);
@@ -1700,7 +1622,6 @@ const ChatInterface = () => {
           }
         }, 100);
 
-        console.log('✅ Conversation history populated:', previousMessages.length, 'messages');
       }
 
       // Update customer details if available
@@ -1741,7 +1662,6 @@ const ChatInterface = () => {
     }
 
     try {
-      console.log('👤 Saving customer details for session:', sessionIdRef.current);
       
       // Update all VC Usage records for this session
       const response = await fetch('/.netlify/functions/customer-update', {
@@ -1763,7 +1683,6 @@ const ChatInterface = () => {
       }
 
       const result = await response.json();
-      console.log('✅ Customer details updated for entire session:', result);
       
       setShowCustomerDropdown(false);
       
@@ -1779,15 +1698,12 @@ const ChatInterface = () => {
     
     setIsRunningDiagnostics(true);
     console.group('🔬 ADMIN DIAGNOSTICS: Starting system health check');
-    console.log('👤 Initiated by:', user?.first_name);
-    console.log('⏰ Started at:', new Date().toISOString());
     
     try {
       const results = await runBackendDiagnostics();
       setDiagnosticResults(results);
       logDiagnosticResults(results);
       
-      console.log('✅ DIAGNOSTICS COMPLETE: Results saved to state');
       console.groupEnd();
     } catch (error) {
       console.error('❌ DIAGNOSTICS FAILED:', error);
@@ -1871,11 +1787,8 @@ const ChatInterface = () => {
                     const newState = !showCustomerDropdown;
                     setShowCustomerDropdown(newState);
                     // 🏢 PHASE 5: Load recent customers when dropdown opens (with auth timing protection)
-                    if (newState && recentCustomerSessions.length === 0 && user?.tech_uuid) {
-                      console.log('🔄 Customer dropdown opened - loading customers with auth check');
+                    if (newState && recentCustomerSessions.length === 0 && user?.id) {
                       loadRecentCustomers();
-                    } else if (newState && !user?.tech_uuid) {
-                      console.log('⚠️ Customer dropdown opened but auth not ready - skipping load');
                     }
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
@@ -1907,7 +1820,6 @@ const ChatInterface = () => {
                         }));
                         setPreviousCustomerName(null); // Clear tracking
                         handleRefreshChat(); // Reset chat when ejecting customer
-                        console.log('🗑️ Customer cleared via badge X button');
                       }}
                       className="ml-2 p-1 rounded-full transition-colors hover:bg-red-100"
                       style={{ color: '#EF4444' }}
@@ -2204,10 +2116,10 @@ const ChatInterface = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>
-                    {user?.first_name || 'User'}
+                    {user?.name || 'User'}
                   </p>
                   <p className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                    {user?.job_title || 'Technician'}
+                    {user?.title || 'Technician'}
                   </p>
                 </div>
               </div>
@@ -2503,7 +2415,7 @@ const ChatInterface = () => {
         isOpen={showNotesPopup}
         onClose={() => setShowNotesPopup(false)}
         isAdmin={isAdmin}
-        userName={user?.first_name || 'Anonymous'}
+        userName={user?.name || 'Anonymous'}
       />
 
 
@@ -2551,7 +2463,7 @@ const ChatInterface = () => {
         isOpen={showFeedbackPopup}
         onClose={() => setShowFeedbackPopup(false)}
         onSubmit={handleFeedbackSubmit}
-        userName={user?.first_name || 'Anonymous'}
+        userName={user?.name || 'Anonymous'}
       />
 
       {/* iOS Voice Guidance Modal - TEMPORARILY HIDDEN */}

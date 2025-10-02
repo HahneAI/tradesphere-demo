@@ -10,7 +10,7 @@ export const ServicesPage: React.FC = () => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
-  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings();
+  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id);
   
   const [filter, setFilter] = useState('');
   const [editingCell, setEditingCell] = useState<{ serviceId: string, setting: string } | null>(null);

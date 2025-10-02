@@ -54,7 +54,7 @@ export const useCustomerContext = () => {
     customerName: string,
     sessionId?: string
   ): Promise<void> => {
-    if (!user?.tech_uuid) {
+    if (!user?.id) {
       setState(prev => ({ ...prev, error: 'User not authenticated' }));
       return;
     }
@@ -67,9 +67,9 @@ export const useCustomerContext = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setState(prev => ({ 
-      ...prev, 
-      isLoading: true, 
+    setState(prev => ({
+      ...prev,
+      isLoading: true,
       error: null,
       isContextLoaded: false
     }));
@@ -77,7 +77,7 @@ export const useCustomerContext = () => {
     try {
       // Get customer details using the service
       const { customer, error: customerError } = await customerService.getCustomerDetails(
-        user.tech_uuid,
+        user.id,
         customerName,
         sessionId
       );
@@ -89,7 +89,7 @@ export const useCustomerContext = () => {
       // Get conversation history
       const { conversations, error: historyError } = await customerService.getCustomerConversationHistory(
         customerName,
-        user.tech_uuid,
+        user.id,
         sessionId,
         2
       );
@@ -141,7 +141,7 @@ export const useCustomerContext = () => {
         isContextLoaded: false
       }));
     }
-  }, [user?.tech_uuid]);
+  }, [user?.id]);
 
   /**
    * Convert conversation history to chat messages

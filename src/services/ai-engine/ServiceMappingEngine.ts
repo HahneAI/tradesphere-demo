@@ -5,17 +5,13 @@
  * Maps natural language to exact Google Sheets service names and quantities
  */
 
-import { 
-  SERVICE_DATABASE, 
-  SERVICE_SYNONYMS, 
-  UNIT_CONVERSIONS,
-  ServiceConfig,
-  findServiceBySynonym,
-  getServiceByName,
-  isSpecialService
-} from '../../config/service-database';
+import {
+  SERVICE_DATABASE,
+  SERVICE_SYNONYMS,
+  ServiceConfig
+} from '../../pricing-system/core/services-database/service-database';
 import { DimensionCalculator } from '../../utils/dimension-calculator';
-import { GPTServiceSplitter, CategorySplitResult } from './GPTServiceSplitter';
+import { GPTServiceSplitter, CategorySplitResult } from '../../pricing-system/ai-engine/text-processing/GPTServiceSplitter';
 
 export interface RecognizedService {
   serviceName: string;
@@ -37,12 +33,34 @@ export interface ServiceMappingResult {
   clarificationQuestions: string[];
 }
 
+// Helper functions to work with SERVICE_DATABASE
+function getServiceByName(serviceName: string): ServiceConfig | undefined {
+  return SERVICE_DATABASE[serviceName];
+}
+
+function isSpecialService(serviceName: string): boolean {
+  const service = SERVICE_DATABASE[serviceName];
+  return service?.special === true || service?.masterFormula === true;
+}
+
+function findServiceBySynonym(searchTerm: string): string | null {
+  const lowerSearch = searchTerm.toLowerCase();
+
+  for (const [serviceName, synonyms] of Object.entries(SERVICE_SYNONYMS)) {
+    if (synonyms.some(synonym => synonym.toLowerCase().includes(lowerSearch) || lowerSearch.includes(synonym.toLowerCase()))) {
+      return serviceName;
+    }
+  }
+
+  return null;
+}
+
 export class ServiceMappingEngine {
   private static readonly CONFIDENCE_THRESHOLD = 0.7;
   private static readonly QUANTITY_PATTERNS = [
-    // Number with units
-    /(\d+(?:\.\d+)?)\s*(sq\s?ft|square\s?f(?:oo|ee)t|sqft|linear\s?f(?:oo|ee)t|lin\s?ft|ft|feet|yard|yards|cubic\s?yard|cu\s?yd|each|spouts?|zones?)/gi,
-    
+    // Enhanced number with units - comprehensive square footage variations
+    /(\d+(?:\.\d+)?)\s*(?:sq\.?\s*f(?:oo|ee)?t\.?|square\s*f(?:oo|ee)?t\.?|sqft\.?|sq\.?\s*ft\.?|square\s*foot|square\s*feet|sq\s*feet|linear\s?f(?:oo|ee)t|lin\s?ft|ft|feet|yard|yards|cubic\s?yard|cu\s?yd|each|spouts?|zones?)/gi,
+
     // Just numbers (assume default unit for service)
     /(\d+(?:\.\d+)?)\s*(?=\s|$|[a-z])/gi
   ];

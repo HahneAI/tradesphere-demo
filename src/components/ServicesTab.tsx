@@ -55,11 +55,11 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({ isOpen, onClose }) => 
             {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto p-6">
               {/* Services Database View */}
-              <ServicesDatabaseView 
+              <ServicesDatabaseView
                 visualConfig={visualConfig}
                 theme={theme}
-                isAdmin={user?.is_admin || false}
-                userName={user?.first_name || 'User'}
+                isAdmin={user?.is_head_user || user?.is_admin || false}
+                userName={user?.name || 'User'}
               />
             </div>
           </div>

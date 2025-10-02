@@ -59,13 +59,13 @@ export const handler = async (event, context) => {
       };
     }
 
-    const { response, sessionId, timestamp, techId } = requestBody;
-    
+    const { response, sessionId, timestamp, userId } = requestBody;
+
     console.log(`🚨 [${requestId}] Extracted data:`, {
       hasResponse: !!response,
       responseLength: response?.length || 0,
       sessionId: sessionId || 'MISSING',
-      techId: techId || 'MISSING',
+      userId: userId || 'MISSING',
       timestamp: timestamp || 'MISSING'
     });
     
@@ -123,20 +123,20 @@ export const handler = async (event, context) => {
       }
     }
     
-    console.log(`🚨 [${requestId}] Final response preview:`, { 
+    console.log(`🚨 [${requestId}] Final response preview:`, {
       responsePreview: decodedResponse ? decodedResponse.substring(0, 200) + '...' : 'No response',
       finalLength: decodedResponse?.length,
-      sessionId, 
-      techId 
+      sessionId,
+      userId
     });
-    
+
     // Store message using shared storage service
     console.log(`🚨 [${requestId}] Starting database storage...`);
     try {
       await MessageStorageService.storeAIResponse(
-        { 
-          sessionId, 
-          techId 
+        {
+          sessionId,
+          userId 
         },
         decodedResponse,
         {

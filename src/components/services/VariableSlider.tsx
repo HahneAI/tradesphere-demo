@@ -1,12 +1,13 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
-import type { PaverPatioVariable } from '../../types/paverPatioFormula';
+import type { PaverPatioVariable } from '../../pricing-system/core/master-formula/formula-types';
 
 interface VariableSliderProps {
   variable: PaverPatioVariable;
   value: number;
   onChange: (value: number) => void;
   visualConfig: any;
+  categoryColor?: string;
   disabled?: boolean;
 }
 
@@ -15,8 +16,10 @@ export const VariableSlider: React.FC<VariableSliderProps> = ({
   value,
   onChange,
   visualConfig,
+  categoryColor,
   disabled = false,
 }) => {
+  const accentColor = categoryColor || visualConfig.colors.primary;
   const min = variable.min || 0;
   const max = variable.max || 2;
   const step = variable.step || 0.1;
@@ -65,10 +68,10 @@ export const VariableSlider: React.FC<VariableSliderProps> = ({
         <span className="text-sm" style={{ color: visualConfig.colors.text.primary }}>
           Current Value:
         </span>
-        <span 
+        <span
           className="text-sm font-mono px-2 py-1 rounded"
-          style={{ 
-            backgroundColor: visualConfig.colors.primary,
+          style={{
+            backgroundColor: accentColor,
             color: visualConfig.colors.text.onPrimary,
           }}
         >
@@ -91,7 +94,7 @@ export const VariableSlider: React.FC<VariableSliderProps> = ({
             ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
           `}
           style={{
-            background: `linear-gradient(to right, ${visualConfig.colors.primary} 0%, ${visualConfig.colors.primary} ${percentage}%, ${visualConfig.colors.text.secondary}40 ${percentage}%, ${visualConfig.colors.text.secondary}40 100%)`,
+            background: `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${percentage}%, ${visualConfig.colors.text.secondary}40 ${percentage}%, ${visualConfig.colors.text.secondary}40 100%)`,
           }}
         />
         
@@ -126,12 +129,12 @@ export const VariableSlider: React.FC<VariableSliderProps> = ({
                   ${isActive ? 'ring-2' : ''}
                 `}
                 style={{
-                  backgroundColor: isActive 
-                    ? visualConfig.colors.primary + '20' 
+                  backgroundColor: isActive
+                    ? accentColor + '20'
                     : visualConfig.colors.background,
                   borderColor: visualConfig.colors.text.secondary + '20',
                   color: visualConfig.colors.text.primary,
-                  ringColor: visualConfig.colors.primary,
+                  ringColor: accentColor,
                 }}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -143,8 +146,8 @@ export const VariableSlider: React.FC<VariableSliderProps> = ({
                 </p>
                 {isActive && (
                   <div className="flex items-center mt-1">
-                    <Icons.Check className="h-3 w-3 mr-1" style={{ color: visualConfig.colors.primary }} />
-                    <span className="text-xs" style={{ color: visualConfig.colors.primary }}>
+                    <Icons.Check className="h-3 w-3 mr-1" style={{ color: accentColor }} />
+                    <span className="text-xs" style={{ color: accentColor }}>
                       Current
                     </span>
                   </div>

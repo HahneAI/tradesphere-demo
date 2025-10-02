@@ -6,16 +6,39 @@
  */
 
 // ES6 imports for TypeScript services - esbuild will bundle these
-import { ParameterCollectorService } from '../../src/services/ai-engine/ParameterCollectorService.ts';
-import { createPricingCalculator } from '../../src/services/ai-engine/PricingCalculatorService.ts';
-import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPersonalityService.ts';
-import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.ts';
-import { GPTServiceSplitter } from '../../src/services/ai-engine/GPTServiceSplitter.ts';
-import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.ts';
-import { MessageStorageService } from '../../src/utils/message-storage.ts';
+import { ParameterCollectorService } from '../../src/pricing-system/ai-engine/parameter-collection/ParameterCollectorService.js';
+import { createPricingCalculator } from '../../src/pricing-system/ai-engine/pricing-calculation/PricingCalculatorService.js';
+import { SalesPersonalityService } from '../../src/services/ai-engine/SalesPersonalityService.js';
+import { ConversationContextService } from '../../src/services/ai-engine/ConversationContextService.js';
+import { GPTServiceSplitter } from '../../src/pricing-system/ai-engine/text-processing/GPTServiceSplitter.js';
+import { MainChatAgentService } from '../../src/services/ai-engine/MainChatAgentService.js';
+import { MessageStorageService } from '../../src/utils/message-storage.js';
 
 export const handler = async (event, context) => {
   const startTime = Date.now();
+
+  // ADD THIS DIAGNOSTIC BLOCK
+  console.log('🔍 DIAGNOSTIC: Function started');
+  console.log('🔍 Environment check:', {
+    hasSupabaseUrl: !!process.env.SUPABASE_URL,
+    hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+    hasOpenAI: !!process.env.VITE_OPENAI_API_KEY_MINI,
+    nodeVersion: process.version
+  });
+
+  // Test module imports
+  try {
+    console.log('🔍 DIAGNOSTIC: Testing module imports...');
+    console.log('  - ParameterCollectorService available:', typeof ParameterCollectorService);
+    console.log('  - createPricingCalculator available:', typeof createPricingCalculator);
+    console.log('  - SalesPersonalityService available:', typeof SalesPersonalityService);
+    console.log('  - MainChatAgentService available:', typeof MainChatAgentService);
+    console.log('✅ DIAGNOSTIC: All modules imported successfully');
+  } catch (importError) {
+    console.error('❌ DIAGNOSTIC: Module import error:', importError.message);
+    console.error('❌ DIAGNOSTIC: Import stack:', importError.stack);
+    throw new Error(`Module import failed: ${importError.message}`);
+  }
 
   // CORS headers
   const corsHeaders = {
@@ -49,7 +72,7 @@ export const handler = async (event, context) => {
 
     // Parse and validate payload
     const payload = parseWebhookPayload(event.body);
-    console.log(`📥 Request: "${payload.message}" from ${payload.firstName} (${payload.sessionId})`);
+    console.log(`📥 Request: "${payload.message}" from ${payload.userName} (${payload.sessionId})`);
 
     // STEP 1A: GPT Service Splitting
     console.log('🤖 STEP 1A: GPT SERVICE SPLITTING');
@@ -74,6 +97,24 @@ export const handler = async (event, context) => {
     console.log(`✅ Parameter Collection: ${parameterCollectionTime}ms`);
     console.log(`📊 Services: ${collectionResult.services.length} complete + ${collectionResult.incompleteServices.length} incomplete`);
 
+    // 🐛 DEBUG: Parameter Collection Results
+    console.log('🔍 [DEBUG] ParameterCollectorService Results:', {
+      status: collectionResult.status,
+      servicesCount: collectionResult.services.length,
+      firstService: collectionResult.services[0] ? {
+        serviceName: collectionResult.services[0].serviceName,
+        quantity: collectionResult.services[0].quantity,
+        hasSpecialRequirements: !!collectionResult.services[0].specialRequirements,
+        paverPatioValuesPresent: !!collectionResult.services[0].specialRequirements?.paverPatioValues
+      } : null
+    });
+
+    if (collectionResult.services[0]?.specialRequirements?.paverPatioValues) {
+      console.log('🔍 [DEBUG] PaverPatioValues Being Sent to Calculator:',
+        JSON.stringify(collectionResult.services[0].specialRequirements.paverPatioValues, null, 2)
+      );
+    }
+
     // STEP 2: Pricing Calculation (only for complete services)
     let pricingResult = undefined;
     let pricingCalculationTime = 0;
@@ -84,12 +125,12 @@ export const handler = async (event, context) => {
       
       const pricingCalculator = createPricingCalculator();
       const hasIrrigation = collectionResult.services.some(s => s.serviceName.includes('Irrigation'));
-      
+
       if (hasIrrigation) {
-        console.log(`💧 Using irrigation-specific pricing for Beta Code ${payload.betaCodeId}`);
-        pricingResult = await pricingCalculator.calculateIrrigationPricing(collectionResult.services, payload.betaCodeId);
+        console.log(`💧 Using irrigation-specific pricing for Company ${payload.companyId}`);
+        pricingResult = await pricingCalculator.calculateIrrigationPricing(collectionResult.services, payload.companyId);
       } else {
-        pricingResult = await pricingCalculator.calculatePricing(collectionResult.services, payload.betaCodeId);
+        pricingResult = await pricingCalculator.calculatePricing(collectionResult.services, payload.companyId);
       }
 
       pricingCalculationTime = Date.now() - calculationStart;
@@ -111,7 +152,7 @@ export const handler = async (event, context) => {
     if (payload.customerName) {
       console.log('📋 Querying previous interaction context for customer:', payload.customerName);
       try {
-        previousContext = await queryCustomerContext(payload.customerName, payload.techId);
+        previousContext = await queryCustomerContext(payload.customerName, payload.userId);
         if (previousContext) {
           console.log('📋 Previous context found:', {
             summary: previousContext.interaction_summary?.substring(0, 100) + '...',
@@ -126,10 +167,10 @@ export const handler = async (event, context) => {
     const chatAgentInput = {
       originalMessage: payload.message,
       sessionId: payload.sessionId,
-      firstName: payload.firstName,
+      userName: payload.userName,
       collectionResult,
       pricingResult,
-      betaCodeId: payload.betaCodeId,
+      userId: payload.userId,  // User-specific context (auth.uid())
       // 📋 PHASE 2C: Include previous interaction context
       customerName: payload.customerName,
       previousContext: previousContext
@@ -252,7 +293,7 @@ export const handler = async (event, context) => {
       // 3. 🧠 PHASE 2B: Trigger dedicated summary function (synchronous, waits for completion)
       console.log('🚀 SUMMARY_TRIGGER: Calling dedicated generate-interaction-summary function');
       try {
-        await triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.firstName, payload.message, response.response, previousContext);
+        await triggerSummaryFunction(payload.sessionId, interactionNumber, payload.customerName, payload.userName, payload.message, response.response, previousContext);
         console.log('✅ SUMMARY_TRIGGER: Summary function completed successfully');
       } catch (error) {
         console.error('❌ SUMMARY_TRIGGER: Summary trigger failed:', error.message);
@@ -265,7 +306,7 @@ export const handler = async (event, context) => {
       
       // Try exact chat-response.js format as fallback
       console.log('🔄 TRYING EXACT CHAT-RESPONSE.JS FORMAT...');
-      const fallbackResult = await storeExactChatResponseFormat(payload.sessionId, response.response, payload.techId);
+      const fallbackResult = await storeExactChatResponseFormat(payload.sessionId, response.response, payload.userId);
       console.log('🔄 FALLBACK RESULT:', fallbackResult ? 'SUCCESS' : 'FAILED');
     }
 
@@ -326,8 +367,8 @@ function parseWebhookPayload(body) {
   }
 
   // Validate required fields
-  const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'techId', 'firstName', 'jobTitle', 'betaCodeId'];
-  
+  const requiredFields = ['message', 'timestamp', 'sessionId', 'source', 'userId', 'userName', 'companyId'];
+
   for (const field of requiredFields) {
     if (!payload[field]) {
       throw new Error(`Missing required field: ${field}`);
@@ -339,10 +380,9 @@ function parseWebhookPayload(body) {
     timestamp: payload.timestamp,
     sessionId: payload.sessionId,
     source: payload.source,
-    techId: payload.techId,
-    firstName: payload.firstName,
-    jobTitle: payload.jobTitle,
-    betaCodeId: parseInt(payload.betaCodeId),
+    userId: payload.userId,           // ✅ auth.uid() from Supabase Auth
+    userName: payload.userName,       // ✅ user.name from users table
+    companyId: payload.companyId,     // ✅ user.company_id for RLS
     // 🏢 PHASE 2: Optional customer fields (backward compatible)
     customerName: payload.customerName || null,
     customerAddress: payload.customerAddress || null,
@@ -543,19 +583,19 @@ async function triggerSummaryFunction(sessionId, interactionNumber, customerName
  * Store using EXACT chat-response.js format and code
  * Copied directly from working chat-response.js implementation
  */
-async function storeExactChatResponseFormat(sessionId, responseText, techId) {
+async function storeExactChatResponseFormat(sessionId, responseText, userId) {
   console.log('🔄 EXACT CHAT-RESPONSE FORMAT: Starting...');
-  
+
   try {
     // Clean the response exactly like chat-response.js does
     let decodedResponse = responseText;
-    
+
     // Limit response size to prevent errors
     if (decodedResponse && decodedResponse.length > 2000) {
       decodedResponse = decodedResponse.substring(0, 1997) + '...';
       console.log('⚠️ Response truncated due to length:', decodedResponse.length);
     }
-    
+
     // Clean any problematic characters
     if (decodedResponse) {
       decodedResponse = decodedResponse.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -575,7 +615,7 @@ async function storeExactChatResponseFormat(sessionId, responseText, techId) {
           session_id: sessionId,
           message_text: decodedResponse,
           sender: 'ai',
-          tech_id: techId,
+          tech_id: userId,
           created_at: new Date().toISOString(),
           message_source: 'native_pricing_agent'
         })
@@ -619,16 +659,16 @@ async function storeExactChatResponseFormat(sessionId, responseText, techId) {
 /**
  * 📋 PHASE 2C: Query customer's last interaction for context continuity
  */
-async function queryCustomerContext(customerName, techId) {
+async function queryCustomerContext(customerName, userId) {
   try {
     console.log('📋 CUSTOMER CONTEXT: Querying last interaction for:', customerName);
-    
+
     const supabaseUrl = 'https://acdudelebwrzewxqmwnc.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjZHVkZWxlYndyemV3eHFtd25jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NzUxNTcsImV4cCI6MjA2NTQ1MTE1N30.HnxT5Z9EcIi4otNryHobsQCN6x5M43T0hvKMF6Pxx_c';
-    
+
     const queryParams = new URLSearchParams({
       'customer_name': `eq.${customerName}`,
-      'user_tech_id': `eq.${techId}`,
+      'user_tech_id': `eq.${userId}`,
       'order': 'interaction_number.desc',
       'limit': '1',
       'select': 'interaction_summary,user_input,ai_response,created_at,interaction_number'

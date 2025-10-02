@@ -77,13 +77,13 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                 className="font-semibold"
                 style={{ color: visualConfig.colors.text.primary }}
               >
-                {user?.first_name || 'User'}
+                {user?.name || 'User'}
               </p>
               <p
                 className="text-xs"
                 style={{ color: visualConfig.colors.text.secondary }}
               >
-                {user?.job_title || 'Technician'}
+                {user?.title || 'Technician'}
               </p>
             </div>
           </div>

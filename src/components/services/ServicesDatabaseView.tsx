@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as Icons from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { useServiceBaseSettings } from '../../stores/serviceBaseSettingsStore';
 import { ServiceRecordCard } from './ServiceRecordCard';
 
@@ -16,7 +17,8 @@ export const ServicesDatabaseView: React.FC<ServicesDatabaseViewProps> = ({
   isAdmin,
   userName = 'User'
 }) => {
-  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings();
+  const { user } = useAuth();
+  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id);
   const [searchTerm, setSearchTerm] = useState('');
 
   if (isLoading) {

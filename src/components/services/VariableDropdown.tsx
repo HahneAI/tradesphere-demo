@@ -1,12 +1,13 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
-import type { PaverPatioVariable } from '../../types/paverPatioFormula';
+import type { PaverPatioVariable } from '../../pricing-system/core/master-formula/formula-types';
 
 interface VariableDropdownProps {
   variable: PaverPatioVariable;
   value: string;
   onChange: (value: string) => void;
   visualConfig: any;
+  categoryColor?: string;
   disabled?: boolean;
 }
 
@@ -15,46 +16,87 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
   value,
   onChange,
   visualConfig,
+  categoryColor,
   disabled = false,
 }) => {
+  const accentColor = categoryColor || visualConfig.colors.primary;
   const selectedOption = variable.options[value];
 
   // Helper function following Tom's expert guidelines for consistent formatting
   const formatVariableDisplay = (variableKey: string, option: any) => {
     if (!option) return 'N/A';
 
+    // Overall complexity - show as percentage with proper format
+    // Handles both direct percentages (30, 50) and multipliers (1.3, 1.5)
+    if (variableKey === 'overallComplexity') {
+      // Check for baseline values
+      if (option.value === 0 || option.value === 1.0 || option.multiplier === 1.0) return 'Baseline';
+
+      // If multiplier exists, convert to percentage
+      if (option.multiplier !== undefined && option.multiplier !== 1.0) {
+        const percentage = ((option.multiplier - 1) * 100).toFixed(0);
+        return `(+${percentage}%)`;
+      }
+
+      // If value is a direct percentage (30, 50), show as-is
+      if (option.value !== undefined && option.value > 1) {
+        return `(+${option.value}%)`;
+      }
+
+      // If value is a small decimal (0.3, 0.5), it's a multiplier coefficient
+      if (option.value !== undefined && option.value > 0 && option.value < 1) {
+        const percentage = (option.value * 100).toFixed(0);
+        return `(+${percentage}%)`;
+      }
+
+      return 'Baseline';
+    }
+
     // Tier 1 variables (labor time factors) - show as percentages
     if (['tearoutComplexity', 'accessDifficulty', 'teamSize'].includes(variableKey)) {
-      return option.value === 0 ? 'Baseline' : `+${option.value}%`;
+      if (option.value === 0) return 'Baseline';
+      return `+${option.value}%`;
     }
 
     // Equipment costs - show daily rates
     if (variableKey === 'equipmentRequired') {
-      return option.value === 0 ? 'Hand tools' : `$${option.value}/day`;
+      if (option.value === 0) return 'Hand tools';
+      return `$${option.value}/day`;
     }
 
     // Obstacle costs - show flat fees
     if (variableKey === 'obstacleRemoval') {
-      return option.value === 0 ? 'None' : `$${option.value}`;
+      if (option.value === 0) return 'None';
+      return `$${option.value}`;
     }
 
-    // Material factors - show percentages
-    if (['paverStyle', 'patternComplexity'].includes(variableKey)) {
-      return option.value === 0 ? 'Standard' : `+${option.value}%`;
+    // Paver style - show percentage markup
+    if (variableKey === 'paverStyle') {
+      if (option.value === 0 || option.multiplier === 1.0) return 'Standard';
+      const multiplier = option.multiplier || option.value || 0;
+      return `+${((multiplier - 1) * 100).toFixed(0)}%`;
+    }
+
+    // Pattern complexity - show waste percentage
+    if (variableKey === 'patternComplexity') {
+      if (option.wastePercentage === 0 || option.wastePercentage === undefined) return 'Baseline';
+      return `+${option.wastePercentage}% waste`;
     }
 
     // Cutting complexity - show combined effects
     if (variableKey === 'cuttingComplexity') {
-      if (option.fixedLaborHours && option.materialWaste) {
-        return `+${option.fixedLaborHours}h, +${option.materialWaste}% waste`;
-      } else if (option.fixedLaborHours) {
-        return `+${option.fixedLaborHours}h fixed`;
-      }
-      return option.value === 0 ? 'Minimal' : `+${option.value}%`;
+      const hasLabor = option.fixedLaborHours && option.fixedLaborHours > 0;
+      const hasWaste = option.materialWaste && option.materialWaste > 0;
+
+      if (!hasLabor && !hasWaste) return 'Baseline';
+      if (hasLabor && hasWaste) return `+${option.fixedLaborHours}h, +${option.materialWaste}% waste`;
+      if (hasLabor) return `+${option.fixedLaborHours}h fixed`;
+      if (hasWaste) return `+${option.materialWaste}% waste`;
     }
 
-    // Default fallback
-    return option.value === 0 ? 'Default' : `${option.value}`;
+    // Default fallback - check for undefined values
+    if (option.value === undefined || option.value === 0) return 'Baseline';
+    return `${option.value}`;
   };
 
   // Get variable key from the variable object for formatting
@@ -102,11 +144,30 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
             focusRingColor: visualConfig.colors.primary + '20',
           }}
         >
-          {Object.entries(variable.options).map(([key, option]) => (
-            <option key={key} value={key}>
-              {option.label} ({formatVariableDisplay(variableKey, option)}) - {option.description}
-            </option>
-          ))}
+          {Object.entries(variable.options || {})
+            .sort((a, b) => {
+              // Intelligent sorting based on option structure
+              const getSortValue = (opt: any) => {
+                // Priority 1: Cutting complexity uses fixedLaborHours
+                if (opt.fixedLaborHours !== undefined) return opt.fixedLaborHours;
+                // Priority 2: Pattern complexity uses wastePercentage
+                if (opt.wastePercentage !== undefined) return opt.wastePercentage;
+                // Priority 3: Multipliers
+                if (opt.multiplier !== undefined) return opt.multiplier;
+                // Priority 4: Standard value
+                if (opt.value !== undefined) return opt.value;
+                return 0;
+              };
+
+              const aVal = getSortValue(a[1]);
+              const bVal = getSortValue(b[1]);
+              return aVal - bVal;
+            })
+            .map(([key, option]) => (
+              <option key={key} value={key}>
+                {option.label} ({formatVariableDisplay(variableKey, option)})
+              </option>
+            ))}
         </select>
         
         {/* Dropdown Arrow */}
@@ -117,11 +178,11 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
 
       {/* Selected Option Details */}
       {selectedOption && (
-        <div 
+        <div
           className="p-3 rounded-lg border-l-4"
-          style={{ 
-            backgroundColor: visualConfig.colors.primary + '08',
-            borderLeftColor: visualConfig.colors.primary,
+          style={{
+            backgroundColor: accentColor + '08',
+            borderLeftColor: accentColor,
           }}
         >
           <div className="flex items-center justify-between mb-1">
@@ -131,7 +192,7 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
             <span
               className="text-sm font-mono px-2 py-1 rounded"
               style={{
-                backgroundColor: visualConfig.colors.primary,
+                backgroundColor: accentColor,
                 color: visualConfig.colors.text.onPrimary,
               }}
             >

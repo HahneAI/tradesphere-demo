@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as Icons from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { getSmartVisualThemeConfig } from '../config/industry';
-import { PaverPatioManager } from './services/PaverPatioManager';
-import { PaverPatioReadOnly } from './services/PaverPatioReadOnly';
-import { usePaverPatioStore } from '../stores/paverPatioStore';
+import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
+import { getSmartVisualThemeConfig } from '../../../config/industry';
+import { PaverPatioManager } from '../../../components/services/PaverPatioManager';
+import { PaverPatioReadOnly } from '../../../components/services/PaverPatioReadOnly';
+import { usePaverPatioStore } from '../../core/stores/paver-patio-store';
 
 interface QuickCalculatorTabProps {
   isOpen: boolean;
@@ -16,22 +16,33 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
-  const store = usePaverPatioStore();
+  const store = usePaverPatioStore(user?.company_id || '');
+  const hasReset = useRef(false);
 
-  // Reset to defaults every time the Quick Calculator opens or closes
+  // Reset to defaults when opening (prevent infinite loop by using useRef)
   useEffect(() => {
-    if (store.resetToDefaults100) {
-      if (isOpen) {
-        // Reset when opening
-        store.resetToDefaults100();
-      } else {
-        // Also reset when closing to ensure clean state for next open
-        store.resetToDefaults100();
-      }
+    if (isOpen && !hasReset.current && store.resetToDefaults100) {
+      store.resetToDefaults100();
+      hasReset.current = true;
     }
-  }, [isOpen, store.resetToDefaults100]);
+
+    if (!isOpen) {
+      hasReset.current = false; // Reset flag when closing
+    }
+  }, [isOpen]); // Remove store.resetToDefaults100 from deps to prevent loop
 
   if (!isOpen) return null;
+
+  // Guard: Don't render calculator without company_id
+  if (!user?.company_id) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg p-6 max-w-md">
+          <p className="text-gray-800">Loading user data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -59,7 +70,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
         }}
       >
         <div
-          className="w-full max-w-4xl h-[80vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
+          className="w-full max-w-6xl h-[90vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
           style={{ backgroundColor: visualConfig.colors.surface }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -100,3 +111,5 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
     </>
   );
 };
+
+export default QuickCalculatorTab;

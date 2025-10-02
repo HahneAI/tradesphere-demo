@@ -47,15 +47,15 @@ export const handler = async (event, context) => {
     // EXISTING: Since parameter extraction with ENHANCED validation
     let since;
     let customerLookup = false;
-    let techId = null;
-    
+    let userId = null;
+
     try {
       const url = new URL(`https://example.com${event.path}${event.rawQuery ? '?' + event.rawQuery : ''}`);
       since = url.searchParams.get('since') || '1970-01-01T00:00:00.000Z';
-      
+
       // 🏢 PHASE 5: Customer lookup parameters
       customerLookup = url.searchParams.get('recent_customers') === 'true';
-      techId = url.searchParams.get('tech_id');
+      userId = url.searchParams.get('user_id');
       
       const sinceDate = new Date(since);
       if (isNaN(sinceDate.getTime())) {
@@ -63,7 +63,7 @@ export const handler = async (event, context) => {
         console.warn('⚠️ Invalid since timestamp, using fallback');
       }
       
-      console.log('📥 CONCURRENCY DEBUG - Query parameters:', { since, customerLookup, techId });
+      console.log('📥 CONCURRENCY DEBUG - Query parameters:', { since, customerLookup, userId });
       
     } catch (urlError) {
       console.error('❌ URL parsing failed:', urlError);
@@ -86,18 +86,18 @@ export const handler = async (event, context) => {
     try {
       let responseData;
 
-      if (customerLookup && techId) {
+      if (customerLookup && userId) {
         // 🏢 PHASE 5: Customer lookup from VC Usage table using Supabase client
         console.log('👤 CUSTOMER LOOKUP: Querying recent customer sessions with Supabase client');
         console.log('👤 CUSTOMER LOOKUP - Query params:', {
-          techId,
+          userId,
           selectFields: 'session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary'
         });
 
         const { data, error } = await supabase
           .from('VC Usage')
           .select('session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary')
-          .eq('user_tech_id', techId)
+          .eq('user_tech_id', userId)
           .not('customer_name', 'is', null)
           .order('created_at', { ascending: false })
           .limit(2); // 📊 PHASE 2B: Limit to 2 recent customers for cleaner UX

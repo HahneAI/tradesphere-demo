@@ -8,7 +8,7 @@
 
 [functions]
   directory = "netlify/functions"
-  external_node_modules = ["google-auth-library", "googleapis", "@google-cloud/storage", "uuid"]
+  external_node_modules = ["google-auth-library", "googleapis", "@google-cloud/storage", "uuid", "@supabase/supabase-js"]
   node_bundler = "esbuild"
   
 [functions.environment]

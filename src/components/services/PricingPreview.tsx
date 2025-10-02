@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
-import type { PaverPatioCalculationResult } from '../../types/paverPatioFormula';
+import type { PaverPatioCalculationResult } from '../../pricing-system/core/master-formula/formula-types';
 
 interface PricingPreviewProps {
   calculation: PaverPatioCalculationResult | null;

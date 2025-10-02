@@ -1,7 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
 // Import the JSON configuration
-import paverPatioConfigJson from '../config/paver-patio-formula.json';
+import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
+
+// Supabase configuration
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 interface BaseSetting {
   value: number;
@@ -52,7 +57,7 @@ interface ServiceVariableUpdate {
     teamThreePlus?: number;
   };
   materialSettings?: {
-    economyGrade?: number;
+    standardGrade?: number;
     premiumGrade?: number;
     patternMinimal?: number;
     patternSome?: number;
@@ -89,32 +94,141 @@ const loadServices = (): ServiceConfig[] => {
   }
 };
 
-// Save updated configuration to localStorage (simulating JSON file update)
-const saveServiceConfig = (serviceId: string, updatedService: ServiceConfig) => {
+// Save updated configuration to Supabase (new primary method)
+const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig, companyId?: string) => {
   try {
-    // For now, we'll store in localStorage
-    // In production, this would write back to the JSON file
+    if (!companyId) {
+      console.warn('⚠️ No company_id available, falling back to localStorage only');
+      await saveServiceConfigLegacy(serviceId, updatedService);
+      return;
+    }
+
+    console.log('🚀 [SERVICES] Saving configuration to Supabase:', {
+      serviceId,
+      companyId,
+      hasBaseSettings: !!updatedService.baseSettings
+    });
+
+    // STEP 1: Prepare Supabase data
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const supabaseData = {
+      company_id: companyId,
+      service_name: serviceId,
+      hourly_labor_rate: updatedService.baseSettings?.laborSettings?.hourlyLaborRate?.value || 25,
+      optimal_team_size: updatedService.baseSettings?.laborSettings?.optimalTeamSize?.value || 3,
+      base_productivity: updatedService.baseSettings?.laborSettings?.baseProductivity?.value || 50,
+      base_material_cost: updatedService.baseSettings?.materialSettings?.baseMaterialCost?.value || 5.84,
+      profit_margin: updatedService.baseSettings?.businessSettings?.profitMarginTarget?.value || 0.20,
+      variables_config: updatedService.variables || {},
+      default_variables: {},
+      is_active: true,
+      version: '2.0.0',
+      updated_at: new Date().toISOString(),
+      updated_by: companyId
+    };
+
+    // STEP 2: Upsert to Supabase (update if exists, insert if not)
+    const { error } = await supabase
+      .from('service_pricing_configs')
+      .upsert(supabaseData, {
+        onConflict: 'company_id,service_name'
+      });
+
+    if (error) {
+      console.error('❌ [SERVICES] Supabase save failed:', error);
+      throw error;
+    }
+
+    console.log('✅ [SERVICES] Configuration saved to Supabase successfully');
+
+    // STEP 3: Also store in localStorage for immediate local access
     const storageKey = `service_config_${serviceId}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedService));
-    
-    // Also store the update timestamp
+
+    // STEP 4: Broadcast change to trigger real-time updates
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: storageKey,
+      newValue: JSON.stringify(updatedService),
+      storageArea: localStorage
+    }));
+
+    // STEP 5: Trigger immediate refresh of pricing calculations
+    window.dispatchEvent(new CustomEvent('paver-config-updated', {
+      detail: { serviceId, updatedService }
+    }));
+
+    console.log(`✅ [SERVICES] Service ${serviceId} configuration updated (Supabase + localStorage)`);
+  } catch (error) {
+    console.error('❌ [SERVICES] Error saving service configuration:', error);
+    // Fallback to legacy localStorage method if Supabase fails
+    console.warn('🔄 [SERVICES] Falling back to localStorage method');
+    await saveServiceConfigLegacy(serviceId, updatedService);
+  }
+};
+
+// Legacy localStorage-only save method (fallback)
+const saveServiceConfigLegacy = async (serviceId: string, updatedService: ServiceConfig) => {
+  try {
+    // STEP 1: Store in localStorage for immediate use
+    const storageKey = `service_config_${serviceId}`;
+    localStorage.setItem(storageKey, JSON.stringify(updatedService));
+
+    // STEP 2: Also store the update timestamp
     const updateInfo = {
       serviceId,
       timestamp: new Date().toISOString(),
       lastModified: new Date().toISOString().split('T')[0]
     };
     localStorage.setItem(`service_update_${serviceId}`, JSON.stringify(updateInfo));
-    
-    // Broadcast change to other tabs/windows
+
+    // STEP 3: Write back to JSON file via Netlify function
+    if (serviceId === 'paver_patio_sqft') {
+      writeConfigToJsonFile(updatedService).catch(error => {
+        console.warn('⚠️ Failed to update JSON file, using localStorage only:', error.message);
+      });
+    }
+
+    // STEP 4: Broadcast change to other tabs/windows AND all pricing components
     window.dispatchEvent(new StorageEvent('storage', {
       key: storageKey,
       newValue: JSON.stringify(updatedService),
       storageArea: localStorage
     }));
-    
-    console.log(`✅ Service ${serviceId} configuration updated`);
+
+    // STEP 5: Trigger immediate refresh of pricing calculations
+    window.dispatchEvent(new CustomEvent('paver-config-updated', {
+      detail: { serviceId, updatedService }
+    }));
+
+    console.log(`✅ [LEGACY] Service ${serviceId} configuration updated (localStorage + JSON file sync)`);
   } catch (error) {
     console.error('Error saving service configuration:', error);
+    throw error;
+  }
+};
+
+// Write configuration back to JSON file
+const writeConfigToJsonFile = async (updatedService: ServiceConfig) => {
+  try {
+    const response = await fetch('/.netlify/functions/update-service-config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        serviceId: 'paver_patio_sqft',
+        configData: updatedService
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    console.log('✅ JSON file updated successfully');
+  } catch (error) {
+    console.error('❌ Failed to update JSON file:', error);
     throw error;
   }
 };
@@ -145,7 +259,7 @@ const loadServiceWithOverrides = (defaultService: ServiceConfig): ServiceConfig 
   return defaultService;
 };
 
-export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
+export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsStore => {
   const [services, setServices] = useState<ServiceConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,43 +300,38 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const updateBaseSetting = useCallback((serviceId: string, setting: string, value: number) => {
-    setServices(prev => {
-      const updatedServices = prev.map(service => {
-        if (service.serviceId === serviceId) {
-          // Handle nested settings path (e.g., "laborSettings.hourlyLaborRate")
-          const [category, settingKey] = setting.split('.');
+  const updateBaseSetting = useCallback(async (serviceId: string, setting: string, value: number) => {
+    const updatedServices = services.map(service => {
+      if (service.serviceId === serviceId) {
+        // Handle nested settings path (e.g., "laborSettings.hourlyLaborRate")
+        const [category, settingKey] = setting.split('.');
 
-          const updatedService = {
-            ...service,
-            baseSettings: {
-              ...service.baseSettings,
-              [category]: {
-                ...service.baseSettings[category],
-                [settingKey]: {
-                  ...service.baseSettings[category][settingKey],
-                  value: value
-                }
+        const updatedService = {
+          ...service,
+          baseSettings: {
+            ...service.baseSettings,
+            [category]: {
+              ...service.baseSettings[category],
+              [settingKey]: {
+                ...service.baseSettings[category][settingKey],
+                value: value
               }
-            },
-            lastModified: new Date().toISOString().split('T')[0]
-          };
+            }
+          },
+          lastModified: new Date().toISOString().split('T')[0]
+        };
 
-          // Save to localStorage
-          try {
-            saveServiceConfig(serviceId, updatedService);
-          } catch (error) {
-            console.error('Failed to save service configuration:', error);
-          }
+        // Save to Supabase (async)
+        saveServiceConfig(serviceId, updatedService, companyId).catch(error => {
+          console.error('Failed to save base setting:', error);
+        });
 
-          return updatedService;
-        }
-        return service;
-      });
-
-      return updatedServices;
+        return updatedService;
+      }
+      return service;
     });
-  }, []);
+
+  }, [services, companyId]);
 
   const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
     setServices(prev => {
@@ -292,8 +401,8 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
 
           // Update material settings
           if (updates.materialSettings) {
-            if (updates.materialSettings.economyGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.economy) {
-              updatedVariables.materials.paverStyle.options.economy.value = updates.materialSettings.economyGrade;
+            if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
+              updatedVariables.materials.paverStyle.options.standard.value = updates.materialSettings.standardGrade;
             }
             if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
               updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
@@ -315,9 +424,9 @@ export const useServiceBaseSettings = (): ServiceBaseSettingsStore => {
             lastModified: new Date().toISOString().split('T')[0]
           };
 
-          // Save to localStorage
+          // Save to Supabase
           try {
-            saveServiceConfig(serviceId, updatedService);
+            saveServiceConfig(serviceId, updatedService, companyId);
           } catch (error) {
             console.error('Failed to save service variables:', error);
           }

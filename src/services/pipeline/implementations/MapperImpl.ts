@@ -20,7 +20,7 @@ import {
   findServiceBySynonym,
   isSpecialService,
   ServiceConfig
-} from '../../../config/service-database';
+} from '../../../pricing-system/core/services-database/service-database';
 
 export class MapperImpl implements IServiceMapper {
   

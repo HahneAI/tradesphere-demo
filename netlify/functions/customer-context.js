@@ -50,16 +50,16 @@ export const handler = async (event, context) => {
 
     // Extract query parameters
     const url = new URL(`https://example.com${event.path}${event.rawQuery ? '?' + event.rawQuery : ''}`);
-    const techId = url.searchParams.get('tech_id');
+    const userId = url.searchParams.get('user_id');
     const sessionId = url.searchParams.get('session_id');
 
-    if (!techId) {
-      throw new Error('tech_id query parameter is required');
+    if (!userId) {
+      throw new Error('user_id query parameter is required');
     }
 
     console.log('🔄 CONTEXT PRELOAD:', {
       customerName: decodeURIComponent(customerName),
-      techId,
+      userId,
       sessionId,
       queryType: sessionId ? 'session_specific' : 'customer_recent'
     });
@@ -76,7 +76,7 @@ export const handler = async (event, context) => {
       .from('VC Usage')
       .select('user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone')
       .eq('customer_name', decodeURIComponent(customerName))
-      .eq('user_tech_id', techId)
+      .eq('user_tech_id', userId)
       .order('interaction_number', { ascending: false })
       .limit(2); // Last 2 interactions for context
 
@@ -87,7 +87,7 @@ export const handler = async (event, context) => {
 
     console.log('🔄 SUPABASE CLIENT QUERY:', {
       customerName: decodeURIComponent(customerName),
-      techId,
+      userId,
       sessionId: sessionId || 'cross_session',
       limit: 2
     });
@@ -164,7 +164,7 @@ export const handler = async (event, context) => {
         contextMetadata: {
           recordsFound: conversationHistory.length,
           sessionId: sessionId || 'cross_session',
-          techId,
+          userId,
           processingTime: totalTime
         }
       }),
