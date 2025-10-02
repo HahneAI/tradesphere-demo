@@ -405,17 +405,19 @@ const calculateExpertPricing = (
 const calculatePrice = async (
   config: PaverPatioConfig | null,
   values: PaverPatioValues,
-  sqft: number = 100
+  sqft: number = 100,
+  companyId?: string
 ): Promise<PaverPatioCalculationResult> => {
   console.log('🚀 [QUICK CALCULATOR] Using Master Pricing Engine for calculation');
 
   try {
-    // Use master pricing engine for live Supabase calculation
-    const result = await masterPricingEngine.calculatePricing(values, sqft);
+    // Use master pricing engine for live Supabase calculation with company_id
+    const result = await masterPricingEngine.calculatePricing(values, sqft, 'paver_patio_sqft', companyId);
 
     console.log('✅ [QUICK CALCULATOR] Master engine calculation complete:', {
       total: result.tier2Results.total,
-      source: 'Master Pricing Engine + Live Supabase'
+      source: 'Master Pricing Engine + Live Supabase',
+      usedCompanyId: !!companyId
     });
 
     return result;
@@ -518,7 +520,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       setValues(initialValues);
 
       // Calculate initial price using master pricing engine
-      const calculation = await calculatePrice(configData, initialValues);
+      const calculation = await calculatePrice(configData, initialValues, 100, companyId);
       setLastCalculation(calculation);
 
       console.log('✅ [QUICK CALCULATOR] Configuration loaded from master pricing engine');
@@ -537,7 +539,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
         const initialValues = getDefaultValues(configData);
         setValues(initialValues);
 
-        const calculation = await calculatePrice(configData, initialValues);
+        const calculation = await calculatePrice(configData, initialValues, 100, companyId);
         setLastCalculation(calculation);
 
         console.log('✅ [QUICK CALCULATOR] Fallback configuration loaded');
@@ -568,7 +570,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
     // Recalculate price using master pricing engine
     try {
-      const calculation = await calculatePrice(config, updated);
+      const calculation = await calculatePrice(config, updated, 100, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to recalculate price after value update:', error);
@@ -584,7 +586,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     saveStoredValues(defaultValues);
 
     try {
-      const calculation = await calculatePrice(config, defaultValues);
+      const calculation = await calculatePrice(config, defaultValues, 100, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to calculate price after reset:', error);
@@ -602,7 +604,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
     try {
       // Calculate with exactly 100 sqft using baseline values
-      const calculation = await calculatePrice(config, baselineValues, 100);
+      const calculation = await calculatePrice(config, baselineValues, 100, companyId);
       setLastCalculation(calculation);
 
       console.log('🔄 Quick Calculator reset to true baseline:', {
@@ -631,7 +633,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     saveStoredValues(updated);
 
     try {
-      const calculation = await calculatePrice(config, updated);
+      const calculation = await calculatePrice(config, updated, 100, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to calculate price after category reset:', error);
@@ -650,7 +652,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       allValues: values
     });
 
-    const calculation = await calculatePrice(config, values, sqft);
+    const calculation = await calculatePrice(config, values, sqft, companyId);
 
     console.log('🔍 [DEBUG] Calculation result:', {
       total: calculation.tier2Results.total,
