@@ -185,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (userError) {
         console.error('❌ AUTH_CONTEXT - Failed to fetch user record:', userError.message);
         console.groupEnd();
+        setLoading(false);  // ✅ Set loading to false on error too
         return { success: false, error: 'User record not found' };
       }
 
@@ -199,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Step 3: Update context state
       setUser(userData);
       setIsAdmin(userData.is_admin);
+      setLoading(false);  // ✅ CRITICAL: Set loading to false after successful login
 
       console.log('✅ AUTH_CONTEXT - Sign in complete');
       console.groupEnd();
@@ -207,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error('💥 AUTH_CONTEXT - Sign in error:', error);
       console.groupEnd();
+      setLoading(false);  // ✅ Set loading to false on error too
       return { success: false, error: error.message || 'Login failed' };
     }
   };
