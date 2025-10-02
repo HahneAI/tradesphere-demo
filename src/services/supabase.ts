@@ -22,8 +22,11 @@ export const getSupabase = (): SupabaseClient<Database> => {
     supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,  // Explicitly use localStorage
+        storageKey: 'tradesphere-auth-token',  // Custom storage key for better organization
         autoRefreshToken: true,
-        detectSessionInUrl: false
+        detectSessionInUrl: false,
+        flowType: 'pkce'  // Use PKCE flow for better security
       }
     });
   }
@@ -51,8 +54,11 @@ export const refreshSupabaseClient = () => {
   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'tradesphere-auth-token',
       autoRefreshToken: true,
-      detectSessionInUrl: false
+      detectSessionInUrl: false,
+      flowType: 'pkce'
     }
   });
   return supabase;

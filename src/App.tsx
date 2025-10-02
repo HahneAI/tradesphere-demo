@@ -27,7 +27,7 @@ function App() {
   const [isExitingLoading, setIsExitingLoading] = useState(false);
 
   const isMinDurationPassed = useAppLoading();
-  const isLoading = authLoading || isMinDurationPassed;
+  const isLoading = authLoading || !isMinDurationPassed;
 
   const setAppStateWithAnimation = (newStage: AppState) => {
     setAnimationState('out');
