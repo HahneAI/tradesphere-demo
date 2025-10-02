@@ -25,16 +25,10 @@ function App() {
   const [animationState, setAnimationState] = useState<AnimationState>('in');
   const [currentAppState, setCurrentAppState] = useState<AppState>(appState);
   const [isExitingLoading, setIsExitingLoading] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  // Track whether we've completed the initial load to decouple authLoading from isLoading
-  const hasCompletedInitialLoad = useRef(false);
 
   const isMinDurationPassed = useAppLoading();
-  // Only include authLoading during initial mount, not after initial load completes
-  const isLoading = hasCompletedInitialLoad.current
-    ? false
-    : (authLoading || !isMinDurationPassed);
+  // Simple loading check - wait for BOTH auth and minimum duration
+  const isLoading = authLoading || !isMinDurationPassed;
 
   const setAppStateWithAnimation = (newStage: AppState) => {
     setAnimationState('out');
@@ -42,17 +36,18 @@ function App() {
       setAppState(newStage);
       setCurrentAppState(newStage);
       setAnimationState('in');
-    }, 400); // Corresponds to the fade-out animation duration
+    }, 400);
   };
 
+  // Single effect for ALL state transitions
   useEffect(() => {
     document.title = 'TradeSphere - AI Pricing Assistant';
 
-    if (!isLoading && !isTransitioning) {
+    // Handle initial load complete
+    if (!isLoading && appState === 'loading') {
       console.log('📍 Initial load complete, transitioning from loading screen');
-      hasCompletedInitialLoad.current = true; // Mark initial load as complete
-      setIsTransitioning(true);
       setIsExitingLoading(true);
+
       const timer = setTimeout(() => {
         if (user) {
           console.log('✅ User session found, going to authenticated state');
@@ -61,30 +56,22 @@ function App() {
           console.log('🔐 No user session, going to login state');
           setAppStateWithAnimation('login');
         }
-        setTimeout(() => setIsTransitioning(false), 500);
-      }, 500); // Corresponds to the fade-out animation duration
+      }, 500);
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading]); // ONLY depends on isLoading to run once when loading completes
 
-  // Handle auth state changes after initial load
-  useEffect(() => {
-    // Remove isLoading check - after initial load, authLoading shouldn't block transitions
-    if (!isTransitioning && appState !== 'loading') {
+    // Handle auth changes AFTER initial load
+    if (!isLoading && appState !== 'loading') {
       if (user && appState !== 'authenticated') {
         console.log('🔄 User logged in, transitioning to authenticated state');
-        setIsTransitioning(true);
         setAppStateWithAnimation('authenticated');
-        setTimeout(() => setIsTransitioning(false), 500);
       } else if (!user && appState === 'authenticated') {
         console.log('🔄 User logged out, transitioning to login state');
-        setIsTransitioning(true);
         setAppStateWithAnimation('login');
-        setTimeout(() => setIsTransitioning(false), 500);
       }
     }
-  }, [user, appState, isTransitioning]);
+  }, [isLoading, user, appState]);
 
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';

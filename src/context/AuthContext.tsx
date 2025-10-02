@@ -77,7 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Don't change loading state on token refresh
         } else if (event === 'INITIAL_SESSION') {
           // Handle initial session event
-          if (!session) {
+          if (session?.user) {
+            // Session exists, fetch user data (will set loading to false)
+            console.log('ℹ️ AUTH_CONTEXT - Initial session event with session, fetching user data');
+            await fetchUserData(session.user.id);
+          } else {
             console.log('ℹ️ AUTH_CONTEXT - Initial session event with no session');
             setLoading(false);
           }
@@ -198,13 +202,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🚪 AUTH_CONTEXT - Signing out...');
 
     try {
+      // Call Supabase sign out first
       const { error } = await supabase.auth.signOut();
 
       if (error) {
         console.error('❌ AUTH_CONTEXT - Sign out error:', error);
-        throw error;
+        // Don't throw - continue with manual cleanup
       }
 
+      // ✅ CRITICAL FIX: Explicitly clear all Supabase auth localStorage keys
+      // Supabase stores session tokens that auto-restore on page load
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const keysToRemove: string[] = [];
+
+        // Scan all localStorage keys for Supabase-related entries
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase') || key === 'tradesphere-auth-token')) {
+            keysToRemove.push(key);
+          }
+        }
+
+        // Remove all found keys
+        keysToRemove.forEach(key => {
+          localStorage.removeItem(key);
+          console.log(`🧹 Removed localStorage key: ${key}`);
+        });
+
+        console.log('✅ Cleared Supabase localStorage keys:', keysToRemove);
+      }
+
+      // Clear React state
       setUser(null);
       setIsAdmin(false);
       console.log('✅ AUTH_CONTEXT - Signed out successfully');
