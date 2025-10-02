@@ -25,6 +25,7 @@ function App() {
   const [animationState, setAnimationState] = useState<AnimationState>('in');
   const [currentAppState, setCurrentAppState] = useState<AppState>(appState);
   const [isExitingLoading, setIsExitingLoading] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const isMinDurationPassed = useAppLoading();
   const isLoading = authLoading || !isMinDurationPassed;
@@ -41,32 +42,41 @@ function App() {
   useEffect(() => {
     document.title = 'TradeSphere - AI Pricing Assistant';
 
-    if (!isLoading) {
+    if (!isLoading && !isTransitioning) {
+      console.log('📍 Initial load complete, transitioning from loading screen');
+      setIsTransitioning(true);
       setIsExitingLoading(true);
       const timer = setTimeout(() => {
         if (user) {
+          console.log('✅ User session found, going to authenticated state');
           setAppStateWithAnimation('authenticated');
         } else {
+          console.log('🔐 No user session, going to login state');
           setAppStateWithAnimation('login');
         }
+        setTimeout(() => setIsTransitioning(false), 500);
       }, 500); // Corresponds to the fade-out animation duration
 
       return () => clearTimeout(timer);
     }
-  }, [isLoading, user]);
+  }, [isLoading]); // ONLY depends on isLoading to run once when loading completes
 
   // Handle auth state changes after initial load
   useEffect(() => {
-    if (!isLoading && appState !== 'loading') {
+    if (!isLoading && !isTransitioning && appState !== 'loading') {
       if (user && appState !== 'authenticated') {
         console.log('🔄 User logged in, transitioning to authenticated state');
+        setIsTransitioning(true);
         setAppStateWithAnimation('authenticated');
+        setTimeout(() => setIsTransitioning(false), 500);
       } else if (!user && appState === 'authenticated') {
         console.log('🔄 User logged out, transitioning to login state');
+        setIsTransitioning(true);
         setAppStateWithAnimation('login');
+        setTimeout(() => setIsTransitioning(false), 500);
       }
     }
-  }, [user, appState, isLoading]);
+  }, [user, appState, isLoading, isTransitioning]);
 
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';
