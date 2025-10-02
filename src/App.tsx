@@ -43,6 +43,15 @@ function App() {
   useEffect(() => {
     document.title = 'TradeSphere - AI Pricing Assistant';
 
+    console.log('🔍 [APP] useEffect triggered:', {
+      isLoading,
+      authLoading,
+      isMinDurationPassed,
+      appState,
+      hasUser: !!user,
+      userEmail: user?.email
+    });
+
     // Handle initial load complete
     if (!isLoading && appState === 'loading') {
       console.log('📍 Initial load complete, transitioning from loading screen');
@@ -63,6 +72,7 @@ function App() {
 
     // Handle auth changes AFTER initial load
     if (!isLoading && appState !== 'loading') {
+      console.log('🔍 [APP] Checking post-load auth state:', { user: !!user, appState });
       if (user && appState !== 'authenticated') {
         console.log('🔄 User logged in, transitioning to authenticated state');
         setAppStateWithAnimation('authenticated');
@@ -71,7 +81,7 @@ function App() {
         setAppStateWithAnimation('login');
       }
     }
-  }, [isLoading, user, appState]);
+  }, [isLoading, user, appState, authLoading, isMinDurationPassed]);
 
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';
