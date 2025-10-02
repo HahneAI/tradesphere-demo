@@ -1,14 +1,31 @@
 /**
- * STANDARD VARIABLE DISPLAY FORMATTER
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * STANDARD VARIABLE DISPLAY FORMATTER - UNIVERSAL META FILE
+ * ═══════════════════════════════════════════════════════════════════════════════
  *
- * This utility provides consistent formatting for pricing variable displays across all services.
- * Use this as the single source of truth for variable formatting to ensure consistency
- * as new services are added to the platform.
+ * This is the SINGLE SOURCE OF TRUTH for all variable formatting and organization
+ * across the entire Tradesphere platform. Every service uses these rules.
+ *
+ * CORE PRINCIPLES:
+ * 1. MULTIPLIER INTELLIGENCE: Automatically detect and convert multipliers (1.2 → +20%)
+ * 2. STRUCTURAL AWARENESS: Know which field to sort by (fixedLaborHours vs value vs multiplier)
+ * 3. VISUAL CONSISTENCY: Same variable type = same display format, regardless of service
+ * 4. CHRONOLOGICAL ORDER: Always smallest impact to largest impact (ascending)
+ * 5. NULL SAFETY: Never show "+undefined%" or similar errors
  *
  * USAGE:
- * import { formatVariableDisplay, getVariableKeyFromLabel } from '@/pricing-system/utils/formatting/variable-display-formatter';
+ * import { formatVariableDisplay, sortOptionsByValue } from '@/pricing-system/utils/formatting/variable-display-formatter';
  *
- * const displayValue = formatVariableDisplay(variableKey, option);
+ * // Format a single option
+ * const displayValue = formatVariableDisplay('paverStyle', option);
+ * // Returns: "+20%" from multiplier 1.2
+ *
+ * // Sort and display all options
+ * {sortOptionsByValue(variable.options).map(([key, option]) => (
+ *   <option key={key} value={key}>
+ *     {option.label} ({formatVariableDisplay(variableKey, option)})
+ *   </option>
+ * ))}
  */
 
 export interface VariableOption {
@@ -23,26 +40,64 @@ export interface VariableOption {
 }
 
 /**
- * Format variable option for display in dropdowns and tags
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * FORMAT VARIABLE DISPLAY - THE UNIVERSAL FORMATTER
+ * ═══════════════════════════════════════════════════════════════════════════════
  *
- * FORMATTING RULES:
- * - Zero values or baseline → "Baseline"
- * - Labor time modifiers → "+25%" or "Baseline"
- * - Costs → "$125/day" or "$500" (no + sign)
- * - Material multipliers → "+20%" (calculated from multiplier)
- * - Waste percentages → "+15% waste"
- * - Combined effects → "+6h, +15% waste"
- * - Complexity → "(+50%)" with parentheses
- * - Always show "Baseline" for zero/neutral values
- * - Never show "+undefined%" or similar errors
+ * This function understands EVERY variable format and converts it to the correct display.
+ * It's smart enough to detect multipliers, percentages, costs, and combined effects.
+ *
+ * FORMATTING RULES (APPLIES TO ALL SERVICES):
+ * ┌─────────────────────────┬──────────────────┬────────────────────┐
+ * │ Variable Type           │ Data Format      │ Display Format     │
+ * ├─────────────────────────┼──────────────────┼────────────────────┤
+ * │ Complexity Slider       │ 30 or 1.3        │ (+30%)             │
+ * │ Labor Time Modifiers    │ 25 or 0          │ +25% or Baseline   │
+ * │ Equipment Costs         │ 125 or 0         │ $125/day or Hand   │
+ * │ Obstacle Costs          │ 500 or 0         │ $500 or None       │
+ * │ Material Multipliers    │ 1.2              │ +20%               │
+ * │ Waste Percentages       │ 15               │ +15% waste         │
+ * │ Combined Effects        │ {6h, 15% waste}  │ +6h, +15% waste    │
+ * └─────────────────────────┴──────────────────┴────────────────────┘
+ *
+ * MULTIPLIER INTELLIGENCE:
+ * - Detects multiplier format (1.0, 1.2, 1.5) and converts to percentage (+0%, +20%, +50%)
+ * - Detects percentage format (0, 30, 50) and adds proper symbols (+30%)
+ * - Detects decimal coefficients (0.3, 0.5) and converts to percentages (+30%, +50%)
+ * - Always shows "Baseline" for neutral values (0, 1.0)
+ *
+ * NULL SAFETY:
+ * - Checks all fields for undefined/null before accessing
+ * - Never produces "+undefined%" or similar errors
+ * - Falls back to "Baseline" when data is missing
  */
 export function formatVariableDisplay(variableKey: string, option: VariableOption | null | undefined): string {
   if (!option) return 'N/A';
 
   // COMPLEXITY SLIDER - Special format with parentheses
+  // Handles both direct percentages (30, 50) and multipliers (1.3, 1.5)
   if (variableKey === 'overallComplexity') {
-    if (option.value === 0 || option.value === 1.0) return 'Baseline';
-    return `(+${option.value}%)`;
+    // Check for baseline values
+    if (option.value === 0 || option.value === 1.0 || option.multiplier === 1.0) return 'Baseline';
+
+    // If multiplier exists, convert to percentage
+    if (option.multiplier !== undefined && option.multiplier !== 1.0) {
+      const percentage = ((option.multiplier - 1) * 100).toFixed(0);
+      return `(+${percentage}%)`;
+    }
+
+    // If value is a direct percentage (30, 50), show as-is
+    if (option.value !== undefined && option.value > 1) {
+      return `(+${option.value}%)`;
+    }
+
+    // If value is a small decimal (0.3, 0.5), it's a multiplier coefficient
+    if (option.value !== undefined && option.value > 0 && option.value < 1) {
+      const percentage = (option.value * 100).toFixed(0);
+      return `(+${percentage}%)`;
+    }
+
+    return 'Baseline';
   }
 
   // LABOR TIME MODIFIERS - Tier 1 variables that affect man-hours
@@ -123,18 +178,58 @@ export function getVariableKeyFromLabel(label: string): string {
 }
 
 /**
+ * Get numeric sort value from option
+ * Intelligently handles all possible value formats
+ */
+function getSortValue(option: VariableOption): number {
+  // PRIORITY 1: Cutting complexity - use fixedLaborHours as primary sort key
+  // Examples: 0h, 6h, 12h
+  if (option.fixedLaborHours !== undefined) {
+    return option.fixedLaborHours;
+  }
+
+  // PRIORITY 2: Pattern complexity - use wastePercentage
+  // Examples: 0%, 10%, 20%
+  if (option.wastePercentage !== undefined) {
+    return option.wastePercentage;
+  }
+
+  // PRIORITY 3: Multipliers - use as-is for sorting
+  // Examples: 1.0, 1.2, 1.5
+  if (option.multiplier !== undefined) {
+    return option.multiplier;
+  }
+
+  // PRIORITY 4: Standard value field
+  // Examples: 0, 25, 50, 125, 500
+  if (option.value !== undefined) {
+    return option.value;
+  }
+
+  // DEFAULT: Zero (baseline)
+  return 0;
+}
+
+/**
  * Sort variable options by value for consistent dropdown ordering
  *
- * SORTING RULES:
- * - Primary sort key: option.value
- * - Fallback to: option.multiplier
- * - Final fallback: 0
- * - Always ascending order (smallest to largest)
+ * SORTING RULES (UNIVERSAL FOR ALL SERVICES):
+ * - Always smallest to largest (ascending order)
+ * - Intelligently detects sort key based on option structure:
+ *   * Cutting complexity: Sort by fixedLaborHours (0, 6, 12)
+ *   * Pattern complexity: Sort by wastePercentage (0, 10, 20)
+ *   * Material multipliers: Sort by multiplier (1.0, 1.2, 1.5)
+ *   * Costs: Sort by value (0, 125, 500)
+ *   * Time modifiers: Sort by value (0, 25, 40)
+ *   * Complexity: Sort by value or multiplier (0/1.0, 30/1.3, 50/1.5)
+ *
+ * This ensures dropdowns ALWAYS display from least impact to most impact,
+ * regardless of variable type or data structure.
  */
 export function sortOptionsByValue(options: Record<string, VariableOption>): [string, VariableOption][] {
   return Object.entries(options || {}).sort((a, b) => {
-    const aVal = a[1].value ?? a[1].multiplier ?? 0;
-    const bVal = b[1].value ?? b[1].multiplier ?? 0;
+    const aVal = getSortValue(a[1]);
+    const bVal = getSortValue(b[1]);
     return aVal - bVal;
   });
 }

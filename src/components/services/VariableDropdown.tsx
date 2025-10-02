@@ -27,9 +27,29 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
     if (!option) return 'N/A';
 
     // Overall complexity - show as percentage with proper format
+    // Handles both direct percentages (30, 50) and multipliers (1.3, 1.5)
     if (variableKey === 'overallComplexity') {
-      if (option.value === 0 || option.value === 1.0) return 'Baseline';
-      return `(+${option.value}%)`;
+      // Check for baseline values
+      if (option.value === 0 || option.value === 1.0 || option.multiplier === 1.0) return 'Baseline';
+
+      // If multiplier exists, convert to percentage
+      if (option.multiplier !== undefined && option.multiplier !== 1.0) {
+        const percentage = ((option.multiplier - 1) * 100).toFixed(0);
+        return `(+${percentage}%)`;
+      }
+
+      // If value is a direct percentage (30, 50), show as-is
+      if (option.value !== undefined && option.value > 1) {
+        return `(+${option.value}%)`;
+      }
+
+      // If value is a small decimal (0.3, 0.5), it's a multiplier coefficient
+      if (option.value !== undefined && option.value > 0 && option.value < 1) {
+        const percentage = (option.value * 100).toFixed(0);
+        return `(+${percentage}%)`;
+      }
+
+      return 'Baseline';
     }
 
     // Tier 1 variables (labor time factors) - show as percentages
@@ -126,8 +146,21 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
         >
           {Object.entries(variable.options || {})
             .sort((a, b) => {
-              const aVal = a[1].value ?? a[1].multiplier ?? 0;
-              const bVal = b[1].value ?? b[1].multiplier ?? 0;
+              // Intelligent sorting based on option structure
+              const getSortValue = (opt: any) => {
+                // Priority 1: Cutting complexity uses fixedLaborHours
+                if (opt.fixedLaborHours !== undefined) return opt.fixedLaborHours;
+                // Priority 2: Pattern complexity uses wastePercentage
+                if (opt.wastePercentage !== undefined) return opt.wastePercentage;
+                // Priority 3: Multipliers
+                if (opt.multiplier !== undefined) return opt.multiplier;
+                // Priority 4: Standard value
+                if (opt.value !== undefined) return opt.value;
+                return 0;
+              };
+
+              const aVal = getSortValue(a[1]);
+              const bVal = getSortValue(b[1]);
               return aVal - bVal;
             })
             .map(([key, option]) => (
