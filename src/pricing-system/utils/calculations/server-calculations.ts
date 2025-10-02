@@ -131,9 +131,7 @@ async function calculateLegacyFallback(values: PaverPatioValues, sqft: number): 
   const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
   const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
-  // Material waste from cutting
-  const cuttingVar = config?.variables?.materials?.cuttingComplexity;
-  const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+  // Material waste from cutting (reuse cuttingOption from Tier 1)
   const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
   const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
   const totalMaterialCost = materialCostBase + materialWasteCost;
