@@ -22,7 +22,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     return {
       excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
       siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
       labor: { teamSize: 'threePlus' },
       complexity: { overallComplexity: 'simple' }
     };
@@ -40,7 +40,6 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     materials: {
       paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'standard',
       cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
-      patternComplexity: (config.variables.materials?.patternComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
     },
     labor: {
       teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'threePlus',
@@ -66,7 +65,7 @@ const getTrueBaselineValues = (): PaverPatioValues => {
   return {
     excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
     labor: { teamSize: 'threePlus' },
     complexity: { overallComplexity: 1.0 }
   };
@@ -93,7 +92,6 @@ const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
         materials: {
           paverStyle: parsedValues.materials?.paverStyle || defaults.materials.paverStyle,
           cuttingComplexity: parsedValues.materials?.cuttingComplexity || defaults.materials.cuttingComplexity,
-          patternComplexity: parsedValues.materials?.patternComplexity || defaults.materials.patternComplexity,
         },
         labor: {
           teamSize: parsedValues.labor?.teamSize || defaults.labor.teamSize,
@@ -161,7 +159,6 @@ const calculateExpertPricing = (
     obstacleRemoval: values?.siteAccess?.obstacleRemoval,
     paverStyle: values?.materials?.paverStyle,
     cuttingComplexity: values?.materials?.cuttingComplexity,
-    patternComplexity: values?.materials?.patternComplexity,
     teamSize: values?.labor?.teamSize,
     overallComplexity: values?.complexity?.overallComplexity
   });
@@ -234,21 +231,23 @@ const calculateExpertPricing = (
     breakdownSteps.push(`+Team size adjustment (+${teamOption.value}% of base): +${teamHours.toFixed(1)} hours`);
   }
 
-  // Add fixed cutting hours (Tom's spec: fixed hours, not percentages)
+  // Add cutting complexity labor percentage (calculated from BASE hours)
   const cuttingVar = config?.variables?.materials?.cuttingComplexity as PaverPatioVariable;
   const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+  const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
 
   // 🔍 [QUICK CALCULATOR DEBUG] Cutting complexity from JSON
-  console.log('🔍 [QUICK CALCULATOR DEBUG] Cutting Complexity Fixed Hours:', {
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Cutting Complexity Labor Percentage:', {
     selectedValue: values?.materials?.cuttingComplexity,
-    fixedLaborHours: cuttingOption?.fixedLaborHours,
+    laborPercentage: cuttingLaborPercentage,
     allCuttingOptions: cuttingVar?.options,
-    isApplied: !!(cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0)
+    isApplied: cuttingLaborPercentage > 0
   });
 
-  if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
-    adjustedHours += cuttingOption.fixedLaborHours;
-    breakdownSteps.push(`+Cutting complexity: +${cuttingOption.fixedLaborHours} fixed hours`);
+  if (cuttingLaborPercentage > 0) {
+    const cuttingHours = baseHours * (cuttingLaborPercentage / 100);
+    adjustedHours += cuttingHours;
+    breakdownSteps.push(`+Cutting complexity (+${cuttingLaborPercentage}% of base): +${cuttingHours.toFixed(1)} hours`);
   }
 
   // Add final total to breakdown
@@ -479,6 +478,7 @@ const calculateLegacyFallback = (
 export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   const [config, setConfig] = useState<PaverPatioConfig | null>(null);
   const [values, setValues] = useState<PaverPatioValues>({} as PaverPatioValues);
+  const [sqft, setSqft] = useState<number>(100); // Track current square footage
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastCalculation, setLastCalculation] = useState<PaverPatioCalculationResult | null>(null);
@@ -507,7 +507,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       try {
         initialValues = loadStoredValues(configData);
         // Validate that the values match the new structure
-        if (!initialValues.excavation?.tearoutComplexity || !initialValues.materials?.patternComplexity) {
+        if (!initialValues.excavation?.tearoutComplexity || !initialValues.materials?.cuttingComplexity) {
           console.log('🔄 Clearing incompatible stored values, using defaults');
           localStorage.removeItem('paverPatioValues');
           initialValues = getDefaultValues(configData);
@@ -568,14 +568,14 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     // Save to localStorage
     saveStoredValues(updated);
 
-    // Recalculate price using master pricing engine
+    // Recalculate price using master pricing engine with stored sqft (not hardcoded 100)
     try {
-      const calculation = await calculatePrice(config, updated, 100, companyId);
+      const calculation = await calculatePrice(config, updated, sqft, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to recalculate price after value update:', error);
     }
-  }, [config, values]);
+  }, [config, values, sqft]);
 
   // Reset all values to defaults
   const resetToDefaults = useCallback(async () => {
@@ -584,6 +584,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     const defaultValues = getDefaultValues(config);
     setValues(defaultValues);
     saveStoredValues(defaultValues);
+    setSqft(100); // Reset sqft to 100 when resetting to defaults
 
     try {
       const calculation = await calculatePrice(config, defaultValues, 100, companyId);
@@ -601,6 +602,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     const baselineValues = getTrueBaselineValues();
     setValues(baselineValues);
     saveStoredValues(baselineValues);
+    setSqft(100); // Reset sqft to 100
 
     try {
       // Calculate with exactly 100 sqft using baseline values
@@ -633,26 +635,29 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     saveStoredValues(updated);
 
     try {
-      const calculation = await calculatePrice(config, updated, 100, companyId);
+      const calculation = await calculatePrice(config, updated, sqft, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to calculate price after category reset:', error);
     }
-  }, [config, values]);
+  }, [config, values, sqft]);
 
   // Calculate price for specific square footage
-  const calculatePriceForSqft = useCallback(async (sqft: number = 1): Promise<PaverPatioCalculationResult> => {
+  const calculatePriceForSqft = useCallback(async (inputSqft: number = 1): Promise<PaverPatioCalculationResult> => {
     if (!config) {
       throw new Error('Configuration not loaded');
     }
 
+    // Update stored sqft so variable changes use this value
+    setSqft(inputSqft);
+
     console.log('🔍 [DEBUG] Calculating price with values:', {
-      sqft,
+      sqft: inputSqft,
       complexity: values.complexity,
       allValues: values
     });
 
-    const calculation = await calculatePrice(config, values, sqft, companyId);
+    const calculation = await calculatePrice(config, values, inputSqft, companyId);
 
     console.log('🔍 [DEBUG] Calculation result:', {
       total: calculation.tier2Results.total,
@@ -735,11 +740,13 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   return {
     config,
     values,
+    sqft,
     isLoading,
     error,
     lastCalculation,
     loadConfig,
     updateValue,
+    setSqft,
     resetToDefaults,
     resetToDefaults100,
     resetCategory,

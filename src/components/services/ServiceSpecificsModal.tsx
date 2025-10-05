@@ -90,9 +90,9 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
 
   // Cutting complexity state
   const [cuttingComplexity, setCuttingComplexity] = useState({
-    minimal: { fixedLaborHours: 0, materialWaste: 0 },
-    moderate: { fixedLaborHours: 6, materialWaste: 15 },
-    complex: { fixedLaborHours: 12, materialWaste: 25 },
+    minimal: { laborPercentage: 0, materialWaste: 0 },
+    moderate: { laborPercentage: 20, materialWaste: 15 },
+    complex: { laborPercentage: 30, materialWaste: 25 },
   });
 
   // Other variable states
@@ -110,9 +110,6 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   const [materialSettings, setMaterialSettings] = useState({
     standardGrade: 0,
     premiumGrade: 20,
-    patternMinimal: 0,
-    patternSome: 15,
-    patternExtensive: 25,
   });
 
   // Complexity state
@@ -146,15 +143,15 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
         const cuttingOptions = vars.materials.cuttingComplexity.options;
         setCuttingComplexity({
           minimal: {
-            fixedLaborHours: cuttingOptions.minimal?.fixedLaborHours || 0,
+            laborPercentage: cuttingOptions.minimal?.laborPercentage || 0,
             materialWaste: cuttingOptions.minimal?.materialWaste || 0,
           },
           moderate: {
-            fixedLaborHours: cuttingOptions.moderate?.fixedLaborHours || 6,
+            laborPercentage: cuttingOptions.moderate?.laborPercentage || 20,
             materialWaste: cuttingOptions.moderate?.materialWaste || 15,
           },
           complex: {
-            fixedLaborHours: cuttingOptions.complex?.fixedLaborHours || 12,
+            laborPercentage: cuttingOptions.complex?.laborPercentage || 30,
             materialWaste: cuttingOptions.complex?.materialWaste || 25,
           },
         });
@@ -175,13 +172,10 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
       }
 
       // Load material settings
-      if (vars.materials?.paverStyle?.options && vars.materials?.patternComplexity?.options) {
+      if (vars.materials?.paverStyle?.options) {
         setMaterialSettings({
-          economyGrade: vars.materials.paverStyle.options.economy?.value || 0,
-          premiumGrade: vars.materials.paverStyle.options.premium?.value || 30,
-          patternMinimal: vars.materials.patternComplexity.options.minimal?.wastePercentage || 0,
-          patternSome: vars.materials.patternComplexity.options.some?.wastePercentage || 15,
-          patternExtensive: vars.materials.patternComplexity.options.extensive?.wastePercentage || 25,
+          standardGrade: vars.materials.paverStyle.options.standard?.value || 0,
+          premiumGrade: vars.materials.paverStyle.options.premium?.value || 20,
         });
       }
 
@@ -413,7 +407,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     Cutting Complexity Settings
                   </h3>
                   <p className="text-sm mb-4" style={{ color: visualConfig.colors.text.secondary }}>
-                    Configure fixed labor hours and material waste for different cutting complexity levels.
+                    Configure labor hour percentages (% of base hours) and material waste for different cutting complexity levels.
                   </p>
                 </div>
 
@@ -428,14 +422,14 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                       </h4>
                       <div className="grid grid-cols-2 gap-4">
                         <NumberInput
-                          key={`${level}-fixedLaborHours`}
-                          label="Fixed Labor Hours"
-                          value={cuttingComplexity[level].fixedLaborHours}
-                          onChange={(value) => updateCuttingComplexity(level, 'fixedLaborHours', value)}
-                          unit="hours"
+                          key={`${level}-laborPercentage`}
+                          label="Labor Hour Percentage"
+                          value={cuttingComplexity[level].laborPercentage}
+                          onChange={(value) => updateCuttingComplexity(level, 'laborPercentage', value)}
+                          unit="%"
                           min={0}
-                          max={24}
-                          step={1}
+                          max={50}
+                          step={5}
                           isAdmin={isAdmin}
                           visualConfig={visualConfig}
                         />
@@ -614,7 +608,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     Material Cost Multipliers
                   </h3>
                   <p className="text-sm mb-4" style={{ color: visualConfig.colors.text.secondary }}>
-                    Percentage multipliers for material costs based on quality and pattern complexity.
+                    Percentage multipliers for material costs based on paver quality grade.
                   </p>
                 </div>
 
@@ -629,10 +623,10 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                     </h4>
                     <div className="grid grid-cols-2 gap-4">
                       <NumberInput
-                        key="economyGrade"
-                        label="Economy Grade"
-                        value={materialSettings.economyGrade}
-                        onChange={(value) => updateMaterialSetting('economyGrade', value)}
+                        key="standardGrade"
+                        label="Standard Grade"
+                        value={materialSettings.standardGrade}
+                        onChange={(value) => updateMaterialSetting('standardGrade', value)}
                         unit="%"
                         min={0}
                         max={100}
@@ -648,54 +642,6 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         unit="%"
                         min={0}
                         max={100}
-                        step={5}
-                        isAdmin={isAdmin}
-                        visualConfig={visualConfig}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Pattern Complexity */}
-                  <div className="p-4 rounded-lg border" style={{
-                    borderColor: visualConfig.colors.text.secondary + '40',
-                    backgroundColor: visualConfig.colors.background
-                  }}>
-                    <h4 className="text-md font-medium mb-3" style={{ color: visualConfig.colors.text.primary }}>
-                      Pattern Complexity Waste
-                    </h4>
-                    <div className="grid grid-cols-3 gap-4">
-                      <NumberInput
-                        key="patternMinimal"
-                        label="Minimal Pattern Work"
-                        value={materialSettings.patternMinimal}
-                        onChange={(value) => updateMaterialSetting('patternMinimal', value)}
-                        unit="%"
-                        min={0}
-                        max={50}
-                        step={5}
-                        isAdmin={isAdmin}
-                        visualConfig={visualConfig}
-                      />
-                      <NumberInput
-                        key="patternSome"
-                        label="Some Pattern Complexity"
-                        value={materialSettings.patternSome}
-                        onChange={(value) => updateMaterialSetting('patternSome', value)}
-                        unit="%"
-                        min={0}
-                        max={50}
-                        step={5}
-                        isAdmin={isAdmin}
-                        visualConfig={visualConfig}
-                      />
-                      <NumberInput
-                        key="patternExtensive"
-                        label="Extensive Pattern Work"
-                        value={materialSettings.patternExtensive}
-                        onChange={(value) => updateMaterialSetting('patternExtensive', value)}
-                        unit="%"
-                        min={0}
-                        max={50}
                         step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}

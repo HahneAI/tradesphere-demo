@@ -1,12 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '../services/supabase';
 
 // Import the JSON configuration
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
-
-// Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 interface BaseSetting {
   value: number;
@@ -42,9 +38,9 @@ interface ServiceVariableUpdate {
     heavyMachinery?: number;
   };
   cuttingComplexity?: {
-    minimal?: { fixedLaborHours?: number; materialWaste?: number };
-    moderate?: { fixedLaborHours?: number; materialWaste?: number };
-    complex?: { fixedLaborHours?: number; materialWaste?: number };
+    minimal?: { laborPercentage?: number; materialWaste?: number };
+    moderate?: { laborPercentage?: number; materialWaste?: number };
+    complex?: { laborPercentage?: number; materialWaste?: number };
   };
   laborMultipliers?: {
     tearoutGrass?: number;
@@ -59,9 +55,6 @@ interface ServiceVariableUpdate {
   materialSettings?: {
     standardGrade?: number;
     premiumGrade?: number;
-    patternMinimal?: number;
-    patternSome?: number;
-    patternExtensive?: number;
   };
 }
 
@@ -95,7 +88,7 @@ const loadServices = (): ServiceConfig[] => {
 };
 
 // Save updated configuration to Supabase (new primary method)
-const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig, companyId?: string) => {
+const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig, companyId?: string, userId?: string) => {
   try {
     if (!companyId) {
       console.warn('⚠️ No company_id available, falling back to localStorage only');
@@ -106,11 +99,20 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
     console.log('🚀 [SERVICES] Saving configuration to Supabase:', {
       serviceId,
       companyId,
+      userId,
       hasBaseSettings: !!updatedService.baseSettings
     });
 
-    // STEP 1: Prepare Supabase data
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // STEP 1: Get authenticated Supabase client (FIXED: was creating new unauthenticated client)
+    const supabase = getSupabase();
+
+    // 🔍 DEBUG: Check auth session before save
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔍 [SAVE DEBUG] Auth session status:', {
+      hasSession: !!session,
+      authUid: session?.user?.id,
+      userEmail: session?.user?.email
+    });
 
     const supabaseData = {
       company_id: companyId,
@@ -125,8 +127,15 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       is_active: true,
       version: '2.0.0',
       updated_at: new Date().toISOString(),
-      updated_by: companyId
+      updated_by: userId || null  // FIXED: Use userId instead of companyId
     };
+
+    console.log('🔍 [SAVE DEBUG] Upsert data:', {
+      company_id: supabaseData.company_id,
+      service_name: supabaseData.service_name,
+      updated_by: supabaseData.updated_by,
+      hasVariables: !!supabaseData.variables_config
+    });
 
     // STEP 2: Upsert to Supabase (update if exists, insert if not)
     const { error } = await supabase
@@ -136,7 +145,13 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       });
 
     if (error) {
-      console.error('❌ [SERVICES] Supabase save failed:', error);
+      console.error('❌ [SAVE DEBUG] Full Supabase error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        isRLS: error.code === 'PGRST301' || error.message?.includes('RLS') || error.message?.includes('policy')
+      });
       throw error;
     }
 
@@ -259,7 +274,7 @@ const loadServiceWithOverrides = (defaultService: ServiceConfig): ServiceConfig 
   return defaultService;
 };
 
-export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsStore => {
+export const useServiceBaseSettings = (companyId?: string, userId?: string): ServiceBaseSettingsStore => {
   const [services, setServices] = useState<ServiceConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -321,8 +336,8 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
           lastModified: new Date().toISOString().split('T')[0]
         };
 
-        // Save to Supabase (async)
-        saveServiceConfig(serviceId, updatedService, companyId).catch(error => {
+        // Save to Supabase (async) - FIXED: Now passing userId
+        saveServiceConfig(serviceId, updatedService, companyId, userId).catch(error => {
           console.error('Failed to save base setting:', error);
         });
 
@@ -331,7 +346,7 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
       return service;
     });
 
-  }, [services, companyId]);
+  }, [services, companyId, userId]);
 
   const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
     setServices(prev => {
@@ -361,8 +376,8 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
             const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
             Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
               if (cuttingOptions[level] && values) {
-                if (values.fixedLaborHours !== undefined) {
-                  cuttingOptions[level].fixedLaborHours = values.fixedLaborHours;
+                if (values.laborPercentage !== undefined) {
+                  cuttingOptions[level].laborPercentage = values.laborPercentage;
                 }
                 if (values.materialWaste !== undefined) {
                   cuttingOptions[level].materialWaste = values.materialWaste;
@@ -407,15 +422,6 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
             if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
               updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
             }
-            if (updates.materialSettings.patternMinimal !== undefined && updatedVariables.materials?.patternComplexity?.options?.minimal) {
-              updatedVariables.materials.patternComplexity.options.minimal.wastePercentage = updates.materialSettings.patternMinimal;
-            }
-            if (updates.materialSettings.patternSome !== undefined && updatedVariables.materials?.patternComplexity?.options?.some) {
-              updatedVariables.materials.patternComplexity.options.some.wastePercentage = updates.materialSettings.patternSome;
-            }
-            if (updates.materialSettings.patternExtensive !== undefined && updatedVariables.materials?.patternComplexity?.options?.extensive) {
-              updatedVariables.materials.patternComplexity.options.extensive.wastePercentage = updates.materialSettings.patternExtensive;
-            }
           }
 
           const updatedService = {
@@ -424,9 +430,9 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
             lastModified: new Date().toISOString().split('T')[0]
           };
 
-          // Save to Supabase
+          // Save to Supabase - FIXED: Now passing userId
           try {
-            saveServiceConfig(serviceId, updatedService, companyId);
+            saveServiceConfig(serviceId, updatedService, companyId, userId);
           } catch (error) {
             console.error('Failed to save service variables:', error);
           }

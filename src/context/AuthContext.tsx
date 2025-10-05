@@ -54,9 +54,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initialize auth state and listen for changes
   useEffect(() => {
-    // Skip auth initialization in demo mode
+    // In demo mode, actually sign in to create real Supabase session
     if (DEMO_MODE) {
-      console.log('🚨 DEMO MODE: Skipping Supabase auth initialization');
+      console.log('🚨 DEMO MODE: Creating real Supabase session for demo user');
+
+      const initDemoAuth = async () => {
+        try {
+          // Sign in to create real session (required for RLS policies)
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: 'anthony@test.com',
+            password: '99'
+          });
+
+          if (authError) {
+            console.error('❌ DEMO MODE: Auth failed, using hardcoded fallback:', authError.message);
+            // Keep hardcoded user as fallback
+            setUser(DEMO_USER);
+            setIsAdmin(true);
+            setLoading(false);
+            return;
+          }
+
+          console.log('✅ DEMO MODE: Auth successful, session created with auth.uid():', authData.user?.id);
+
+          // Fetch real user data from users table
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
+
+          if (userError || !userData) {
+            console.error('❌ DEMO MODE: User fetch failed, using hardcoded fallback:', userError?.message);
+            setUser(DEMO_USER);
+            setIsAdmin(true);
+          } else {
+            console.log('✅ DEMO MODE: User data loaded from DB:', userData);
+            setUser(userData);
+            setIsAdmin(userData.is_admin);
+          }
+
+          setLoading(false);
+        } catch (error) {
+          console.error('💥 DEMO MODE: Init failed:', error);
+          setUser(DEMO_USER);
+          setIsAdmin(true);
+          setLoading(false);
+        }
+      };
+
+      initDemoAuth();
       return;
     }
 

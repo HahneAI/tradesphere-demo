@@ -130,6 +130,13 @@ export class MasterPricingEngine {
       }
 
       // Query Supabase with detailed logging
+      // 🔍 DEBUG: Check auth status before query
+      console.log('🔍 [LOAD DEBUG] Auth session status:', {
+        hasSession: !!session,
+        authUid: session?.user?.id,
+        userEmail: session?.user?.email
+      });
+
       console.log('🔍 [MASTER ENGINE] Executing Supabase query:', {
         table: 'service_pricing_configs',
         company_id: targetCompanyId,
@@ -146,7 +153,13 @@ export class MasterPricingEngine {
         .limit(1);
 
       if (error) {
-        console.error('❌ [MASTER ENGINE] Supabase query error:', error);
+        console.error('❌ [LOAD DEBUG] Full query error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          isRLS: error.code === 'PGRST301' || error.message?.includes('RLS') || error.message?.includes('policy')
+        });
         console.log('🔄 [MASTER ENGINE] Falling back to JSON config due to query error');
         return this.getFallbackConfig();
       }
@@ -321,11 +334,12 @@ export class MasterPricingEngine {
       adjustedHours += baseHours * (teamSizePercentage / 100);
     }
 
-    // Add fixed cutting hours (per master-formula.md spec)
+    // Add cutting complexity labor percentage (calculated from BASE hours)
     const cuttingVar = config?.variables?.materials?.cuttingComplexity;
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
-    if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
-      adjustedHours += cuttingOption.fixedLaborHours;
+    const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
+    if (cuttingLaborPercentage > 0) {
+      adjustedHours += baseHours * (cuttingLaborPercentage / 100);
     }
 
     const totalManHours = adjustedHours;

@@ -77,20 +77,14 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
       return `+${((multiplier - 1) * 100).toFixed(0)}%`;
     }
 
-    // Pattern complexity - show waste percentage
-    if (variableKey === 'patternComplexity') {
-      if (option.wastePercentage === 0 || option.wastePercentage === undefined) return 'Baseline';
-      return `+${option.wastePercentage}% waste`;
-    }
-
     // Cutting complexity - show combined effects
     if (variableKey === 'cuttingComplexity') {
-      const hasLabor = option.fixedLaborHours && option.fixedLaborHours > 0;
+      const hasLabor = option.laborPercentage && option.laborPercentage > 0;
       const hasWaste = option.materialWaste && option.materialWaste > 0;
 
       if (!hasLabor && !hasWaste) return 'Baseline';
-      if (hasLabor && hasWaste) return `+${option.fixedLaborHours}h, +${option.materialWaste}% waste`;
-      if (hasLabor) return `+${option.fixedLaborHours}h fixed`;
+      if (hasLabor && hasWaste) return `+${option.laborPercentage}% hours, +${option.materialWaste}% waste`;
+      if (hasLabor) return `+${option.laborPercentage}% hours`;
       if (hasWaste) return `+${option.materialWaste}% waste`;
     }
 
@@ -109,7 +103,6 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
     if (varObj.label?.includes('Obstacle')) return 'obstacleRemoval';
     if (varObj.label?.includes('Paver')) return 'paverStyle';
     if (varObj.label?.includes('Cutting')) return 'cuttingComplexity';
-    if (varObj.label?.includes('Pattern')) return 'patternComplexity';
     return 'unknown';
   };
 
@@ -148,12 +141,12 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
             .sort((a, b) => {
               // Intelligent sorting based on option structure
               const getSortValue = (opt: any) => {
-                // Priority 1: Cutting complexity uses fixedLaborHours
-                if (opt.fixedLaborHours !== undefined) return opt.fixedLaborHours;
-                // Priority 2: Pattern complexity uses wastePercentage
+                // Priority 1: Cutting complexity uses laborPercentage
+                if (opt.laborPercentage !== undefined) return opt.laborPercentage;
+                // Priority 2: Material waste percentage
                 if (opt.wastePercentage !== undefined) return opt.wastePercentage;
-                // Priority 3: Multipliers
-                if (opt.multiplier !== undefined) return opt.multiplier;
+                // Priority 3: Multipliers (convert to comparable value)
+                if (opt.multiplier !== undefined) return (opt.multiplier - 1) * 100;
                 // Priority 4: Standard value
                 if (opt.value !== undefined) return opt.value;
                 return 0;
@@ -163,11 +156,19 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
               const bVal = getSortValue(b[1]);
               return aVal - bVal;
             })
-            .map(([key, option]) => (
-              <option key={key} value={key}>
-                {option.label} ({formatVariableDisplay(variableKey, option)})
-              </option>
-            ))}
+            .map(([key, option]) => {
+              // Check if label already includes the formatted display (has parentheses with +)
+              const labelHasFormatting = option.label.includes('(+') || option.label.includes('(Baseline)');
+              const displayText = labelHasFormatting
+                ? option.label
+                : `${option.label} (${formatVariableDisplay(variableKey, option)})`;
+
+              return (
+                <option key={key} value={key}>
+                  {displayText}
+                </option>
+              );
+            })}
         </select>
         
         {/* Dropdown Arrow */}
