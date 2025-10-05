@@ -479,6 +479,7 @@ const calculateLegacyFallback = (
 export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   const [config, setConfig] = useState<PaverPatioConfig | null>(null);
   const [values, setValues] = useState<PaverPatioValues>({} as PaverPatioValues);
+  const [sqft, setSqft] = useState<number>(100); // Track current square footage
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastCalculation, setLastCalculation] = useState<PaverPatioCalculationResult | null>(null);
@@ -568,14 +569,14 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     // Save to localStorage
     saveStoredValues(updated);
 
-    // Recalculate price using master pricing engine
+    // Recalculate price using master pricing engine with stored sqft (not hardcoded 100)
     try {
-      const calculation = await calculatePrice(config, updated, 100, companyId);
+      const calculation = await calculatePrice(config, updated, sqft, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to recalculate price after value update:', error);
     }
-  }, [config, values]);
+  }, [config, values, sqft]);
 
   // Reset all values to defaults
   const resetToDefaults = useCallback(async () => {
@@ -584,6 +585,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     const defaultValues = getDefaultValues(config);
     setValues(defaultValues);
     saveStoredValues(defaultValues);
+    setSqft(100); // Reset sqft to 100 when resetting to defaults
 
     try {
       const calculation = await calculatePrice(config, defaultValues, 100, companyId);
@@ -601,6 +603,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     const baselineValues = getTrueBaselineValues();
     setValues(baselineValues);
     saveStoredValues(baselineValues);
+    setSqft(100); // Reset sqft to 100
 
     try {
       // Calculate with exactly 100 sqft using baseline values
@@ -633,26 +636,29 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     saveStoredValues(updated);
 
     try {
-      const calculation = await calculatePrice(config, updated, 100, companyId);
+      const calculation = await calculatePrice(config, updated, sqft, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to calculate price after category reset:', error);
     }
-  }, [config, values]);
+  }, [config, values, sqft]);
 
   // Calculate price for specific square footage
-  const calculatePriceForSqft = useCallback(async (sqft: number = 1): Promise<PaverPatioCalculationResult> => {
+  const calculatePriceForSqft = useCallback(async (inputSqft: number = 1): Promise<PaverPatioCalculationResult> => {
     if (!config) {
       throw new Error('Configuration not loaded');
     }
 
+    // Update stored sqft so variable changes use this value
+    setSqft(inputSqft);
+
     console.log('🔍 [DEBUG] Calculating price with values:', {
-      sqft,
+      sqft: inputSqft,
       complexity: values.complexity,
       allValues: values
     });
 
-    const calculation = await calculatePrice(config, values, sqft, companyId);
+    const calculation = await calculatePrice(config, values, inputSqft, companyId);
 
     console.log('🔍 [DEBUG] Calculation result:', {
       total: calculation.tier2Results.total,
@@ -735,11 +741,13 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   return {
     config,
     values,
+    sqft,
     isLoading,
     error,
     lastCalculation,
     loadConfig,
     updateValue,
+    setSqft,
     resetToDefaults,
     resetToDefaults100,
     resetCategory,

@@ -19,7 +19,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
   const { user } = useAuth();
   const store = usePaverPatioStore(user?.company_id);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['excavation', 'siteAccess', 'materials', 'labor', 'complexity'])
+    new Set([])  // Start with all sections collapsed
   );
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');

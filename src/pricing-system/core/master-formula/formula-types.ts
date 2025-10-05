@@ -113,6 +113,7 @@ export interface PaverPatioCalculationResult {
 export interface PaverPatioStore {
   config: PaverPatioConfig | null;
   values: PaverPatioValues;
+  sqft: number;
   isLoading: boolean;
   error: string | null;
   lastCalculation: PaverPatioCalculationResult | null;
@@ -120,6 +121,7 @@ export interface PaverPatioStore {
   // Actions
   loadConfig: () => Promise<void>;
   updateValue: (category: keyof PaverPatioValues, variable: string, value: string | number) => void;
+  setSqft: (sqft: number) => void;
   resetToDefaults: () => void;
   resetCategory: (category: keyof PaverPatioValues) => void;
   calculatePrice: (sqft?: number) => PaverPatioCalculationResult;
