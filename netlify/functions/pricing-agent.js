@@ -668,7 +668,7 @@ async function queryCustomerContext(customerName, userId) {
 
     const queryParams = new URLSearchParams({
       'customer_name': `eq.${customerName}`,
-      'user_tech_id': `eq.${userId}`,
+      'user_id': `eq.${userId}`,
       'order': 'interaction_number.desc',
       'limit': '1',
       'select': 'interaction_summary,user_input,ai_response,created_at,interaction_number'

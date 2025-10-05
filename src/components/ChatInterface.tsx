@@ -1671,6 +1671,7 @@ const ChatInterface = () => {
         },
         body: JSON.stringify({
           sessionId: sessionIdRef.current,
+          userId: user.id,
           customerName: customerDetails.name,
           customerAddress: customerDetails.address,
           customerEmail: customerDetails.email,
