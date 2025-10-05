@@ -1,12 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabase } from '../services/supabase';
 
 // Import the JSON configuration
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
-
-// Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 interface BaseSetting {
   value: number;
@@ -110,8 +106,16 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       hasBaseSettings: !!updatedService.baseSettings
     });
 
-    // STEP 1: Prepare Supabase data
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // STEP 1: Get authenticated Supabase client (FIXED: was creating new unauthenticated client)
+    const supabase = getSupabase();
+
+    // 🔍 DEBUG: Check auth session before save
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔍 [SAVE DEBUG] Auth session status:', {
+      hasSession: !!session,
+      authUid: session?.user?.id,
+      userEmail: session?.user?.email
+    });
 
     const supabaseData = {
       company_id: companyId,
@@ -129,6 +133,13 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       updated_by: userId || null  // FIXED: Use userId instead of companyId
     };
 
+    console.log('🔍 [SAVE DEBUG] Upsert data:', {
+      company_id: supabaseData.company_id,
+      service_name: supabaseData.service_name,
+      updated_by: supabaseData.updated_by,
+      hasVariables: !!supabaseData.variables_config
+    });
+
     // STEP 2: Upsert to Supabase (update if exists, insert if not)
     const { error } = await supabase
       .from('service_pricing_configs')
@@ -137,7 +148,13 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       });
 
     if (error) {
-      console.error('❌ [SERVICES] Supabase save failed:', error);
+      console.error('❌ [SAVE DEBUG] Full Supabase error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        isRLS: error.code === 'PGRST301' || error.message?.includes('RLS') || error.message?.includes('policy')
+      });
       throw error;
     }
 

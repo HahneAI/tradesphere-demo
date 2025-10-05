@@ -40,6 +40,13 @@ export const ServiceRecordCard: React.FC<ServiceRecordCardProps> = ({
   const [showHiddenMultipliers, setShowHiddenMultipliers] = useState(false);
 
   const handleSettingUpdate = (setting: string, value: number) => {
+    console.log('🔍 [UI DEBUG] Admin saving setting:', {
+      serviceId: service.serviceId,
+      setting,
+      oldValue: setting.split('.').reduce((obj: any, key) => obj?.[key], service.baseSettings)?.value,
+      newValue: value,
+      timestamp: new Date().toISOString()
+    });
     onUpdateSetting(service.serviceId, setting, value);
   };
 

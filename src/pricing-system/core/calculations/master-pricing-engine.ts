@@ -130,6 +130,13 @@ export class MasterPricingEngine {
       }
 
       // Query Supabase with detailed logging
+      // 🔍 DEBUG: Check auth status before query
+      console.log('🔍 [LOAD DEBUG] Auth session status:', {
+        hasSession: !!session,
+        authUid: session?.user?.id,
+        userEmail: session?.user?.email
+      });
+
       console.log('🔍 [MASTER ENGINE] Executing Supabase query:', {
         table: 'service_pricing_configs',
         company_id: targetCompanyId,
@@ -146,7 +153,13 @@ export class MasterPricingEngine {
         .limit(1);
 
       if (error) {
-        console.error('❌ [MASTER ENGINE] Supabase query error:', error);
+        console.error('❌ [LOAD DEBUG] Full query error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          isRLS: error.code === 'PGRST301' || error.message?.includes('RLS') || error.message?.includes('policy')
+        });
         console.log('🔄 [MASTER ENGINE] Falling back to JSON config due to query error');
         return this.getFallbackConfig();
       }
