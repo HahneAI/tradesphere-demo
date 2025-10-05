@@ -18,7 +18,7 @@ export const ServicesDatabaseView: React.FC<ServicesDatabaseViewProps> = ({
   userName = 'User'
 }) => {
   const { user } = useAuth();
-  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id);
+  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id, user?.id);
   const [searchTerm, setSearchTerm] = useState('');
 
   if (isLoading) {

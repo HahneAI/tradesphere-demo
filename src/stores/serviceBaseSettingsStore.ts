@@ -95,7 +95,7 @@ const loadServices = (): ServiceConfig[] => {
 };
 
 // Save updated configuration to Supabase (new primary method)
-const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig, companyId?: string) => {
+const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfig, companyId?: string, userId?: string) => {
   try {
     if (!companyId) {
       console.warn('⚠️ No company_id available, falling back to localStorage only');
@@ -106,6 +106,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
     console.log('🚀 [SERVICES] Saving configuration to Supabase:', {
       serviceId,
       companyId,
+      userId,
       hasBaseSettings: !!updatedService.baseSettings
     });
 
@@ -125,7 +126,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       is_active: true,
       version: '2.0.0',
       updated_at: new Date().toISOString(),
-      updated_by: companyId
+      updated_by: userId || null  // FIXED: Use userId instead of companyId
     };
 
     // STEP 2: Upsert to Supabase (update if exists, insert if not)
@@ -259,7 +260,7 @@ const loadServiceWithOverrides = (defaultService: ServiceConfig): ServiceConfig 
   return defaultService;
 };
 
-export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsStore => {
+export const useServiceBaseSettings = (companyId?: string, userId?: string): ServiceBaseSettingsStore => {
   const [services, setServices] = useState<ServiceConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -321,8 +322,8 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
           lastModified: new Date().toISOString().split('T')[0]
         };
 
-        // Save to Supabase (async)
-        saveServiceConfig(serviceId, updatedService, companyId).catch(error => {
+        // Save to Supabase (async) - FIXED: Now passing userId
+        saveServiceConfig(serviceId, updatedService, companyId, userId).catch(error => {
           console.error('Failed to save base setting:', error);
         });
 
@@ -331,7 +332,7 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
       return service;
     });
 
-  }, [services, companyId]);
+  }, [services, companyId, userId]);
 
   const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
     setServices(prev => {
@@ -424,9 +425,9 @@ export const useServiceBaseSettings = (companyId?: string): ServiceBaseSettingsS
             lastModified: new Date().toISOString().split('T')[0]
           };
 
-          // Save to Supabase
+          // Save to Supabase - FIXED: Now passing userId
           try {
-            saveServiceConfig(serviceId, updatedService, companyId);
+            saveServiceConfig(serviceId, updatedService, companyId, userId);
           } catch (error) {
             console.error('Failed to save service variables:', error);
           }
