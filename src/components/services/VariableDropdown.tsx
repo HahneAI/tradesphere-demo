@@ -103,6 +103,7 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
     if (varObj.label?.includes('Obstacle')) return 'obstacleRemoval';
     if (varObj.label?.includes('Paver')) return 'paverStyle';
     if (varObj.label?.includes('Cutting')) return 'cuttingComplexity';
+    if (varObj.label?.includes('Overall')) return 'overallComplexity';
     return 'unknown';
   };
 
