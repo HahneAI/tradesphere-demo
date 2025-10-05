@@ -97,6 +97,7 @@
     },
     "siteAccess": {
       "label": "Site Access & Obstacles",
+      "description": "Site accessibility and obstacle removal requirements",
       "accessDifficulty": {
         "label": "Access Difficulty",
         "type": "select",
@@ -124,6 +125,7 @@
     },
     "materials": {
       "label": "Materials & Complexity",
+      "description": "Material quality, paver styles, and cutting requirements",
       "paverStyle": {
         "label": "Paver Style & Quality",
         "type": "select",
@@ -162,6 +164,7 @@
     },
     "labor": {
       "label": "Labor Configuration",
+      "description": "Crew size and labor efficiency settings",
       "teamSize": {
         "label": "Team Size",
         "type": "select",
@@ -176,6 +179,7 @@
     },
     "complexity": {
       "label": "Project Complexity",
+      "description": "Overall project difficulty and design complexity",
       "overallComplexity": {
         "label": "Overall Complexity",
         "type": "select",
