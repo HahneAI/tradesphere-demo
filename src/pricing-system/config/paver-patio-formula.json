@@ -144,21 +144,9 @@
         "calculationTier": "both",
         "effectType": "cutting_complexity",
         "options": {
-          "minimal": { "label": "Minimal Cutting", "laborMultiplier": 1.0, "materialWaste": 0, "fixedLaborHours": 0 },
-          "moderate": { "label": "Moderate Cutting", "laborMultiplier": 2.0, "materialWaste": 15, "fixedLaborHours": 6 },
-          "complex": { "label": "Complex Cutting", "laborMultiplier": 2.5, "materialWaste": 25, "fixedLaborHours": 12 }
-        }
-      },
-      "patternComplexity": {
-        "label": "Pattern Complexity",
-        "type": "select",
-        "default": "minimal",
-        "calculationTier": 2,
-        "effectType": "material_waste_percentage",
-        "options": {
-          "minimal": { "label": "Minimal Pattern Work", "wastePercentage": 0 },
-          "some": { "label": "Some Pattern Complexity", "wastePercentage": 15 },
-          "extensive": { "label": "Extensive Pattern Work", "wastePercentage": 25 }
+          "minimal": { "label": "Minimal Cutting (Baseline)", "laborPercentage": 0, "materialWaste": 0 },
+          "moderate": { "label": "Moderate Cutting (+20% hours, +15% waste)", "laborPercentage": 20, "materialWaste": 15 },
+          "complex": { "label": "Complex Cutting (+30% hours, +25% waste)", "laborPercentage": 30, "materialWaste": 25 }
         }
       }
     },

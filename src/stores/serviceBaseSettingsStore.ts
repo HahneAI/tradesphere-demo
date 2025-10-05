@@ -38,9 +38,9 @@ interface ServiceVariableUpdate {
     heavyMachinery?: number;
   };
   cuttingComplexity?: {
-    minimal?: { fixedLaborHours?: number; materialWaste?: number };
-    moderate?: { fixedLaborHours?: number; materialWaste?: number };
-    complex?: { fixedLaborHours?: number; materialWaste?: number };
+    minimal?: { laborPercentage?: number; materialWaste?: number };
+    moderate?: { laborPercentage?: number; materialWaste?: number };
+    complex?: { laborPercentage?: number; materialWaste?: number };
   };
   laborMultipliers?: {
     tearoutGrass?: number;
@@ -55,9 +55,6 @@ interface ServiceVariableUpdate {
   materialSettings?: {
     standardGrade?: number;
     premiumGrade?: number;
-    patternMinimal?: number;
-    patternSome?: number;
-    patternExtensive?: number;
   };
 }
 
@@ -379,8 +376,8 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
             const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
             Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
               if (cuttingOptions[level] && values) {
-                if (values.fixedLaborHours !== undefined) {
-                  cuttingOptions[level].fixedLaborHours = values.fixedLaborHours;
+                if (values.laborPercentage !== undefined) {
+                  cuttingOptions[level].laborPercentage = values.laborPercentage;
                 }
                 if (values.materialWaste !== undefined) {
                   cuttingOptions[level].materialWaste = values.materialWaste;
@@ -424,15 +421,6 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
             }
             if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
               updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
-            }
-            if (updates.materialSettings.patternMinimal !== undefined && updatedVariables.materials?.patternComplexity?.options?.minimal) {
-              updatedVariables.materials.patternComplexity.options.minimal.wastePercentage = updates.materialSettings.patternMinimal;
-            }
-            if (updates.materialSettings.patternSome !== undefined && updatedVariables.materials?.patternComplexity?.options?.some) {
-              updatedVariables.materials.patternComplexity.options.some.wastePercentage = updates.materialSettings.patternSome;
-            }
-            if (updates.materialSettings.patternExtensive !== undefined && updatedVariables.materials?.patternComplexity?.options?.extensive) {
-              updatedVariables.materials.patternComplexity.options.extensive.wastePercentage = updates.materialSettings.patternExtensive;
             }
           }
 

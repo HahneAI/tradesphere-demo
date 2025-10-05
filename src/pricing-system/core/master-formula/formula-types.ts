@@ -16,8 +16,8 @@ export interface PaverPatioOption {
   value?: number;
   multiplier?: number;
   laborMultiplier?: number;
+  laborPercentage?: number;
   materialWaste?: number;
-  fixedLaborHours?: number;
   wastePercentage?: number;
   description?: string;
 }
@@ -77,7 +77,6 @@ export interface PaverPatioValues {
   materials: {
     paverStyle: string;
     cuttingComplexity: string;
-    patternComplexity: string;
   };
   labor: {
     teamSize: string;

@@ -77,20 +77,14 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
       return `+${((multiplier - 1) * 100).toFixed(0)}%`;
     }
 
-    // Pattern complexity - show waste percentage
-    if (variableKey === 'patternComplexity') {
-      if (option.wastePercentage === 0 || option.wastePercentage === undefined) return 'Baseline';
-      return `+${option.wastePercentage}% waste`;
-    }
-
     // Cutting complexity - show combined effects
     if (variableKey === 'cuttingComplexity') {
-      const hasLabor = option.fixedLaborHours && option.fixedLaborHours > 0;
+      const hasLabor = option.laborPercentage && option.laborPercentage > 0;
       const hasWaste = option.materialWaste && option.materialWaste > 0;
 
       if (!hasLabor && !hasWaste) return 'Baseline';
-      if (hasLabor && hasWaste) return `+${option.fixedLaborHours}h, +${option.materialWaste}% waste`;
-      if (hasLabor) return `+${option.fixedLaborHours}h fixed`;
+      if (hasLabor && hasWaste) return `+${option.laborPercentage}% hours, +${option.materialWaste}% waste`;
+      if (hasLabor) return `+${option.laborPercentage}% hours`;
       if (hasWaste) return `+${option.materialWaste}% waste`;
     }
 
@@ -109,7 +103,6 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
     if (varObj.label?.includes('Obstacle')) return 'obstacleRemoval';
     if (varObj.label?.includes('Paver')) return 'paverStyle';
     if (varObj.label?.includes('Cutting')) return 'cuttingComplexity';
-    if (varObj.label?.includes('Pattern')) return 'patternComplexity';
     return 'unknown';
   };
 

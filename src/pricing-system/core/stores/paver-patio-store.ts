@@ -22,7 +22,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     return {
       excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
       siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
       labor: { teamSize: 'threePlus' },
       complexity: { overallComplexity: 'simple' }
     };
@@ -40,7 +40,6 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     materials: {
       paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'standard',
       cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
-      patternComplexity: (config.variables.materials?.patternComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
     },
     labor: {
       teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'threePlus',
@@ -66,7 +65,7 @@ const getTrueBaselineValues = (): PaverPatioValues => {
   return {
     excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal', patternComplexity: 'minimal' },
+    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
     labor: { teamSize: 'threePlus' },
     complexity: { overallComplexity: 1.0 }
   };
@@ -93,7 +92,6 @@ const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
         materials: {
           paverStyle: parsedValues.materials?.paverStyle || defaults.materials.paverStyle,
           cuttingComplexity: parsedValues.materials?.cuttingComplexity || defaults.materials.cuttingComplexity,
-          patternComplexity: parsedValues.materials?.patternComplexity || defaults.materials.patternComplexity,
         },
         labor: {
           teamSize: parsedValues.labor?.teamSize || defaults.labor.teamSize,
@@ -161,7 +159,6 @@ const calculateExpertPricing = (
     obstacleRemoval: values?.siteAccess?.obstacleRemoval,
     paverStyle: values?.materials?.paverStyle,
     cuttingComplexity: values?.materials?.cuttingComplexity,
-    patternComplexity: values?.materials?.patternComplexity,
     teamSize: values?.labor?.teamSize,
     overallComplexity: values?.complexity?.overallComplexity
   });
@@ -234,21 +231,23 @@ const calculateExpertPricing = (
     breakdownSteps.push(`+Team size adjustment (+${teamOption.value}% of base): +${teamHours.toFixed(1)} hours`);
   }
 
-  // Add fixed cutting hours (Tom's spec: fixed hours, not percentages)
+  // Add cutting complexity labor percentage (calculated from BASE hours)
   const cuttingVar = config?.variables?.materials?.cuttingComplexity as PaverPatioVariable;
   const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+  const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
 
   // 🔍 [QUICK CALCULATOR DEBUG] Cutting complexity from JSON
-  console.log('🔍 [QUICK CALCULATOR DEBUG] Cutting Complexity Fixed Hours:', {
+  console.log('🔍 [QUICK CALCULATOR DEBUG] Cutting Complexity Labor Percentage:', {
     selectedValue: values?.materials?.cuttingComplexity,
-    fixedLaborHours: cuttingOption?.fixedLaborHours,
+    laborPercentage: cuttingLaborPercentage,
     allCuttingOptions: cuttingVar?.options,
-    isApplied: !!(cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0)
+    isApplied: cuttingLaborPercentage > 0
   });
 
-  if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
-    adjustedHours += cuttingOption.fixedLaborHours;
-    breakdownSteps.push(`+Cutting complexity: +${cuttingOption.fixedLaborHours} fixed hours`);
+  if (cuttingLaborPercentage > 0) {
+    const cuttingHours = baseHours * (cuttingLaborPercentage / 100);
+    adjustedHours += cuttingHours;
+    breakdownSteps.push(`+Cutting complexity (+${cuttingLaborPercentage}% of base): +${cuttingHours.toFixed(1)} hours`);
   }
 
   // Add final total to breakdown
@@ -508,7 +507,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       try {
         initialValues = loadStoredValues(configData);
         // Validate that the values match the new structure
-        if (!initialValues.excavation?.tearoutComplexity || !initialValues.materials?.patternComplexity) {
+        if (!initialValues.excavation?.tearoutComplexity || !initialValues.materials?.cuttingComplexity) {
           console.log('🔄 Clearing incompatible stored values, using defaults');
           localStorage.removeItem('paverPatioValues');
           initialValues = getDefaultValues(configData);

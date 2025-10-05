@@ -334,11 +334,12 @@ export class MasterPricingEngine {
       adjustedHours += baseHours * (teamSizePercentage / 100);
     }
 
-    // Add fixed cutting hours (per master-formula.md spec)
+    // Add cutting complexity labor percentage (calculated from BASE hours)
     const cuttingVar = config?.variables?.materials?.cuttingComplexity;
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
-    if (cuttingOption?.fixedLaborHours && cuttingOption.fixedLaborHours > 0) {
-      adjustedHours += cuttingOption.fixedLaborHours;
+    const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
+    if (cuttingLaborPercentage > 0) {
+      adjustedHours += baseHours * (cuttingLaborPercentage / 100);
     }
 
     const totalManHours = adjustedHours;

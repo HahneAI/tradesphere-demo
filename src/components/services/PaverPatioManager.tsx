@@ -123,18 +123,20 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
     }
 
     // Material factors - show percentages
-    if (['paverStyle', 'patternComplexity'].includes(variableKey)) {
+    if (variableKey === 'paverStyle') {
       return selectedOption.value === 0 ? 'Standard' : `+${selectedOption.value}%`;
     }
 
     // Cutting complexity - show combined effects
     if (variableKey === 'cuttingComplexity') {
-      if (selectedOption.fixedLaborHours && selectedOption.materialWaste) {
-        return `+${selectedOption.fixedLaborHours}h, +${selectedOption.materialWaste}% waste`;
-      } else if (selectedOption.fixedLaborHours) {
-        return `+${selectedOption.fixedLaborHours}h fixed`;
-      }
-      return selectedOption.value === 0 ? 'Minimal' : `+${selectedOption.value}%`;
+      const hasLabor = selectedOption.laborPercentage && selectedOption.laborPercentage > 0;
+      const hasWaste = selectedOption.materialWaste && selectedOption.materialWaste > 0;
+
+      if (!hasLabor && !hasWaste) return 'Minimal';
+      if (hasLabor && hasWaste) return `+${selectedOption.laborPercentage}% hours, +${selectedOption.materialWaste}% waste`;
+      if (hasLabor) return `+${selectedOption.laborPercentage}% hours`;
+      if (hasWaste) return `+${selectedOption.materialWaste}% waste`;
+      return 'Minimal';
     }
 
     // Default fallback
