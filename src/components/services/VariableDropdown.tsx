@@ -141,12 +141,12 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
             .sort((a, b) => {
               // Intelligent sorting based on option structure
               const getSortValue = (opt: any) => {
-                // Priority 1: Cutting complexity uses fixedLaborHours
-                if (opt.fixedLaborHours !== undefined) return opt.fixedLaborHours;
-                // Priority 2: Pattern complexity uses wastePercentage
+                // Priority 1: Cutting complexity uses laborPercentage
+                if (opt.laborPercentage !== undefined) return opt.laborPercentage;
+                // Priority 2: Material waste percentage
                 if (opt.wastePercentage !== undefined) return opt.wastePercentage;
-                // Priority 3: Multipliers
-                if (opt.multiplier !== undefined) return opt.multiplier;
+                // Priority 3: Multipliers (convert to comparable value)
+                if (opt.multiplier !== undefined) return (opt.multiplier - 1) * 100;
                 // Priority 4: Standard value
                 if (opt.value !== undefined) return opt.value;
                 return 0;
@@ -156,11 +156,19 @@ export const VariableDropdown: React.FC<VariableDropdownProps> = ({
               const bVal = getSortValue(b[1]);
               return aVal - bVal;
             })
-            .map(([key, option]) => (
-              <option key={key} value={key}>
-                {option.label} ({formatVariableDisplay(variableKey, option)})
-              </option>
-            ))}
+            .map(([key, option]) => {
+              // Check if label already includes the formatted display (has parentheses with +)
+              const labelHasFormatting = option.label.includes('(+') || option.label.includes('(Baseline)');
+              const displayText = labelHasFormatting
+                ? option.label
+                : `${option.label} (${formatVariableDisplay(variableKey, option)})`;
+
+              return (
+                <option key={key} value={key}>
+                  {displayText}
+                </option>
+              );
+            })}
         </select>
         
         {/* Dropdown Arrow */}

@@ -76,17 +76,17 @@ INSERT INTO public.service_pricing_configs (
         "options": {
           "minimal": {
             "label": "Minimal Cutting (Baseline)",
-            "fixedLaborHours": 0,
+            "laborPercentage": 0,
             "materialWaste": 0
           },
           "moderate": {
-            "label": "Moderate Cutting",
-            "fixedLaborHours": 6,
+            "label": "Moderate Cutting (+20% hours, +15% waste)",
+            "laborPercentage": 20,
             "materialWaste": 15
           },
           "complex": {
-            "label": "Complex Cutting",
-            "fixedLaborHours": 12,
+            "label": "Complex Cutting (+30% hours, +25% waste)",
+            "laborPercentage": 30,
             "materialWaste": 25
           }
         }
