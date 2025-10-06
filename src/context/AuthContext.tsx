@@ -120,25 +120,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Step 4: DEMO MODE auto-login (happens AFTER listeners are set up)
     // This ensures DEMO_MODE uses the same auth flow as production
+    // CRITICAL FIX: Only auto-login if NO existing session (prevents auto-login after logout)
     if (DEMO_MODE) {
-      console.log('🚨 DEMO MODE: Auto-logging in after auth listeners initialized...');
+      console.log('🚨 DEMO MODE: Checking for existing session before auto-login...');
       // Use setTimeout to not block the listener setup
       setTimeout(async () => {
         try {
-          const { error } = await supabase.auth.signInWithPassword({
-            email: 'anthony@test.com',
-            password: '99'
-          });
+          // CRITICAL: Check if session already exists from previous login/logout
+          const { data: { session } } = await supabase.auth.getSession();
 
-          if (error) {
-            console.error('❌ DEMO MODE: Auto-login failed:', error.message);
-            // Fallback to hardcoded user if auto-login fails
-            setUser(DEMO_USER);
-            setIsAdmin(true);
-            setLoading(false);
+          if (!session) {
+            console.log('🚨 DEMO MODE: No session found, proceeding with auto-login...');
+            const { error } = await supabase.auth.signInWithPassword({
+              email: 'anthony@test.com',
+              password: '99'
+            });
+
+            if (error) {
+              console.error('❌ DEMO MODE: Auto-login failed:', error.message);
+              // Fallback to hardcoded user if auto-login fails
+              setUser(DEMO_USER);
+              setIsAdmin(true);
+              setLoading(false);
+            } else {
+              console.log('✅ DEMO MODE: Auto-login successful');
+              // onAuthStateChange listener will handle the SIGNED_IN event
+            }
           } else {
-            console.log('✅ DEMO MODE: Auto-login successful');
-            // onAuthStateChange listener will handle the SIGNED_IN event
+            console.log('✅ DEMO MODE: Existing session found, skipping auto-login (user may have logged out)');
+            // Don't auto-login - let the existing session state handle it
+            setLoading(false);
           }
         } catch (error) {
           console.error('💥 DEMO MODE: Auto-login error:', error);
@@ -290,7 +301,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Pattern: 'sb-{project-ref}-auth-token' and legacy 'supabase.auth.token'
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.includes('supabase.auth') || key === 'tradesphere-auth-token')) {
+          if (key && (
+            key.startsWith('sb-') ||
+            key.includes('supabase') ||
+            key.includes('auth') ||
+            key === 'tradesphere-auth-token' ||
+            key.startsWith('paver') // Clear app-specific calculator data too
+          )) {
             keysToRemove.push(key);
           }
         }
