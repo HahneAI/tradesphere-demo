@@ -22,10 +22,8 @@
 
 CREATE TABLE public.VC Usage (
   id integer NOT NULL,
-  user_name character varying NOT NULL,
-  user_tech_id character varying NOT NULL,
+  user_name character varying,
   session_id character varying NOT NULL,
-  beta_code_id integer,
   user_input text NOT NULL,
   ai_response text NOT NULL,
   interaction_number integer NOT NULL,
@@ -55,8 +53,10 @@ CREATE TABLE public.VC Usage (
   view_count integer DEFAULT 0,
   updated_at timestamp with time zone DEFAULT now(),
   company_id uuid,
+  user_id uuid,
   CONSTRAINT VC Usage_pkey PRIMARY KEY (id),
-  CONSTRAINT vc_usage_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
+  CONSTRAINT vc_usage_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT fk_vc_usage_user FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.beta_codes (
   id integer NOT NULL DEFAULT nextval('beta_codes_id_seq'::regclass),
@@ -115,14 +115,15 @@ CREATE TABLE public.company_notes (
 );
 CREATE TABLE public.customer_interactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_tech_id text NOT NULL,
   customer_name text NOT NULL,
   session_id text,
   interaction_type text NOT NULL CHECK (interaction_type = ANY (ARRAY['view'::text, 'edit'::text, 'load'::text])),
   viewed_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
   company_id uuid,
+  user_id uuid,
   CONSTRAINT customer_interactions_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_customer_interactions_user FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT customer_interactions_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
 );
 CREATE TABLE public.demo_messages (
