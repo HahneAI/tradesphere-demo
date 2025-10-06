@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getSupabase } from '../services/supabase';
 
-// Import the JSON configuration
+// Import the JSON configurations
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
+import excavationConfigJson from '../pricing-system/config/excavation-removal-formula.json';
 
 interface BaseSetting {
   value: number;
@@ -67,20 +68,30 @@ interface ServiceBaseSettingsStore {
   getService: (serviceId: string) => ServiceConfig | undefined;
 }
 
-// Load services from JSON configuration
+// Load services from JSON configurations
 const loadServices = (): ServiceConfig[] => {
   try {
-    // Currently we only have paver patio service, but this can be extended
     const paverPatioConfig = paverPatioConfigJson as any;
-    
-    return [{
-      service: paverPatioConfig.service,
-      serviceId: paverPatioConfig.serviceId,
-      category: paverPatioConfig.category || 'Hardscaping',
-      baseSettings: paverPatioConfig.baseSettings,
-      variables: paverPatioConfig.variables,
-      lastModified: paverPatioConfig.lastModified
-    }];
+    const excavationConfig = excavationConfigJson as any;
+
+    return [
+      {
+        service: paverPatioConfig.service,
+        serviceId: paverPatioConfig.serviceId,
+        category: paverPatioConfig.category || 'Hardscaping',
+        baseSettings: paverPatioConfig.baseSettings,
+        variables: paverPatioConfig.variables,
+        lastModified: paverPatioConfig.lastModified
+      },
+      {
+        service: excavationConfig.service,
+        serviceId: excavationConfig.serviceId,
+        category: excavationConfig.category || 'Excavation',
+        baseSettings: excavationConfig.baseSettings,
+        variables: excavationConfig.variables,
+        lastModified: excavationConfig.lastModified
+      }
+    ];
   } catch (error) {
     console.error('Error loading services configuration:', error);
     return [];
