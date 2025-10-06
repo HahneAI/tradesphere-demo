@@ -737,9 +737,12 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   useEffect(() => {
     if (config && sqft > 0 && !isLoading) {
       console.log('🔄 [QUICK CALCULATOR] Config changed, auto-recalculating price for', sqft, 'sqft');
-      calculatePriceForSqft(sqft);
+      // Recalculate with current sqft value
+      calculatePriceForSqft(sqft).catch(err => {
+        console.error('❌ [QUICK CALCULATOR] Auto-recalculation failed:', err);
+      });
     }
-  }, [config]); // Watch config for real-time updates
+  }, [config, calculatePriceForSqft, sqft, isLoading]); // Watch config for real-time updates
 
   // REMOVED: Redundant storage event listener - Supabase subscription handles real-time updates
 

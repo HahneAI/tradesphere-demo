@@ -147,9 +147,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               // onAuthStateChange listener will handle the SIGNED_IN event
             }
           } else {
-            console.log('✅ DEMO MODE: Existing session found, skipping auto-login (user may have logged out)');
-            // Don't auto-login - let the existing session state handle it
-            setLoading(false);
+            console.log('✅ DEMO MODE: Existing session found, skipping auto-login');
+            // Session exists - user was already logged in or refreshed while logged in
+            // Fetch user data for this session
+            if (session.user) {
+              fetchUserData(session.user.id);
+            } else {
+              setLoading(false);
+            }
           }
         } catch (error) {
           console.error('💥 DEMO MODE: Auto-login error:', error);
