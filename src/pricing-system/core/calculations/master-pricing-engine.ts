@@ -204,7 +204,7 @@ export class MasterPricingEngine {
     serviceName: string,
     companyId: string,
     onUpdate: (config: PaverPatioConfig) => void
-  ): void {
+  ): () => void {
     const subscriptionKey = `${companyId}:${serviceName}`;
 
     // Remove existing subscription
@@ -221,24 +221,35 @@ export class MasterPricingEngine {
           event: '*',
           schema: 'public',
           table: 'service_pricing_configs',
-          filter: `company_id=eq.${companyId} and service_name=eq.${serviceName}`
+          filter: `company_id=eq.${companyId}`
         },
         async (payload) => {
-          console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
+          // Only process updates for matching service
+          if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
+            console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
 
-          // Clear cache
-          this.configCache.delete(subscriptionKey);
+            // Clear cache
+            this.configCache.delete(subscriptionKey);
 
-          // Load fresh config
-          const newConfig = await this.loadPricingConfig(serviceName, companyId);
-          onUpdate(newConfig);
+            // Load fresh config
+            const newConfig = await this.loadPricingConfig(serviceName, companyId);
+            onUpdate(newConfig);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 [MASTER ENGINE] Subscription status:', status, subscriptionKey);
+      });
 
     this.subscriptions.set(subscriptionKey, subscription);
 
     console.log('👂 [MASTER ENGINE] Subscribed to real-time updates:', subscriptionKey);
+
+    // Return cleanup function
+    return () => {
+      subscription.unsubscribe();
+      this.subscriptions.delete(subscriptionKey);
+    };
   }
 
   /**
