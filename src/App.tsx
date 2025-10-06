@@ -21,19 +21,14 @@ type AnimationState = 'in' | 'out';
 function App() {
   const { user, loading: authLoading } = useAuth();
 
-  // 🚨 DEMO MODE: Skip loading screen and go straight to authenticated state
-  const DEMO_MODE = true;
-  const initialState: AppState = DEMO_MODE ? 'authenticated' : 'loading';
-
-  const [appState, setAppState] = useState<AppState>(initialState);
+  const [appState, setAppState] = useState<AppState>('loading');
   const [animationState, setAnimationState] = useState<AnimationState>('in');
   const [currentAppState, setCurrentAppState] = useState<AppState>(appState);
   const [isExitingLoading, setIsExitingLoading] = useState(false);
 
   const isMinDurationPassed = useAppLoading();
   // Simple loading check - wait for BOTH auth and minimum duration
-  // In demo mode, never show loading
-  const isLoading = DEMO_MODE ? false : (authLoading || !isMinDurationPassed);
+  const isLoading = authLoading || !isMinDurationPassed;
 
   const setAppStateWithAnimation = (newStage: AppState) => {
     setAnimationState('out');
@@ -44,55 +39,36 @@ function App() {
     }, 400);
   };
 
-  // Single effect for ALL state transitions
+  // Effect 1: Handle ONLY initial load transition
   useEffect(() => {
     document.title = 'TradeSphere - AI Pricing Assistant';
 
-    // Skip all transitions in demo mode - start authenticated
-    if (DEMO_MODE) {
-      console.log('🚨 DEMO MODE: Staying in authenticated state');
-      return;
-    }
-
-    console.log('🔍 [APP] useEffect triggered:', {
-      isLoading,
-      authLoading,
-      isMinDurationPassed,
-      appState,
-      hasUser: !!user,
-      userEmail: user?.email
-    });
-
-    // Handle initial load complete
-    if (!isLoading && appState === 'loading') {
-      console.log('📍 Initial load complete, transitioning from loading screen');
+    if (!authLoading && isMinDurationPassed && appState === 'loading') {
+      console.log('📍 Initial load complete');
       setIsExitingLoading(true);
 
       const timer = setTimeout(() => {
-        if (user) {
-          console.log('✅ User session found, going to authenticated state');
-          setAppStateWithAnimation('authenticated');
-        } else {
-          console.log('🔐 No user session, going to login state');
-          setAppStateWithAnimation('login');
-        }
+        const nextState = user ? 'authenticated' : 'login';
+        console.log(`🔄 Transitioning to ${nextState} state`);
+        setAppStateWithAnimation(nextState);
       }, 500);
 
       return () => clearTimeout(timer);
     }
+  }, [authLoading, isMinDurationPassed, appState, user]);
 
-    // Handle auth changes AFTER initial load
-    if (!isLoading && appState !== 'loading') {
-      console.log('🔍 [APP] Checking post-load auth state:', { user: !!user, appState });
-      if (user && appState !== 'authenticated') {
-        console.log('🔄 User logged in, transitioning to authenticated state');
-        setAppStateWithAnimation('authenticated');
-      } else if (!user && appState === 'authenticated') {
-        console.log('🔄 User logged out, transitioning to login state');
-        setAppStateWithAnimation('login');
-      }
+  // Effect 2: Handle ONLY auth changes AFTER initial load
+  useEffect(() => {
+    if (appState === 'loading') return;
+
+    if (user && appState !== 'authenticated') {
+      console.log('🔄 User logged in, transitioning to authenticated state');
+      setAppStateWithAnimation('authenticated');
+    } else if (!user && appState === 'authenticated') {
+      console.log('🔄 User logged out, transitioning to login state');
+      setAppStateWithAnimation('login');
     }
-  }, [isLoading, user, appState, authLoading, isMinDurationPassed, DEMO_MODE]);
+  }, [user, appState]);
 
   const animatedRender = (Component: React.ReactNode) => {
     const animationClass = animationState === 'in' ? 'animate-screen-in' : 'animate-screen-out';
