@@ -287,9 +287,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const keysToRemove: string[] = [];
 
         // Scan all localStorage keys for Supabase-related entries
+        // Pattern: 'sb-{project-ref}-auth-token' and legacy 'supabase.auth.token'
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.includes('supabase') || key === 'tradesphere-auth-token')) {
+          if (key && (key.startsWith('sb-') || key.includes('supabase.auth') || key === 'tradesphere-auth-token')) {
             keysToRemove.push(key);
           }
         }
