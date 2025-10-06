@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -6,6 +6,7 @@ import { getSmartVisualThemeConfig } from '../../../config/industry';
 import { PaverPatioManager } from '../../../components/services/PaverPatioManager';
 import { PaverPatioReadOnly } from '../../../components/services/PaverPatioReadOnly';
 import { usePaverPatioStore } from '../../core/stores/paver-patio-store';
+import { SERVICE_REGISTRY, ServiceId } from '../../config/service-registry';
 
 interface QuickCalculatorTabProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
+  const [selectedService, setSelectedService] = useState<ServiceId>('paver_patio_sqft');
   const store = usePaverPatioStore(user?.company_id || '');
   const hasReset = useRef(false);
 
@@ -77,9 +79,28 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
           {/* Modal Header */}
           <div className="flex items-center justify-between p-6 border-b flex-shrink-0"
                style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
-            <h2 className="text-xl font-semibold" style={{ color: visualConfig.colors.text.primary }}>
-              Quick Calculator
-            </h2>
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold" style={{ color: visualConfig.colors.text.primary }}>
+                Quick Calculator
+              </h2>
+              {/* Service Selector */}
+              <select
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value as ServiceId)}
+                className="px-4 py-2 rounded-lg border transition-colors"
+                style={{
+                  backgroundColor: visualConfig.colors.surface,
+                  color: visualConfig.colors.text.primary,
+                  borderColor: theme === 'light' ? '#e5e7eb' : '#374151'
+                }}
+              >
+                {Object.entries(SERVICE_REGISTRY).map(([key, service]) => (
+                  <option key={key} value={key}>
+                    {service.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               onClick={() => {
                 // Reset to defaults when closing via X button
@@ -100,10 +121,22 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
             {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto p-6">
               {/* Render Variable Editor Interface - Available to All Users */}
-              <PaverPatioManager
-                visualConfig={visualConfig}
-                theme={theme}
-              />
+              {selectedService === 'paver_patio_sqft' ? (
+                <PaverPatioManager
+                  visualConfig={visualConfig}
+                  theme={theme}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <Icons.Construction className="h-16 w-16" style={{ color: visualConfig.colors.text.secondary }} />
+                  <p className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                    {SERVICE_REGISTRY[selectedService].displayName}
+                  </p>
+                  <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                    Calculator interface coming soon
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

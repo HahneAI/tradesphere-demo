@@ -126,6 +126,22 @@ CREATE TABLE public.customer_interactions (
   CONSTRAINT fk_customer_interactions_user FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT customer_interactions_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
 );
+CREATE TABLE public.customers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  customer_name character varying NOT NULL,
+  customer_email character varying,
+  customer_phone character varying,
+  customer_address text,
+  customer_notes text,
+  created_by_user_id uuid NOT NULL,
+  created_by_user_name character varying,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT customers_pkey PRIMARY KEY (id),
+  CONSTRAINT customers_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT customers_created_by_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id)
+);
 CREATE TABLE public.demo_messages (
   id bigint NOT NULL DEFAULT nextval('demo_messages_id_seq'::regclass),
   session_id text NOT NULL,
