@@ -309,13 +309,21 @@ export const ServicesPage: React.FC = () => {
                   />
                 </td>
                 <td className="p-4">
-                  <EditableCell
-                    serviceId={service.serviceId}
-                    setting="materialSettings.baseMaterialCost"
-                    value={service.baseSettings.materialSettings.baseMaterialCost.value}
-                    unit={service.baseSettings.materialSettings.baseMaterialCost.unit}
-                    validation={service.baseSettings.materialSettings.baseMaterialCost.validation}
-                  />
+                  {(() => {
+                    // Dynamically get first material setting key (different per service)
+                    const materialSettingKey = Object.keys(service.baseSettings.materialSettings)[0];
+                    const materialSetting = service.baseSettings.materialSettings[materialSettingKey];
+
+                    return (
+                      <EditableCell
+                        serviceId={service.serviceId}
+                        setting={`materialSettings.${materialSettingKey}`}
+                        value={materialSetting.value}
+                        unit={materialSetting.unit}
+                        validation={materialSetting.validation}
+                      />
+                    );
+                  })()}
                 </td>
                 <td className="p-4">
                   <EditableCell
