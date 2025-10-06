@@ -357,6 +357,8 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       return service;
     });
 
+    // CRITICAL FIX: Actually update state with new services array
+    setServices(updatedServices);
   }, [services, companyId, userId]);
 
   const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
