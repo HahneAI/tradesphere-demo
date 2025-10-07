@@ -9,6 +9,8 @@
 import { ExtractedService } from '../parameter-collection/ParameterCollectorService';
 import { calculateExpertPricing, loadPaverPatioConfig } from '../../utils/calculations/server-calculations';
 import type { PaverPatioValues, PaverPatioCalculationResult } from '../../core/master-formula/formula-types';
+import { detectServiceFromText } from '../routing/service-router';
+import type { ServiceId } from '../../config/service-registry';
 
 // Internal project total interface (replaces Google Sheets ProjectTotal)
 export interface ProjectTotal {
@@ -68,30 +70,23 @@ export class PricingCalculatorService {
     });
 
     try {
-      // 🎯 MASTER FORMULA PRIMARY - All services route through paver patio system
-      // Google Sheets integration disabled - Services tab expansion coming
-      console.log('🎯 ROUTING ALL SERVICES TO MASTER FORMULA (Google Sheets disabled)');
+      // 🎯 MULTI-SERVICE ROUTING - Detect service type and route appropriately
+      console.log('🎯 DYNAMIC SERVICE ROUTING (Multi-Service Support Enabled)');
 
-      // For now, treat everything as paver patio for the master formula system
       if (services.length > 0) {
-        // Force first service to be treated as paver patio if not already
-        const primaryService = services[0];
+        // Detect service type for each service
+        services.forEach(service => {
+          const detectedServiceId = detectServiceFromText(service.serviceName);
+          console.log(`🔍 Service Detection:`, {
+            input: service.serviceName,
+            detected: detectedServiceId,
+            quantity: service.quantity,
+            unit: service.unit
+          });
 
-        if (!primaryService.serviceName.includes("Paver Patio")) {
-          console.log(`⚠️ Converting ${primaryService.serviceName} to paver patio for master formula testing`);
-          console.log('📋 Non-paver services will be supported via Services database tab expansion');
-
-          // Convert to paver patio format for master formula compatibility
-          primaryService.serviceName = "Paver Patio (SQFT)";
-          primaryService.row = 999; // Master formula flag
-          primaryService.isSpecial = true;
-
-          // Ensure reasonable square footage if not provided
-          if (!primaryService.quantity || primaryService.quantity <= 0) {
-            primaryService.quantity = 200; // Default reasonable size
-            console.log(`📏 Setting default square footage: ${primaryService.quantity} sqft`);
-          }
-        }
+          // Set service metadata for routing
+          (service as any).detectedServiceId = detectedServiceId;
+        });
 
         return this.calculateMasterFormulaPricing(services, companyId);
       }

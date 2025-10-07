@@ -21,12 +21,17 @@ export const getSupabase = (): SupabaseClient<Database> => {
 
     supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
-        persistSession: false,  // DISABLED: No session persistence - fixes stuck loading screen
-        autoRefreshToken: false,  // DISABLED: No auto refresh needed without persistence
+        persistSession: true,  // ENABLED: Required for real-time subscriptions to work
+        autoRefreshToken: true,  // ENABLED: Required for real-time WebSocket authentication
         detectSessionInUrl: false,
         flowType: 'pkce'  // Use PKCE flow for better security
+      },
+      realtime: {
+        log_level: 'debug'  // CHANGED: Maximum verbosity for real-time debugging
       }
     });
+
+    console.log('🔧 [SUPABASE] Client initialized with real-time debug logging enabled');
   }
 
   return supabase;
@@ -51,11 +56,16 @@ export const refreshSupabaseClient = () => {
 
   supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
-      persistSession: false,  // DISABLED: No session persistence - fixes stuck loading screen
-      autoRefreshToken: false,  // DISABLED: No auto refresh needed without persistence
+      persistSession: true,  // ENABLED: Required for real-time subscriptions to work
+      autoRefreshToken: true,  // ENABLED: Required for real-time WebSocket authentication
       detectSessionInUrl: false,
       flowType: 'pkce'  // Use PKCE flow for better security
+    },
+    realtime: {
+      log_level: 'debug'  // CHANGED: Maximum verbosity for real-time debugging
     }
   });
+
+  console.log('🔧 [SUPABASE] Client refreshed with real-time debug logging enabled');
   return supabase;
 };

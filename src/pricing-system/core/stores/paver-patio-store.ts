@@ -549,7 +549,33 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     } finally {
       setIsLoading(false);
     }
-  }, []); // Empty deps - companyId accessed from closure
+  }, [companyId]); // Include companyId in dependencies
+
+  // CRITICAL: Recalculate when config changes (e.g., from real-time subscription)
+  useEffect(() => {
+    if (!config || !companyId) return;
+
+    console.log('🔄 [QUICK CALCULATOR] Config changed, recalculating with new values');
+    console.log('🔍 [QUICK CALCULATOR] New config equipment values:', {
+      handTools: config.variables?.excavation?.equipmentRequired?.options?.handTools?.value,
+      attachments: config.variables?.excavation?.equipmentRequired?.options?.attachments?.value,
+      lightMachinery: config.variables?.excavation?.equipmentRequired?.options?.lightMachinery?.value,
+      heavyMachinery: config.variables?.excavation?.equipmentRequired?.options?.heavyMachinery?.value,
+    });
+
+    // Recalculate with current values and sqft
+    const recalculate = async () => {
+      try {
+        const calculation = await calculatePrice(config, values, sqft, companyId);
+        setLastCalculation(calculation);
+        console.log('✅ [QUICK CALCULATOR] Recalculation complete after config change');
+      } catch (error) {
+        console.error('❌ [QUICK CALCULATOR] Failed to recalculate after config change:', error);
+      }
+    };
+
+    recalculate();
+  }, [config, values, sqft, companyId]); // Recalculate when config, values, or sqft changes
 
   // Update a specific value
   const updateValue = useCallback(async (category: keyof PaverPatioValues, variable: string, value: string | number) => {
@@ -703,39 +729,57 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     }
   }, [config, values]);
 
-  // Load config on mount and set up real-time subscription
+  // REMOVED: Subscription setup moved to QuickCalculatorTab component
+  // This simplifies the store to just state management
+  // Subscription is now created when modal opens and cleaned up when it closes
+
+  // Load config on mount (just once)
   useEffect(() => {
-    // Guard: Don't proceed without companyId
-    if (!companyId || companyId.trim() === '') {
-      console.error('❌ [QUICK CALCULATOR] Cannot subscribe without company_id');
-      setError('No company ID available');
-      setIsLoading(false);
-      return;
+    if (companyId && companyId.trim() !== '') {
+      console.log('🔍 [QUICK CALCULATOR] Loading initial config on mount');
+      loadConfig();
     }
+  }, [companyId]);
 
-    loadConfig();
+  // Auto-recalculate when config changes (from real-time or manual reload)
+  useEffect(() => {
+    if (config && sqft > 0 && !isLoading) {
+      const configTimestamp = (config as any)._lastUpdated;
+      const updateSource = (config as any)._updateSource;
 
-    // Subscribe ONCE to real-time configuration changes from Supabase
-    console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes', { companyId });
+      console.log('🔄 [QUICK CALCULATOR] Config changed!', {
+        timestamp: configTimestamp,
+        source: updateSource || 'initial-load',
+        sqft: sqft,
+        willRecalculate: true
+      });
 
-    const unsubscribe = masterPricingEngine.subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
-      console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
-      setConfig(newConfig);
-      // Note: Recalculation handled by separate useEffect on config change
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-        console.log('🔌 [QUICK CALCULATOR] Real-time subscription cleaned up');
-      }
-    };
-  }, [companyId]); // ONLY companyId - no function dependencies
+      // Recalculate with current sqft value
+      calculatePriceForSqft(sqft).catch(err => {
+        console.error('❌ [QUICK CALCULATOR] Auto-recalculation failed:', err);
+      });
+    }
+  }, [config]); // Only watch config - timestamp in config forces new reference
 
   // REMOVED: Redundant storage event listener - Supabase subscription handles real-time updates
 
   // REMOVED: Redundant custom event listener - Supabase subscription handles real-time updates
+
+  // Manual reload for when modal opens
+  const reloadConfig = useCallback(async () => {
+    console.log('🔄 [QUICK CALCULATOR] Manually reloading config from Supabase');
+    setIsLoading(true);
+    try {
+      const freshConfig = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
+      setConfig(freshConfig);
+      console.log('✅ [QUICK CALCULATOR] Config reloaded successfully');
+    } catch (err) {
+      console.error('❌ [QUICK CALCULATOR] Failed to reload config:', err);
+      setError('Failed to reload configuration');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [companyId]);
 
   return {
     config,
@@ -753,6 +797,8 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     calculatePrice: calculatePriceForSqft,
     saveConfig,
     createBackup,
+    reloadConfig,  // NEW: Manual reload for modal open
+    setConfig,     // NEW: Expose for real-time subscription callback
   };
 };
 

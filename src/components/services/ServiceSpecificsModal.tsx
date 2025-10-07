@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useServiceBaseSettings } from '../../stores/serviceBaseSettingsStore';
@@ -74,9 +74,10 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   theme,
 }) => {
   const { user } = useAuth();
-  const { getService, updateServiceVariables } = useServiceBaseSettings(user?.company_id);
-  const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials' | 'complexity'>('equipment');
+  const { getService, updateServiceVariables, refreshServices, services } = useServiceBaseSettings(user?.company_id);
+  const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials' | 'complexity' | 'obstacles'>('equipment');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const isAdmin = user?.is_admin || false;
 
@@ -112,30 +113,82 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     premiumGrade: 20,
   });
 
-  // Complexity state
+  // Complexity state - FIXED: Store as percentages (0, 10, 30, 50) not multipliers
   const [complexitySettings, setComplexitySettings] = useState({
-    simple: 1.0,
-    standard: 1.1,
-    complex: 1.3,
-    extreme: 1.5
+    simple: 0,
+    standard: 10,
+    complex: 30,
+    extreme: 50
   });
 
-  const service = getService(serviceId);
+  // Obstacle removal state - flat dollar amounts
+  const [obstacleSettings, setObstacleSettings] = useState({
+    none: 0,
+    minor: 500,
+    major: 1000,
+  });
 
+  // CRITICAL FIX: Refresh services from Supabase when modal opens with loading state
   useEffect(() => {
-    if (service && service.variables) {
+    if (isOpen) {
+      console.log('🔄 [SPECIFICS MODAL] Modal opened, forcing fresh load from database (bypassing all caches)');
+      setIsRefreshing(true);
+      refreshServices().then(() => {
+        console.log('✅ [SPECIFICS MODAL] Fresh data loaded from database, loading values now');
+        setIsRefreshing(false);
+      });
+    }
+  }, [isOpen, refreshServices]);
+
+  // Use useMemo to ensure proper reactivity when services state updates
+  const service = useMemo(() => {
+    const svc = getService(serviceId);
+    console.log('🔍 [SPECIFICS MODAL] Service retrieved:', {
+      found: !!svc,
+      serviceId,
+      hasEquipment: !!svc?.variables?.excavation?.equipmentRequired,
+      lightMachineryValue: svc?.variables?.excavation?.equipmentRequired?.options?.lightMachinery?.value
+    });
+    return svc;
+  }, [getService, serviceId, services]);
+
+  // Load values only AFTER refresh completes to avoid race condition
+  useEffect(() => {
+    if (!isRefreshing && service && service.variables) {
+      console.log('📝 [SPECIFICS MODAL] Loading fresh service variables:', {
+        serviceId,
+        isRefreshing,
+        hasPremiumValue: !!service.variables.materials?.paverStyle?.options?.premium?.value,
+        premiumValue: service.variables.materials?.paverStyle?.options?.premium?.value,
+        premiumMultiplier: service.variables.materials?.paverStyle?.options?.premium?.multiplier,
+        lightMachineryValue: service.variables.excavation?.equipmentRequired?.options?.lightMachinery?.value
+      });
+
       // Load current values from service configuration
       const vars = service.variables;
+
+      console.log('📊 [MODAL LOAD] DATA SOURCE: Loading from fresh Supabase query (not cache, not JSON)');
 
       // Load equipment costs
       if (vars.excavation?.equipmentRequired?.options) {
         const equipmentOptions = vars.excavation.equipmentRequired.options;
-        setEquipmentCosts({
+        const loadedCosts = {
           handTools: equipmentOptions.handTools?.value || 0,
           attachments: equipmentOptions.attachments?.value || 125,
           lightMachinery: equipmentOptions.lightMachinery?.value || 250,
           heavyMachinery: equipmentOptions.heavyMachinery?.value || 350,
+        };
+        console.log('🔧 [MODAL LOAD] Equipment costs from DATABASE:', {
+          dataSource: 'Supabase service_pricing_configs table',
+          fromDatabase: {
+            handTools: equipmentOptions.handTools?.value,
+            attachments: equipmentOptions.attachments?.value,
+            lightMachinery: equipmentOptions.lightMachinery?.value,
+            heavyMachinery: equipmentOptions.heavyMachinery?.value,
+          },
+          afterDefaults: loadedCosts
         });
+        setEquipmentCosts(loadedCosts);
       }
 
       // Load cutting complexity
@@ -179,18 +232,28 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
         });
       }
 
-      // Load complexity settings
+      // Load complexity settings - FIXED: Load as percentages (value field) not multipliers
       if (vars.complexity?.overallComplexity?.options) {
         const complexityOptions = vars.complexity.overallComplexity.options;
         setComplexitySettings({
-          simple: complexityOptions.simple?.multiplier || 1.0,
-          standard: complexityOptions.standard?.multiplier || 1.1,
-          complex: complexityOptions.complex?.multiplier || 1.3,
-          extreme: complexityOptions.extreme?.multiplier || 1.5,
+          simple: complexityOptions.simple?.value ?? 0,
+          standard: complexityOptions.standard?.value ?? 10,
+          complex: complexityOptions.complex?.value ?? 30,
+          extreme: complexityOptions.extreme?.value ?? 50,
+        });
+      }
+
+      // Load obstacle removal settings
+      if (vars.siteAccess?.obstacleRemoval?.options) {
+        const obstacleOptions = vars.siteAccess.obstacleRemoval.options;
+        setObstacleSettings({
+          none: obstacleOptions.none?.value ?? 0,
+          minor: obstacleOptions.minor?.value ?? 500,
+          major: obstacleOptions.major?.value ?? 1000,
         });
       }
     }
-  }, [service, serviceId]);
+  }, [service, serviceId, isRefreshing]);
 
   const handleClose = () => {
     if (hasUnsavedChanges) {
@@ -205,12 +268,14 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
 
   const handleSave = () => {
     try {
+      console.log('🔧 [MODAL SAVE] Saving equipment costs:', equipmentCosts);
       updateServiceVariables(serviceId, {
         equipmentCosts,
         cuttingComplexity,
         laborMultipliers,
         materialSettings,
         complexitySettings,
+        obstacleSettings,
       });
       console.log('✅ Service variables saved successfully');
       setHasUnsavedChanges(false);
@@ -252,6 +317,11 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     setHasUnsavedChanges(true);
   };
 
+  const updateObstacleSetting = (key: string, value: number) => {
+    setObstacleSettings(prev => ({ ...prev, [key]: value }));
+    setHasUnsavedChanges(true);
+  };
+
   if (!isOpen) return null;
 
   const tabs = [
@@ -260,6 +330,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     { key: 'labor' as const, label: 'Labor Factors', icon: Icons.Users },
     { key: 'materials' as const, label: 'Material Settings', icon: Icons.Package },
     { key: 'complexity' as const, label: 'Project Complexity', icon: Icons.Settings },
+    { key: 'obstacles' as const, label: 'Obstacle Costs', icon: Icons.AlertTriangle },
   ];
 
   return (
@@ -675,46 +746,46 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <NumberInput
-                        label="Simple Project (100%)"
+                        label="Simple Project"
                         value={complexitySettings.simple}
                         onChange={(value) => updateComplexitySettings('simple', value)}
-                        unit="x"
-                        min={0.8}
-                        max={1.2}
-                        step={0.1}
+                        unit="%"
+                        min={0}
+                        max={20}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
                       <NumberInput
-                        label="Standard Project (110%)"
+                        label="Standard Project"
                         value={complexitySettings.standard}
                         onChange={(value) => updateComplexitySettings('standard', value)}
-                        unit="x"
-                        min={1.0}
-                        max={1.3}
-                        step={0.1}
+                        unit="%"
+                        min={0}
+                        max={30}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
                       <NumberInput
-                        label="Complex Project (130%)"
+                        label="Complex Project"
                         value={complexitySettings.complex}
                         onChange={(value) => updateComplexitySettings('complex', value)}
-                        unit="x"
-                        min={1.2}
-                        max={1.5}
-                        step={0.1}
+                        unit="%"
+                        min={20}
+                        max={50}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
                       <NumberInput
-                        label="Extreme Complexity (150%)"
+                        label="Extreme Complexity"
                         value={complexitySettings.extreme}
                         onChange={(value) => updateComplexitySettings('extreme', value)}
-                        unit="x"
-                        min={1.3}
-                        max={2.0}
-                        step={0.1}
+                        unit="%"
+                        min={30}
+                        max={100}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
@@ -725,11 +796,81 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         Complexity Level Descriptions
                       </h5>
                       <div className="space-y-2 text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                        <div>• <strong>Simple (100%)</strong> - Straightforward rectangular patio</div>
-                        <div>• <strong>Standard (110%)</strong> - Typical patio with some features</div>
-                        <div>• <strong>Complex (130%)</strong> - Multiple levels, curves, or features</div>
-                        <div>• <strong>Extreme (150%)</strong> - Highly complex design with multiple challenges</div>
+                        <div>• <strong>Simple (0% increase)</strong> - Straightforward rectangular patio, baseline pricing</div>
+                        <div>• <strong>Standard (10% increase)</strong> - Typical patio with some features</div>
+                        <div>• <strong>Complex (30% increase)</strong> - Multiple levels, curves, or features</div>
+                        <div>• <strong>Extreme (50% increase)</strong> - Highly complex design with multiple challenges</div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Obstacles Tab */}
+            {activeTab === 'obstacles' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium mb-3" style={{ color: visualConfig.colors.text.primary }}>
+                    Obstacle Removal Costs
+                  </h3>
+                  <p className="text-sm mb-4" style={{ color: visualConfig.colors.text.secondary }}>
+                    Flat additional costs for obstacle removal at job site.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-lg border" style={{
+                  borderColor: visualConfig.colors.text.secondary + '40',
+                  backgroundColor: visualConfig.colors.background
+                }}>
+                  <h4 className="text-md font-medium mb-3" style={{ color: visualConfig.colors.text.primary }}>
+                    Obstacle Removal Levels
+                  </h4>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <NumberInput
+                      label="No Obstacles"
+                      value={obstacleSettings.none}
+                      onChange={(value) => updateObstacleSetting('none', value)}
+                      unit="$"
+                      min={0}
+                      max={500}
+                      step={50}
+                      isAdmin={isAdmin}
+                      visualConfig={visualConfig}
+                    />
+                    <NumberInput
+                      label="Minor Obstacles"
+                      value={obstacleSettings.minor}
+                      onChange={(value) => updateObstacleSetting('minor', value)}
+                      unit="$"
+                      min={0}
+                      max={2000}
+                      step={100}
+                      isAdmin={isAdmin}
+                      visualConfig={visualConfig}
+                    />
+                    <NumberInput
+                      label="Major Obstacles"
+                      value={obstacleSettings.major}
+                      onChange={(value) => updateObstacleSetting('major', value)}
+                      unit="$"
+                      min={0}
+                      max={5000}
+                      step={250}
+                      isAdmin={isAdmin}
+                      visualConfig={visualConfig}
+                    />
+                  </div>
+
+                  <div className="mt-4 p-3 rounded" style={{ backgroundColor: visualConfig.colors.background }}>
+                    <h5 className="text-sm font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                      Obstacle Level Descriptions
+                    </h5>
+                    <div className="space-y-2 text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                      <div>• <strong>No Obstacles ($0)</strong> - Clear site, no obstructions</div>
+                      <div>• <strong>Minor Obstacles ($500)</strong> - Small items, minor landscaping, simple removal</div>
+                      <div>• <strong>Major Obstacles ($1000)</strong> - Large structures, trees, complex removal work</div>
                     </div>
                   </div>
                 </div>

@@ -1,4 +1,3 @@
-import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
@@ -31,14 +30,13 @@ const registerPWA = async () => {
 };
 
 console.log('🟢 MAIN.TSX - Rendering App component');
+console.log('⚠️ StrictMode DISABLED - Required for Supabase real-time subscriptions to work');
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AuthProvider>  {/* Add this */}
-      <App />
-      <Toaster position="top-right" />
-    </AuthProvider>  {/* Add this */}
-  </StrictMode>
+  <AuthProvider>
+    <App />
+    <Toaster position="top-right" />
+  </AuthProvider>
 );
 
 registerPWA();

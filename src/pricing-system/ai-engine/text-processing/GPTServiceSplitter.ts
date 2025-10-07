@@ -34,32 +34,34 @@ export class GPTServiceSplitter {
   private static readonly MODEL = 'gpt-4o-mini';
   
   /**
-   * FOCUSED PROMPT - Paver Patio Master Formula Primary
-   * Google Sheets integration disabled - Services tab expansion coming
+   * MULTI-SERVICE PROMPT - Detects hardscaping and excavation services
+   * Expanded to support multiple service categories
    */
-  private static readonly COMBINED_PROMPT = `You are a paver patio specialist focusing on hardscaping detection. The system is currently optimized for paver patio projects using advanced master formula calculations.
+  private static readonly COMBINED_PROMPT = `You are a landscaping service specialist detecting multiple service categories. The system supports advanced pricing calculations for various service types.
 
-🎯 MASTER FORMULA FOCUS: This system prioritizes paver patio projects for sophisticated pricing.
+🎯 MULTI-SERVICE DETECTION: Detect all applicable service categories from the request.
 
-STEP 1 - PRIMARY DETECTION (paver patio focus):
+STEP 1 - CATEGORY DETECTION:
 - hardscaping: patio, pavers, stone patio, brick patio, flagstone patio, hardscape, outdoor living, backyard patio, bluestone, travertine
+- excavation: excavation, excavate, removal, debris, dig, digging, haul, hauling, topsoil, grading, trenching, fill dirt, dump, earth moving
 
-STEP 2 - SERVICE IDENTIFICATION:
-Focus on paver patio variations and measurements. Look for square footage, dimensions, or descriptive size terms.
+STEP 2 - SERVICE SEPARATION:
+If multiple services are mentioned, separate them clearly. Include measurements and category labels.
 
-TASK: Identify paver patio projects and extract key details for master formula routing.
+TASK: Identify all service categories and extract details for routing.
 
-OUTPUT COMBINED JSON:
+OUTPUT JSON FORMAT:
 {
-  "detected_categories": ["hardscaping"],
+  "detected_categories": ["category1", "category2"],
   "separated_services": [
-    "paver patio service details, hardscaping"
+    "service details, category"
   ],
   "service_count": 1,
   "confidence": "high"
 }
 
 EXAMPLES:
+
 Input: "200 sqft paver patio removing concrete"
 Output: {
   "detected_categories": ["hardscaping"],
@@ -70,17 +72,28 @@ Output: {
   "confidence": "high"
 }
 
-Input: "15x20 stone patio with premium materials"
+Input: "excavate 15 cubic yards of topsoil"
 Output: {
-  "detected_categories": ["hardscaping"],
+  "detected_categories": ["excavation"],
   "separated_services": [
-    "15x20 stone patio with premium materials, hardscaping"
+    "excavate 15 cubic yards of topsoil, excavation"
   ],
   "service_count": 1,
   "confidence": "high"
 }
 
-NOTE: Non-paver requests will be handled through Services database tab expansion. For now, focus on detecting and routing paver patio projects to the master formula system.`;
+Input: "100 sqft patio and excavate 10 yards for base"
+Output: {
+  "detected_categories": ["hardscaping", "excavation"],
+  "separated_services": [
+    "100 sqft patio, hardscaping",
+    "excavate 10 yards for base, excavation"
+  ],
+  "service_count": 2,
+  "confidence": "high"
+}
+
+Detect ALL applicable categories and separate multi-service requests accurately.`;
 
   /**
    * Main analysis method - combines category detection and service splitting

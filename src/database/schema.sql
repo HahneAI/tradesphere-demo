@@ -142,33 +142,44 @@
 -- service_pricing_configs:
 --    - id: UUID (NOT NULL, DEFAULT gen_random_uuid()) - PRIMARY KEY
 --    - company_id: UUID (NOT NULL, FOREIGN KEY → companies.id)
---    - service_name: character varying (NOT NULL)
+--    - service_name: character varying (NOT NULL) - Service identifier ('paver_patio_sqft', 'excavation_removal', etc)
 --    - hourly_labor_rate: numeric (NOT NULL, DEFAULT 25.00)
 --    - optimal_team_size: integer (NOT NULL, DEFAULT 3)
---    - base_productivity: numeric (NOT NULL, DEFAULT 50.00)
---    - base_material_cost: numeric (NOT NULL, DEFAULT 5.84)
---    - profit_margin: numeric (NOT NULL, DEFAULT 0.20)
---    - variables_config: jsonb (NOT NULL) - Complex nested pricing rules:
---      ├── labor: team size multipliers (threePlus, twoPerson)
---      ├── materials: paver styles (premium, standard), cutting complexity (complex, moderate, minimal)
---      ├── excavation: equipment costs (handTools, attachments, lightMachinery, heavyMachinery)
---      ├── siteAccess: access difficulty (easy, moderate, difficult), obstacle removal costs
---      └── complexity: overall project complexity multipliers (min, max, step, default)
---    - default_variables: jsonb (NOT NULL) - Default selections for calculations
+--    - base_productivity: numeric (NOT NULL, DEFAULT 50.00) - Unit varies by service (sqft/day, cubic yards/day)
+--    - base_material_cost: numeric (NOT NULL, DEFAULT 5.84) - Repurposed per service (disposal cost, material cost, etc)
+--    - profit_margin: numeric (NOT NULL, DEFAULT 0.20) - Decimal percentage (0.20 = 20%)
+--    - variables_config: jsonb (NOT NULL) - Complex nested pricing rules (service-specific):
+--      ├── Paver Patio Service Variables:
+--      │   ├── labor: team size multipliers (threePlus, twoPerson)
+--      │   ├── materials: paver styles (premium, standard), cutting complexity (laborPercentage, materialWaste)
+--      │   ├── excavation: tearout complexity, equipment required
+--      │   ├── siteAccess: access difficulty, obstacle removal costs
+--      │   └── complexity: overall project complexity multipliers
+--      └── Excavation Service Variables:
+--          ├── soilType: excavation type multipliers (topsoil, clay, ledge)
+--          ├── depth: excavation depth multipliers (shallow, medium, deep)
+--          ├── debrisType: removal complexity costs (organic, concrete, mixed)
+--          ├── siteAccess: access difficulty multipliers
+--          ├── equipment: equipment type costs (handTools, miniExcavator, excavator)
+--          ├── disposal: disposal method multipliers (onsite, hauling, special)
+--          └── complexity: overall project complexity multipliers
+--    - default_variables: jsonb (NOT NULL) - Default selections for calculations (service-specific)
 --    - is_active: boolean (DEFAULT true)
 --    - version: character varying (DEFAULT '2.0.0') - config format version
 --    - created_at: timestamp without time zone (DEFAULT now())
 --    - updated_at: timestamp without time zone (DEFAULT now())
 --    - updated_by: UUID (nullable, FOREIGN KEY → users.id)
---    - CONSTRAINT: UNIQUE(company_id, service_name)
+--    - CONSTRAINT: UNIQUE(company_id, service_name) - One config per service per company
 --    - RLS: Enforces company isolation via users table
+--    - NOTES:
+--      • Each service has unique variables_config structure
+--      • base_material_cost field repurposed per service context
+--      • Supports unlimited services via service_name identifier
 --
 -- "VC Usage":
 --    - id: integer (NOT NULL, PRIMARY KEY)
---    - user_name: character varying (NOT NULL)
---    - user_tech_id: character varying (NOT NULL) - stores auth.uid() for new records
+--    - user_name: character varying (nullable)
 --    - session_id: character varying (NOT NULL)
---    - beta_code_id: integer (nullable, deprecated)
 --    - user_input: text (NOT NULL)
 --    - ai_response: text (NOT NULL)
 --    - interaction_number: integer (NOT NULL)
@@ -201,7 +212,12 @@
 --      • last_viewed_at: timestamp with time zone (nullable)
 --      • view_count: integer (DEFAULT 0)
 --    - company_id: UUID (nullable, FOREIGN KEY → companies.id)
+--    - user_id: UUID (nullable, FOREIGN KEY → users.id) - Supabase Auth user ID
 --    - NOTE: Space in table name requires quotes in queries
+--    - MIGRATION NOTES:
+--      • Migrated from beta_users to Supabase Auth (users table)
+--      • user_id now stores auth.uid() for new records
+--      • RLS policies filter by user's company_id
 --
 -- users: (ACTIVE - Current authentication table)
 --    - id: UUID (NOT NULL, defaults to auth.uid() from Supabase Auth) - PRIMARY KEY
@@ -345,12 +361,14 @@
 -- Customer Interactions Tracking Table
 CREATE TABLE IF NOT EXISTS customer_interactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_tech_id TEXT NOT NULL,
     customer_name TEXT NOT NULL,
     session_id TEXT,
     interaction_type TEXT NOT NULL CHECK (interaction_type IN ('view', 'edit', 'load')),
     viewed_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    company_id UUID, -- FOREIGN KEY → companies.id
+    user_id UUID -- FOREIGN KEY → users.id (Supabase Auth)
+    -- MIGRATION NOTE: Uses user_id (auth.uid()) instead of legacy user_tech_id
 );
 
 -- Add indexes for performance

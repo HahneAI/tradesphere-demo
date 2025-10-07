@@ -70,10 +70,12 @@ export const handler = async (event, context) => {
     });
 
     // Update all records for this session using Supabase client
+    // SECURITY: Filter by both session_id AND user_id to prevent cross-user data modification
     const { error } = await supabase
       .from('VC Usage')
       .update(updateData)
-      .eq('session_id', payload.sessionId);
+      .eq('session_id', payload.sessionId)
+      .eq('user_id', payload.userId);
 
     console.log('👤 SUPABASE CLIENT UPDATE:', {
       sessionId: payload.sessionId,
@@ -144,8 +146,8 @@ function parseUpdatePayload(body) {
   }
 
   // Validate required fields
-  const requiredFields = ['sessionId', 'customerName'];
-  
+  const requiredFields = ['sessionId', 'customerName', 'userId'];
+
   for (const field of requiredFields) {
     if (!payload[field]) {
       throw new Error(`Missing required field: ${field}`);
@@ -154,6 +156,7 @@ function parseUpdatePayload(body) {
 
   return {
     sessionId: payload.sessionId,
+    userId: payload.userId,
     customerName: payload.customerName,
     customerAddress: payload.customerAddress || null,
     customerEmail: payload.customerEmail || null,

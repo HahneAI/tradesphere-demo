@@ -97,7 +97,7 @@ export const handler = async (event, context) => {
         const { data, error } = await supabase
           .from('VC Usage')
           .select('session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary')
-          .eq('user_tech_id', userId)
+          .eq('user_id', userId)
           .not('customer_name', 'is', null)
           .order('created_at', { ascending: false })
           .limit(2); // 📊 PHASE 2B: Limit to 2 recent customers for cleaner UX

@@ -12,13 +12,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
-import {
-  getTearoutPercentage,
-  getAccessPercentage,
-  getTeamSizePercentage,
-  getMaterialMultiplier,
-  getComplexityMultiplier
-} from '../../utils/calculations/pricing-helpers';
+// REMOVED: Hardcoded helpers that bypass database
+// All values now read directly from config.variables
 
 export interface PricingConfigRow {
   id: string;
@@ -189,6 +184,14 @@ export class MasterPricingEngine {
         source: 'Supabase Database'
       });
 
+      // 🔍 DEBUG: Log variables_config from database
+      console.log('🔍 [MASTER ENGINE DEBUG] variables_config from DB:', {
+        hasVariablesConfig: !!configRow.variables_config,
+        variableKeys: Object.keys(configRow.variables_config || {}),
+        premiumMaterialValue: configRow.variables_config?.materials?.paverStyle?.options?.premium?.value,
+        premiumMultiplier: configRow.variables_config?.materials?.paverStyle?.options?.premium?.multiplier
+      });
+
       return this.convertRowToConfig(configRow);
 
     } catch (error) {
@@ -204,13 +207,38 @@ export class MasterPricingEngine {
     serviceName: string,
     companyId: string,
     onUpdate: (config: PaverPatioConfig) => void
-  ): void {
+  ): () => void {
     const subscriptionKey = `${companyId}:${serviceName}`;
 
     // Remove existing subscription
     if (this.subscriptions.has(subscriptionKey)) {
       this.subscriptions.get(subscriptionKey).unsubscribe();
     }
+
+    // CRITICAL: Check if we're authenticated before subscribing (async check, log results when ready)
+    this.supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('🔧 [MASTER ENGINE] Auth check for subscription:', {
+        channelName: `pricing_config_${subscriptionKey}`,
+        isAuthenticated: !!session,
+        userId: session?.user?.id,
+        userEmail: session?.user?.email,
+        accessToken: session?.access_token ? `${session.access_token.substring(0, 20)}...` : 'NONE'
+      });
+
+      if (!session) {
+        console.error('❌ [MASTER ENGINE] CRITICAL: No auth session found! Real-time will NOT work with RLS!');
+        console.error('❌ [MASTER ENGINE] Subscription will appear SUBSCRIBED but events will never fire!');
+      } else {
+        console.log('✅ [MASTER ENGINE] Auth session found - real-time should work');
+      }
+    });
+
+    console.log('🔧 [MASTER ENGINE] Creating subscription channel:', {
+      channelName: `pricing_config_${subscriptionKey}`,
+      companyId,
+      serviceName,
+      table: 'service_pricing_configs'
+    });
 
     // Create new subscription
     const subscription = this.supabase
@@ -221,24 +249,80 @@ export class MasterPricingEngine {
           event: '*',
           schema: 'public',
           table: 'service_pricing_configs',
-          filter: `company_id=eq.${companyId} and service_name=eq.${serviceName}`
+          filter: `company_id=eq.${companyId}`
         },
         async (payload) => {
-          console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
+          console.log('🎯🎯🎯 [MASTER ENGINE] ========== REAL-TIME EVENT RECEIVED ==========', {
+            timestamp: new Date().toISOString(),
+            event: payload.eventType,
+            serviceName: payload.new?.service_name || payload.old?.service_name,
+            targetService: serviceName,
+            willProcess: (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName),
+            payload: payload
+          });
 
-          // Clear cache
-          this.configCache.delete(subscriptionKey);
+          // Only process updates for matching service
+          if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
+            console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
 
-          // Load fresh config
-          const newConfig = await this.loadPricingConfig(serviceName, companyId);
-          onUpdate(newConfig);
+            // Clear cache
+            this.configCache.delete(subscriptionKey);
+
+            // Load fresh config
+            const newConfig = await this.loadPricingConfig(serviceName, companyId);
+
+            // CRITICAL FIX: Add timestamp to force React to detect change
+            // Without this, setConfig(newConfig) won't trigger useEffect because
+            // the object structure is identical
+            const configWithTimestamp = {
+              ...newConfig,
+              _lastUpdated: Date.now(),
+              _updateSource: 'real-time-subscription'
+            };
+
+            console.log('🔄 [MASTER ENGINE] Triggering config update with timestamp:', configWithTimestamp._lastUpdated);
+            onUpdate(configWithTimestamp as any);
+          }
         }
       )
-      .subscribe();
+      .subscribe((status, error) => {
+        console.log('📡 [MASTER ENGINE] Subscription status change:', {
+          status,
+          error,
+          subscriptionKey,
+          timestamp: new Date().toISOString()
+        });
+
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [MASTER ENGINE] Real-time subscription ACTIVE and ready', {
+            channel: `pricing_config_${subscriptionKey}`,
+            table: 'service_pricing_configs',
+            filter: `company_id=eq.${companyId}`
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [MASTER ENGINE] Subscription FAILED:', error);
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏱️ [MASTER ENGINE] Subscription TIMED OUT - WebSocket connection failed');
+        } else if (status === 'CLOSED') {
+          console.warn('🔌 [MASTER ENGINE] Subscription CLOSED (component unmounted or StrictMode cleanup)');
+        }
+      });
 
     this.subscriptions.set(subscriptionKey, subscription);
 
-    console.log('👂 [MASTER ENGINE] Subscribed to real-time updates:', subscriptionKey);
+    console.log('👂 [MASTER ENGINE] Subscription setup complete:', {
+      subscriptionKey,
+      channelName: `pricing_config_${subscriptionKey}`,
+      table: 'service_pricing_configs',
+      filter: `company_id=eq.${companyId}`,
+      serviceName
+    });
+
+    // Return cleanup function
+    return () => {
+      subscription.unsubscribe();
+      this.subscriptions.delete(subscriptionKey);
+    };
   }
 
   /**
@@ -280,6 +364,48 @@ export class MasterPricingEngine {
   }
 
   /**
+   * Clear cache for a specific service/company combo
+   * Called by Services Database after direct Supabase saves
+   */
+  public clearCache(serviceName: string, companyId: string): void {
+    const cacheKey = `${companyId}:${serviceName}`;
+    this.configCache.delete(cacheKey);
+    console.log('🧹 [MASTER ENGINE] Cache cleared for:', cacheKey);
+  }
+
+  /**
+   * Clear ALL cached pricing configs
+   * Called on app startup to ensure fresh data
+   */
+  public clearAllCaches(): void {
+    const cacheSize = this.configCache.size;
+    this.configCache.clear();
+    console.log('🧹🧹🧹 [MASTER ENGINE] ALL CACHES CLEARED on app startup (cleared', cacheSize, 'entries)');
+  }
+
+  /**
+   * Force reload config from database, bypassing cache
+   * Use when you need guaranteed fresh data
+   */
+  public async forceReloadFromDatabase(
+    serviceName: string = 'paver_patio_sqft',
+    companyId?: string
+  ): Promise<PaverPatioConfig> {
+    // Clear cache first
+    if (companyId) {
+      this.clearCache(serviceName, companyId);
+    }
+
+    console.log('🔄 [MASTER ENGINE] Force reloading from database (bypassing cache):', {
+      serviceName,
+      companyId
+    });
+
+    // Load fresh from database
+    return this.loadPricingConfig(serviceName, companyId);
+  }
+
+  /**
    * Calculate pricing using live Supabase configuration
    */
   public async calculatePricing(
@@ -309,6 +435,7 @@ export class MasterPricingEngine {
 
   /**
    * TIER 1: Calculate labor hours with base-independent percentage system
+   * ALL VALUES READ FROM DATABASE - No hardcoded helpers
    */
   private calculateTier1(config: PaverPatioConfig, values: PaverPatioValues, sqft: number): Tier1Results {
     const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
@@ -318,10 +445,20 @@ export class MasterPricingEngine {
     const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
     let adjustedHours = baseHours;
 
-    // Apply base-independent variable system
-    const tearoutPercentage = getTearoutPercentage(values.excavation.tearoutComplexity);
-    const accessPercentage = getAccessPercentage(values.siteAccess.accessDifficulty);
-    const teamSizePercentage = getTeamSizePercentage(values.labor.teamSize);
+    // CRITICAL FIX: Read tearout percentage from DATABASE, not hardcoded helper
+    const tearoutVar = config?.variables?.excavation?.tearoutComplexity;
+    const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
+    const tearoutPercentage = tearoutOption?.value ?? 0;
+
+    // CRITICAL FIX: Read access percentage from DATABASE, not hardcoded helper
+    const accessVar = config?.variables?.siteAccess?.accessDifficulty;
+    const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'easy'];
+    const accessPercentage = accessOption?.value ?? 0;
+
+    // CRITICAL FIX: Read team size percentage from DATABASE, not hardcoded helper
+    const teamVar = config?.variables?.labor?.teamSize;
+    const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'threePlus'];
+    const teamSizePercentage = teamOption?.value ?? 0;
 
     // Apply each variable as independent percentage of base hours
     if (tearoutPercentage > 0) {
@@ -371,7 +508,23 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste
-    const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
+    // CRITICAL FIX: Read multiplier from config.variables instead of hardcoded helper
+    const paverVar = config?.variables?.materials?.paverStyle;
+    const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
+    const paverOption = paverVar?.options?.[paverStyleValue];
+    const materialMultiplier = paverOption?.multiplier ?? 1.0;
+
+    // 🔍 DEBUG: Log what material multiplier is being used
+    console.log('🔍 [MASTER ENGINE DEBUG] Material multiplier from DATABASE:', {
+      selectedPaverStyle: paverStyleValue,
+      paverStyleOptions: paverVar?.options,
+      selectedOption: paverOption,
+      multiplierFromDB: materialMultiplier,
+      premiumOption: paverVar?.options?.premium,
+      premiumValue: paverVar?.options?.premium?.value,
+      premiumMultiplier: paverVar?.options?.premium?.multiplier
+    });
+
     const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
     const cuttingVar = config?.variables?.materials?.cuttingComplexity;
@@ -384,43 +537,87 @@ export class MasterPricingEngine {
     const projectDays = tier1Results.totalManHours / (optimalTeamSize * 8);
     const equipmentVar = config?.variables?.excavation?.equipmentRequired;
     const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
+    console.log('💰 [MASTER ENGINE] Equipment calculation:', {
+      selectedEquipment: values?.excavation?.equipmentRequired ?? 'handTools',
+      equipmentValue: equipmentOption?.value,
+      projectDays: projectDays.toFixed(2),
+      calculation: `${equipmentOption?.value ?? 0} * ${projectDays.toFixed(2)}`
+    });
     const equipmentCost = (equipmentOption?.value ?? 0) * projectDays;
+    console.log('💰 [MASTER ENGINE] Equipment cost result:', equipmentCost);
 
     // 4. Obstacle costs
     const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval;
     const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
     const obstacleCost = obstacleOption?.value ?? 0;
 
-    // 5. Subtotal
-    const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
+    // 5. CRITICAL: Apply complexity multiplier ONLY to labor and materials
+    // Equipment rental rates and obstacle removal fees are fixed costs that don't scale with complexity
+    // (Complexity already affects equipment costs indirectly via increased projectDays from tier1 labor calculations)
+    const complexityVar = config?.variables?.complexity?.overallComplexity;
+    const complexityValue = values?.complexity?.overallComplexity;
 
-    // 6. Apply complexity multiplier to subtotal FIRST (per master-formula.md)
-    const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
-    const adjustedTotal = subtotal * complexityMultiplier;
+    let complexityMultiplier = 1.0;
 
-    // 7. Calculate profit on adjusted total (after complexity)
-    const profit = adjustedTotal * profitMargin;
+    // Check if it's stored as a percentage value in the database
+    if (complexityVar?.options && typeof complexityValue === 'string') {
+      const complexityOption = complexityVar.options[complexityValue];
+      // If database stores as percentage (e.g., 0, 10, 30, 50), convert to multiplier
+      if (complexityOption?.value !== undefined) {
+        complexityMultiplier = 1 + (complexityOption.value / 100);
+      }
+    } else if (typeof complexityValue === 'number') {
+      // Legacy: If stored as direct multiplier
+      complexityMultiplier = complexityValue;
+    }
 
-    // 8. Final total
-    const total = adjustedTotal + profit;
+    console.log('🎯 [MASTER ENGINE] Complexity calculation:', {
+      selectedComplexity: complexityValue,
+      complexityMultiplier,
+      laborBeforeComplexity: laborCost.toFixed(2),
+      materialsBeforeComplexity: totalMaterialCost.toFixed(2),
+      laborAfterComplexity: (laborCost * complexityMultiplier).toFixed(2),
+      materialsAfterComplexity: (totalMaterialCost * complexityMultiplier).toFixed(2),
+      equipmentNotAffected: equipmentCost.toFixed(2),
+      obstacleNotAffected: obstacleCost.toFixed(2)
+    });
 
-    console.log('💰 [MASTER ENGINE] Tier 2 calculation:', {
-      laborCost: laborCost.toFixed(2),
-      totalMaterialCost: totalMaterialCost.toFixed(2),
-      equipmentCost: equipmentCost.toFixed(2),
-      obstacleCost: obstacleCost.toFixed(2),
-      subtotal: subtotal.toFixed(2),
-      profitMargin: (profitMargin * 100).toFixed(1) + '%',
-      profit: profit.toFixed(2),
-      complexityMultiplier: complexityMultiplier,
-      total: total.toFixed(2)
+    // Apply complexity to labor and materials only
+    const adjustedLaborCost = laborCost * complexityMultiplier;
+    const adjustedMaterialCost = totalMaterialCost * complexityMultiplier;
+
+    // 6. Calculate profit ONLY on labor and materials (the actual work)
+    // Equipment rentals and obstacle removal are pass-through costs (no profit markup)
+    const profitableSubtotal = adjustedLaborCost + adjustedMaterialCost;
+    const profit = profitableSubtotal * profitMargin;
+
+    // 7. Calculate final subtotal: profitable costs + profit + pass-through costs
+    const subtotalBeforePassThrough = profitableSubtotal + profit;
+    const subtotal = subtotalBeforePassThrough + equipmentCost + obstacleCost;
+
+    // 8. Final total (subtotal already includes profit)
+    const total = subtotal;
+
+    console.log('💰 [MASTER ENGINE] Tier 2 calculation (detailed breakdown):', {
+      '1_laborCostBase': laborCost.toFixed(2),
+      '2_laborCostAfterComplexity': adjustedLaborCost.toFixed(2),
+      '3_materialCostBase': totalMaterialCost.toFixed(2),
+      '4_materialCostAfterComplexity': adjustedMaterialCost.toFixed(2),
+      '5_profitableSubtotal': profitableSubtotal.toFixed(2),
+      '6_profitMargin': (profitMargin * 100).toFixed(1) + '%',
+      '7_profitAmount': profit.toFixed(2),
+      '8_subtotalWithProfit': subtotalBeforePassThrough.toFixed(2),
+      '9_PASS_THROUGH_equipmentCost': equipmentCost.toFixed(2) + ' (no profit markup)',
+      '10_PASS_THROUGH_obstacleCost': obstacleCost.toFixed(2) + ' (no profit markup)',
+      '11_finalSubtotal': subtotal.toFixed(2),
+      '12_finalTotal': total.toFixed(2)
     });
 
     return {
-      laborCost: Math.round(laborCost * 100) / 100,
+      laborCost: Math.round(adjustedLaborCost * 100) / 100,
       materialCostBase: Math.round(materialCostBase * 100) / 100,
       materialWasteCost: Math.round(materialWasteCost * 100) / 100,
-      totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
+      totalMaterialCost: Math.round(adjustedMaterialCost * 100) / 100,
       equipmentCost: Math.round(equipmentCost * 100) / 100,
       obstacleCost: Math.round(obstacleCost * 100) / 100,
       subtotal: Math.round(subtotal * 100) / 100,

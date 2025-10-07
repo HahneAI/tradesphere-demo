@@ -18,7 +18,7 @@ type CustomerListView = Database['public']['Views']['customer_list_view']['Row']
 
 export interface CustomerSummary {
   customer_name: string;
-  user_tech_id: string;
+  user_id: string;
   latest_session_id: string;
   customer_address: string | null;
   customer_email: string | null;
@@ -63,7 +63,7 @@ export class CustomerService {
         .from('VC Usage')
         .select(`
           customer_name,
-          user_tech_id,
+          user_id,
           session_id,
           customer_address,
           customer_email,
@@ -73,7 +73,7 @@ export class CustomerService {
           last_viewed_at,
           view_count
         `)
-        .eq('user_tech_id', techId)
+        .eq('user_id', techId)
         .not('customer_name', 'is', null)
         .order('created_at', { ascending: false });
 
@@ -115,7 +115,7 @@ export class CustomerService {
           
           customerMap.set(customerKey, {
             customer_name: record.customer_name!,
-            user_tech_id: record.user_tech_id,
+            user_id: record.user_id,
             latest_session_id: record.session_id,
             customer_address: record.customer_address,
             customer_email: record.customer_email,
@@ -198,7 +198,7 @@ export class CustomerService {
       let query = this.supabase
         .from('VC Usage')
         .select('id, user_input, ai_response, interaction_number, created_at, session_id')
-        .eq('user_tech_id', techId)
+        .eq('user_id', techId)
         .eq('customer_name', customerName)
         .not('user_input', 'is', null)
         .not('ai_response', 'is', null)
@@ -249,7 +249,7 @@ export class CustomerService {
           updated_at: new Date().toISOString()
         })
         .eq('session_id', sessionId)
-        .eq('user_tech_id', techId);
+        .eq('user_id', techId);
 
       if (updateError) {
         console.error('CustomerService: Error updating customer details:', updateError);
@@ -291,7 +291,7 @@ export class CustomerService {
   ): Promise<void> {
     try {
       const interactionData: CustomerInteractionInsert = {
-        user_tech_id: techId,
+        user_id: techId,
         customer_name: customerName,
         session_id: sessionId,
         interaction_type: interactionType,
@@ -313,7 +313,7 @@ export class CustomerService {
       const { data: existingRecords } = await this.supabase
         .from('VC Usage')
         .select('view_count')
-        .eq('user_tech_id', techId)
+        .eq('user_id', techId)
         .eq('customer_name', customerName)
         .order('created_at', { ascending: false })
         .limit(1);
@@ -328,7 +328,7 @@ export class CustomerService {
           last_viewed_at: new Date().toISOString(),
           view_count: newViewCount
         })
-        .eq('user_tech_id', techId)
+        .eq('user_id', techId)
         .eq('customer_name', customerName);
 
       if (updateError) {
@@ -354,7 +354,7 @@ export class CustomerService {
       let query = this.supabase
         .from('VC Usage')
         .select('*')
-        .eq('user_tech_id', techId)
+        .eq('user_id', techId)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -431,7 +431,7 @@ export class CustomerService {
       const { data: rawData, error } = await this.supabase
         .from('VC Usage')
         .select('customer_name, view_count')
-        .eq('user_tech_id', techId)
+        .eq('user_id', techId)
         .not('customer_name', 'is', null);
 
       if (error || !rawData) {

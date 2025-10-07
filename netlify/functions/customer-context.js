@@ -76,7 +76,7 @@ export const handler = async (event, context) => {
       .from('VC Usage')
       .select('user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone')
       .eq('customer_name', decodeURIComponent(customerName))
-      .eq('user_tech_id', userId)
+      .eq('user_id', userId)
       .order('interaction_number', { ascending: false })
       .limit(2); // Last 2 interactions for context
 

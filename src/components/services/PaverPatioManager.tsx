@@ -5,19 +5,21 @@ import { VariableDropdown } from './VariableDropdown';
 import { VariableSlider } from './VariableSlider';
 import { PricingPreview } from './PricingPreview';
 import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
-import { useAuth } from '../../context/AuthContext';
 
 interface PaverPatioManagerProps {
   visualConfig: any;
   theme: 'light' | 'dark';
+  store: ReturnType<typeof usePaverPatioStore>; // Store passed from parent to prevent duplicate instances
 }
 
 export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
   visualConfig,
   theme,
+  store, // Receive store from parent instead of creating new instance
 }) => {
-  const { user } = useAuth();
-  const store = usePaverPatioStore(user?.company_id);
+  // ✅ REMOVED: const { user } = useAuth();
+  // ✅ REMOVED: const store = usePaverPatioStore(user?.company_id);
+  // This was creating a DUPLICATE store instance, preventing real-time updates from propagating to UI
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set([])  // Start with all sections collapsed
   );

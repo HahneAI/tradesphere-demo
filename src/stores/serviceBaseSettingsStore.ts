@@ -1,8 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getSupabase } from '../services/supabase';
+import { masterPricingEngine } from '../pricing-system/core/calculations/master-pricing-engine';
+import { serviceConfigManager } from '../services/ServiceConfigManager';
+import { calculateMultiplierFromPercentage } from '../pricing-system/utils/variable-helpers';
 
-// Import the JSON configuration
+// Import the JSON configurations
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
+import excavationConfigJson from '../pricing-system/config/excavation-removal-formula.json';
 
 interface BaseSetting {
   value: number;
@@ -56,6 +60,17 @@ interface ServiceVariableUpdate {
     standardGrade?: number;
     premiumGrade?: number;
   };
+  complexitySettings?: {
+    simple?: number;
+    standard?: number;
+    complex?: number;
+    extreme?: number;
+  };
+  obstacleSettings?: {
+    none?: number;
+    minor?: number;
+    major?: number;
+  };
 }
 
 interface ServiceBaseSettingsStore {
@@ -65,22 +80,33 @@ interface ServiceBaseSettingsStore {
   updateBaseSetting: (serviceId: string, setting: string, value: number) => void;
   updateServiceVariables: (serviceId: string, updates: ServiceVariableUpdate) => void;
   getService: (serviceId: string) => ServiceConfig | undefined;
+  refreshServices: () => Promise<void>; // NEW: Refresh from Supabase
 }
 
-// Load services from JSON configuration
+// Load services from JSON configurations
 const loadServices = (): ServiceConfig[] => {
   try {
-    // Currently we only have paver patio service, but this can be extended
     const paverPatioConfig = paverPatioConfigJson as any;
-    
-    return [{
-      service: paverPatioConfig.service,
-      serviceId: paverPatioConfig.serviceId,
-      category: paverPatioConfig.category || 'Hardscaping',
-      baseSettings: paverPatioConfig.baseSettings,
-      variables: paverPatioConfig.variables,
-      lastModified: paverPatioConfig.lastModified
-    }];
+    const excavationConfig = excavationConfigJson as any;
+
+    return [
+      {
+        service: paverPatioConfig.service,
+        serviceId: paverPatioConfig.serviceId,
+        category: paverPatioConfig.category || 'Hardscaping',
+        baseSettings: paverPatioConfig.baseSettings,
+        variables: paverPatioConfig.variables,
+        lastModified: paverPatioConfig.lastModified
+      },
+      {
+        service: excavationConfig.service,
+        serviceId: excavationConfig.serviceId,
+        category: excavationConfig.category || 'Excavation',
+        baseSettings: excavationConfig.baseSettings,
+        variables: excavationConfig.variables,
+        lastModified: excavationConfig.lastModified
+      }
+    ];
   } catch (error) {
     console.error('Error loading services configuration:', error);
     return [];
@@ -156,6 +182,10 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
     }
 
     console.log('✅ [SERVICES] Configuration saved to Supabase successfully');
+
+    // CRITICAL: Clear master engine cache so Quick Calculator sees fresh data
+    masterPricingEngine.clearCache(serviceId, companyId);
+    console.log('🧹 [SERVICES] Cleared master engine cache');
 
     // STEP 3: Also store in localStorage for immediate local access
     const storageKey = `service_config_${serviceId}`;
@@ -279,20 +309,90 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize services
+  // CRITICAL FIX: Load services from Supabase instead of JSON files
   useEffect(() => {
-    try {
-      const defaultServices = loadServices();
-      const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
-      setServices(servicesWithOverrides);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load services');
-      console.error('Service loading error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    const loadServicesFromSupabase = async () => {
+      try {
+        setIsLoading(true);
+
+        if (!companyId) {
+          console.warn('⚠️ No company_id available, loading from JSON files only');
+          const defaultServices = loadServices();
+          const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
+          setServices(servicesWithOverrides);
+          setError(null);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('🚀 [SERVICES STORE] Loading services from Supabase for company:', companyId);
+
+        const supabase = getSupabase();
+        const { data, error: fetchError } = await supabase
+          .from('service_pricing_configs')
+          .select('*')
+          .eq('company_id', companyId)
+          .eq('is_active', true);
+
+        if (fetchError) {
+          console.error('❌ [SERVICES STORE] Error fetching from Supabase:', fetchError);
+          throw fetchError;
+        }
+
+        if (data && data.length > 0) {
+          console.log(`✅ [SERVICES STORE] Loaded ${data.length} services from Supabase`);
+
+          // Convert Supabase rows to ServiceConfig format
+          const supabaseServices = data.map(row => ({
+            service: row.service_name,
+            serviceId: row.service_name,
+            category: 'Hardscaping', // Could be stored in DB if needed
+            baseSettings: {
+              laborSettings: {
+                hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
+                optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
+                baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+              },
+              materialSettings: {
+                baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+              },
+              businessSettings: {
+                profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+              }
+            },
+            variables: row.variables_config || {},
+            lastModified: new Date(row.updated_at).toISOString().split('T')[0]
+          }));
+
+          setServices(supabaseServices);
+          setError(null);
+        } else {
+          // No data in Supabase, fall back to JSON files
+          console.warn('⚠️ No services found in Supabase, falling back to JSON files');
+          const defaultServices = loadServices();
+          const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
+          setServices(servicesWithOverrides);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('❌ [SERVICES STORE] Error loading services:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load services');
+
+        // Fallback to JSON files on error
+        try {
+          const defaultServices = loadServices();
+          const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
+          setServices(servicesWithOverrides);
+        } catch (fallbackErr) {
+          console.error('❌ [SERVICES STORE] Fallback also failed:', fallbackErr);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadServicesFromSupabase();
+  }, [companyId]); // Re-load when companyId changes
 
   // Listen for changes from other tabs/windows
   useEffect(() => {
@@ -336,9 +436,10 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           lastModified: new Date().toISOString().split('T')[0]
         };
 
-        // Save to Supabase (async) - FIXED: Now passing userId
-        saveServiceConfig(serviceId, updatedService, companyId, userId).catch(error => {
+        // Save to Supabase using ServiceConfigManager (guaranteed cache clear)
+        serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId).catch(error => {
           console.error('Failed to save base setting:', error);
+          alert('Failed to save configuration. Please try again.');
         });
 
         return updatedService;
@@ -346,109 +447,263 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       return service;
     });
 
+    // CRITICAL FIX: Actually update state with new services array
+    setServices(updatedServices);
   }, [services, companyId, userId]);
 
-  const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
-    setServices(prev => {
-      const updatedServices = prev.map(service => {
-        if (service.serviceId === serviceId) {
-          const updatedVariables = { ...service.variables };
+  const updateServiceVariables = useCallback(async (serviceId: string, updates: ServiceVariableUpdate) => {
+    // Find the service to update
+    const service = services.find(s => s.serviceId === serviceId);
+    if (!service) {
+      console.error('Service not found:', serviceId);
+      return;
+    }
 
-          // Update equipment costs
-          if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
-            const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
-            if (updates.equipmentCosts.handTools !== undefined) {
-              equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
-            }
-            if (updates.equipmentCosts.attachments !== undefined) {
-              equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
-            }
-            if (updates.equipmentCosts.lightMachinery !== undefined) {
-              equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
-            }
-            if (updates.equipmentCosts.heavyMachinery !== undefined) {
-              equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
-            }
-          }
+    const updatedVariables = { ...service.variables };
 
-          // Update cutting complexity
-          if (updates.cuttingComplexity && updatedVariables.materials?.cuttingComplexity?.options) {
-            const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
-            Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
-              if (cuttingOptions[level] && values) {
-                if (values.laborPercentage !== undefined) {
-                  cuttingOptions[level].laborPercentage = values.laborPercentage;
-                }
-                if (values.materialWaste !== undefined) {
-                  cuttingOptions[level].materialWaste = values.materialWaste;
-                }
-              }
-            });
-          }
-
-          // Update labor multipliers
-          if (updates.laborMultipliers) {
-            if (updates.laborMultipliers.tearoutGrass !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.grass) {
-              updatedVariables.excavation.tearoutComplexity.options.grass.value = updates.laborMultipliers.tearoutGrass;
-            }
-            if (updates.laborMultipliers.tearoutConcrete !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.concrete) {
-              updatedVariables.excavation.tearoutComplexity.options.concrete.value = updates.laborMultipliers.tearoutConcrete;
-            }
-            if (updates.laborMultipliers.tearoutAsphalt !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.asphalt) {
-              updatedVariables.excavation.tearoutComplexity.options.asphalt.value = updates.laborMultipliers.tearoutAsphalt;
-            }
-            if (updates.laborMultipliers.accessEasy !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.easy) {
-              updatedVariables.siteAccess.accessDifficulty.options.easy.value = updates.laborMultipliers.accessEasy;
-            }
-            if (updates.laborMultipliers.accessModerate !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.moderate) {
-              updatedVariables.siteAccess.accessDifficulty.options.moderate.value = updates.laborMultipliers.accessModerate;
-            }
-            if (updates.laborMultipliers.accessDifficult !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.difficult) {
-              updatedVariables.siteAccess.accessDifficulty.options.difficult.value = updates.laborMultipliers.accessDifficult;
-            }
-            if (updates.laborMultipliers.teamTwoPerson !== undefined && updatedVariables.labor?.teamSize?.options?.twoPerson) {
-              updatedVariables.labor.teamSize.options.twoPerson.value = updates.laborMultipliers.teamTwoPerson;
-            }
-            if (updates.laborMultipliers.teamThreePlus !== undefined && updatedVariables.labor?.teamSize?.options?.threePlus) {
-              updatedVariables.labor.teamSize.options.threePlus.value = updates.laborMultipliers.teamThreePlus;
-            }
-          }
-
-          // Update material settings
-          if (updates.materialSettings) {
-            if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
-              updatedVariables.materials.paverStyle.options.standard.value = updates.materialSettings.standardGrade;
-            }
-            if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
-              updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
-            }
-          }
-
-          const updatedService = {
-            ...service,
-            variables: updatedVariables,
-            lastModified: new Date().toISOString().split('T')[0]
-          };
-
-          // Save to Supabase - FIXED: Now passing userId
-          try {
-            saveServiceConfig(serviceId, updatedService, companyId, userId);
-          } catch (error) {
-            console.error('Failed to save service variables:', error);
-          }
-
-          return updatedService;
+    // Update equipment costs
+    if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
+      console.log('🔧 [UPDATE EQUIPMENT] Starting equipment cost updates:', {
+        updates: updates.equipmentCosts,
+        currentValues: {
+          handTools: updatedVariables.excavation.equipmentRequired.options.handTools?.value,
+          attachments: updatedVariables.excavation.equipmentRequired.options.attachments?.value,
+          lightMachinery: updatedVariables.excavation.equipmentRequired.options.lightMachinery?.value,
+          heavyMachinery: updatedVariables.excavation.equipmentRequired.options.heavyMachinery?.value,
         }
-        return service;
       });
 
-      return updatedServices;
+      const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
+      if (updates.equipmentCosts.handTools !== undefined) {
+        const oldValue = equipmentOptions.handTools.value;
+        equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
+        console.log('🔧 [UPDATE EQUIPMENT] handTools:', oldValue, '→', updates.equipmentCosts.handTools);
+      }
+      if (updates.equipmentCosts.attachments !== undefined) {
+        const oldValue = equipmentOptions.attachments.value;
+        equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
+        console.log('🔧 [UPDATE EQUIPMENT] attachments:', oldValue, '→', updates.equipmentCosts.attachments);
+      }
+      if (updates.equipmentCosts.lightMachinery !== undefined) {
+        const oldValue = equipmentOptions.lightMachinery.value;
+        equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
+        console.log('🔧 [UPDATE EQUIPMENT] lightMachinery:', oldValue, '→', updates.equipmentCosts.lightMachinery);
+      }
+      if (updates.equipmentCosts.heavyMachinery !== undefined) {
+        const oldValue = equipmentOptions.heavyMachinery.value;
+        equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
+        console.log('🔧 [UPDATE EQUIPMENT] heavyMachinery:', oldValue, '→', updates.equipmentCosts.heavyMachinery);
+      }
+
+      console.log('🔧 [UPDATE EQUIPMENT] Updated values:', {
+        handTools: equipmentOptions.handTools?.value,
+        attachments: equipmentOptions.attachments?.value,
+        lightMachinery: equipmentOptions.lightMachinery?.value,
+        heavyMachinery: equipmentOptions.heavyMachinery?.value,
+      });
+    }
+
+    // Update cutting complexity
+    if (updates.cuttingComplexity && updatedVariables.materials?.cuttingComplexity?.options) {
+      const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
+      Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
+        if (cuttingOptions[level] && values) {
+          if (values.laborPercentage !== undefined) {
+            cuttingOptions[level].laborPercentage = values.laborPercentage;
+          }
+          if (values.materialWaste !== undefined) {
+            cuttingOptions[level].materialWaste = values.materialWaste;
+          }
+        }
+      });
+    }
+
+    // Update labor multipliers - CRITICAL FIX: Sync both value AND multiplier
+    if (updates.laborMultipliers) {
+      if (updates.laborMultipliers.tearoutGrass !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.grass) {
+        const value = updates.laborMultipliers.tearoutGrass;
+        updatedVariables.excavation.tearoutComplexity.options.grass.value = value;
+        updatedVariables.excavation.tearoutComplexity.options.grass.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.tearoutConcrete !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.concrete) {
+        const value = updates.laborMultipliers.tearoutConcrete;
+        updatedVariables.excavation.tearoutComplexity.options.concrete.value = value;
+        updatedVariables.excavation.tearoutComplexity.options.concrete.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.tearoutAsphalt !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.asphalt) {
+        const value = updates.laborMultipliers.tearoutAsphalt;
+        updatedVariables.excavation.tearoutComplexity.options.asphalt.value = value;
+        updatedVariables.excavation.tearoutComplexity.options.asphalt.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.accessEasy !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.easy) {
+        const value = updates.laborMultipliers.accessEasy;
+        updatedVariables.siteAccess.accessDifficulty.options.easy.value = value;
+        updatedVariables.siteAccess.accessDifficulty.options.easy.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.accessModerate !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.moderate) {
+        const value = updates.laborMultipliers.accessModerate;
+        updatedVariables.siteAccess.accessDifficulty.options.moderate.value = value;
+        updatedVariables.siteAccess.accessDifficulty.options.moderate.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.accessDifficult !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.difficult) {
+        const value = updates.laborMultipliers.accessDifficult;
+        updatedVariables.siteAccess.accessDifficulty.options.difficult.value = value;
+        updatedVariables.siteAccess.accessDifficulty.options.difficult.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.teamTwoPerson !== undefined && updatedVariables.labor?.teamSize?.options?.twoPerson) {
+        const value = updates.laborMultipliers.teamTwoPerson;
+        updatedVariables.labor.teamSize.options.twoPerson.value = value;
+        updatedVariables.labor.teamSize.options.twoPerson.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.laborMultipliers.teamThreePlus !== undefined && updatedVariables.labor?.teamSize?.options?.threePlus) {
+        const value = updates.laborMultipliers.teamThreePlus;
+        updatedVariables.labor.teamSize.options.threePlus.value = value;
+        updatedVariables.labor.teamSize.options.threePlus.multiplier = calculateMultiplierFromPercentage(value);
+      }
+    }
+
+    // Update material settings - CRITICAL FIX: Sync both value AND multiplier
+    if (updates.materialSettings) {
+      if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
+        const value = updates.materialSettings.standardGrade;
+        updatedVariables.materials.paverStyle.options.standard.value = value;
+        updatedVariables.materials.paverStyle.options.standard.multiplier = calculateMultiplierFromPercentage(value);
+      }
+      if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
+        const value = updates.materialSettings.premiumGrade;
+        updatedVariables.materials.paverStyle.options.premium.value = value;
+        updatedVariables.materials.paverStyle.options.premium.multiplier = calculateMultiplierFromPercentage(value);
+      }
+    }
+
+    // Update complexity settings - CRITICAL FIX: Convert percentage to both value AND multiplier
+    if (updates.complexitySettings && updatedVariables.complexity?.overallComplexity?.options) {
+      const complexityOptions = updatedVariables.complexity.overallComplexity.options;
+
+      if (updates.complexitySettings.simple !== undefined && complexityOptions.simple) {
+        // Input is percentage (0, 10, 30, 50), convert to value + multiplier
+        const percentageValue = updates.complexitySettings.simple;
+        complexityOptions.simple.value = percentageValue;
+        complexityOptions.simple.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+      if (updates.complexitySettings.standard !== undefined && complexityOptions.standard) {
+        const percentageValue = updates.complexitySettings.standard;
+        complexityOptions.standard.value = percentageValue;
+        complexityOptions.standard.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+      if (updates.complexitySettings.complex !== undefined && complexityOptions.complex) {
+        const percentageValue = updates.complexitySettings.complex;
+        complexityOptions.complex.value = percentageValue;
+        complexityOptions.complex.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+      if (updates.complexitySettings.extreme !== undefined && complexityOptions.extreme) {
+        const percentageValue = updates.complexitySettings.extreme;
+        complexityOptions.extreme.value = percentageValue;
+        complexityOptions.extreme.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+    }
+
+    // Update obstacle removal costs (flat_additional_cost type - value only, no multiplier)
+    if (updates.obstacleSettings && updatedVariables.siteAccess?.obstacleRemoval?.options) {
+      const obstacleOptions = updatedVariables.siteAccess.obstacleRemoval.options;
+      if (updates.obstacleSettings.none !== undefined && obstacleOptions.none) {
+        obstacleOptions.none.value = updates.obstacleSettings.none;
+      }
+      if (updates.obstacleSettings.minor !== undefined && obstacleOptions.minor) {
+        obstacleOptions.minor.value = updates.obstacleSettings.minor;
+      }
+      if (updates.obstacleSettings.major !== undefined && obstacleOptions.major) {
+        obstacleOptions.major.value = updates.obstacleSettings.major;
+      }
+    }
+
+    const updatedService = {
+      ...service,
+      variables: updatedVariables,
+      lastModified: new Date().toISOString().split('T')[0]
+    };
+
+    // Save to Supabase using ServiceConfigManager
+    console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
+      serviceId,
+      hasCompanyId: !!companyId,
+      companyId,
+      hasUserId: !!userId,
+      userId,
+      hasVariables: !!updatedService.variables,
+      variableKeys: Object.keys(updatedService.variables || {})
     });
-  }, []);
+
+    try {
+      await serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId);
+      console.log('✅ [UPDATE VARIABLES] Save successful');
+
+      // Update local state after successful save
+      setServices(prev => prev.map(s => s.serviceId === serviceId ? updatedService : s));
+    } catch (error) {
+      console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
+      alert('Failed to save service variables: ' + (error as Error).message);
+      throw error;
+    }
+  }, [services, companyId, userId]);
 
   const getService = useCallback((serviceId: string): ServiceConfig | undefined => {
     return services.find(service => service.serviceId === serviceId);
   }, [services]);
+
+  // NEW: Refresh services from Supabase (called when modal opens)
+  const refreshServices = useCallback(async () => {
+    if (!companyId) {
+      console.warn('⚠️ Cannot refresh without company_id');
+      return;
+    }
+
+    console.log('🔄 [SERVICES STORE] Refreshing services from Supabase');
+
+    try {
+      const supabase = getSupabase();
+      const { data, error: fetchError } = await supabase
+        .from('service_pricing_configs')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('is_active', true);
+
+      if (fetchError) {
+        console.error('❌ [SERVICES STORE] Error refreshing from Supabase:', fetchError);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        console.log(`✅ [SERVICES STORE] Refreshed ${data.length} services from Supabase`);
+
+        // Convert Supabase rows to ServiceConfig format
+        const supabaseServices = data.map(row => ({
+          service: row.service_name,
+          serviceId: row.service_name,
+          category: 'Hardscaping',
+          baseSettings: {
+            laborSettings: {
+              hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
+              optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
+              baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+            },
+            materialSettings: {
+              baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+            },
+            businessSettings: {
+              profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+            }
+          },
+          variables: row.variables_config || {},
+          lastModified: new Date(row.updated_at).toISOString().split('T')[0]
+        }));
+
+        setServices(supabaseServices);
+      }
+    } catch (err) {
+      console.error('❌ [SERVICES STORE] Error refreshing services:', err);
+    }
+  }, [companyId]);
 
   return {
     services,
@@ -456,6 +711,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
     error,
     updateBaseSetting,
     updateServiceVariables,
-    getService
+    getService,
+    refreshServices
   };
 };
