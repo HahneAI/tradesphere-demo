@@ -27,9 +27,11 @@ export const getSupabase = (): SupabaseClient<Database> => {
         flowType: 'pkce'  // Use PKCE flow for better security
       },
       realtime: {
-        log_level: 'info'  // Enable real-time debugging logs
+        log_level: 'debug'  // CHANGED: Maximum verbosity for real-time debugging
       }
     });
+
+    console.log('🔧 [SUPABASE] Client initialized with real-time debug logging enabled');
   }
 
   return supabase;
@@ -60,8 +62,10 @@ export const refreshSupabaseClient = () => {
       flowType: 'pkce'  // Use PKCE flow for better security
     },
     realtime: {
-      log_level: 'info'  // Enable real-time debugging logs
+      log_level: 'debug'  // CHANGED: Maximum verbosity for real-time debugging
     }
   });
+
+  console.log('🔧 [SUPABASE] Client refreshed with real-time debug logging enabled');
   return supabase;
 };

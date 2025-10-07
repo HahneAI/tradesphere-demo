@@ -212,6 +212,13 @@ export class MasterPricingEngine {
       this.subscriptions.get(subscriptionKey).unsubscribe();
     }
 
+    console.log('🔧 [MASTER ENGINE] Creating subscription channel:', {
+      channelName: `pricing_config_${subscriptionKey}`,
+      companyId,
+      serviceName,
+      table: 'service_pricing_configs'
+    });
+
     // Create new subscription
     const subscription = this.supabase
       .channel(`pricing_config_${subscriptionKey}`)
@@ -224,11 +231,13 @@ export class MasterPricingEngine {
           filter: `company_id=eq.${companyId}`
         },
         async (payload) => {
-          console.log('🎯 [MASTER ENGINE] Real-time event received!', {
+          console.log('🎯🎯🎯 [MASTER ENGINE] ========== REAL-TIME EVENT RECEIVED ==========', {
+            timestamp: new Date().toISOString(),
             event: payload.eventType,
             serviceName: payload.new?.service_name || payload.old?.service_name,
             targetService: serviceName,
-            willProcess: (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName)
+            willProcess: (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName),
+            payload: payload
           });
 
           // Only process updates for matching service
@@ -256,10 +265,19 @@ export class MasterPricingEngine {
         }
       )
       .subscribe((status, error) => {
-        console.log('📡 [MASTER ENGINE] Subscription status:', status, subscriptionKey);
+        console.log('📡 [MASTER ENGINE] Subscription status change:', {
+          status,
+          error,
+          subscriptionKey,
+          timestamp: new Date().toISOString()
+        });
 
         if (status === 'SUBSCRIBED') {
-          console.log('✅ [MASTER ENGINE] Real-time subscription ACTIVE and ready');
+          console.log('✅ [MASTER ENGINE] Real-time subscription ACTIVE and ready', {
+            channel: `pricing_config_${subscriptionKey}`,
+            table: 'service_pricing_configs',
+            filter: `company_id=eq.${companyId}`
+          });
         } else if (status === 'CHANNEL_ERROR') {
           console.error('❌ [MASTER ENGINE] Subscription FAILED:', error);
         } else if (status === 'TIMED_OUT') {
@@ -271,7 +289,13 @@ export class MasterPricingEngine {
 
     this.subscriptions.set(subscriptionKey, subscription);
 
-    console.log('👂 [MASTER ENGINE] Subscribed to real-time updates:', subscriptionKey);
+    console.log('👂 [MASTER ENGINE] Subscription setup complete:', {
+      subscriptionKey,
+      channelName: `pricing_config_${subscriptionKey}`,
+      table: 'service_pricing_configs',
+      filter: `company_id=eq.${companyId}`,
+      serviceName
+    });
 
     // Return cleanup function
     return () => {
