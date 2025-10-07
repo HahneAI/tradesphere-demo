@@ -118,6 +118,14 @@ export class ServiceConfigManager {
       masterPricingEngine.clearCache(serviceId, companyId);
       console.log('🧹 [SERVICE MANAGER] Cache cleared automatically');
 
+      // 🔍 DEBUG: Log what was saved to variables_config
+      console.log('🔍 [SERVICE MANAGER DEBUG] Saved variables_config:', {
+        hasVariables: !!supabaseData.variables_config,
+        variableKeys: Object.keys(supabaseData.variables_config || {}),
+        premiumMaterialValue: supabaseData.variables_config?.materials?.paverStyle?.options?.premium?.value,
+        fullVariablesConfig: JSON.stringify(supabaseData.variables_config, null, 2).substring(0, 500) + '...'
+      });
+
       return true;
     } catch (error) {
       console.error('💥 [SERVICE MANAGER] Save failed:', error);

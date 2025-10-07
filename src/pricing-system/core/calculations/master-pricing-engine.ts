@@ -12,13 +12,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
-import {
-  getTearoutPercentage,
-  getAccessPercentage,
-  getTeamSizePercentage,
-  getMaterialMultiplier,
-  getComplexityMultiplier
-} from '../../utils/calculations/pricing-helpers';
+// REMOVED: Hardcoded helpers that bypass database
+// All values now read directly from config.variables
 
 export interface PricingConfigRow {
   id: string;
@@ -187,6 +182,14 @@ export class MasterPricingEngine {
         hourlyRate: configRow.hourly_labor_rate,
         lastUpdated: configRow.updated_at,
         source: 'Supabase Database'
+      });
+
+      // 🔍 DEBUG: Log variables_config from database
+      console.log('🔍 [MASTER ENGINE DEBUG] variables_config from DB:', {
+        hasVariablesConfig: !!configRow.variables_config,
+        variableKeys: Object.keys(configRow.variables_config || {}),
+        premiumMaterialValue: configRow.variables_config?.materials?.paverStyle?.options?.premium?.value,
+        premiumMultiplier: configRow.variables_config?.materials?.paverStyle?.options?.premium?.multiplier
       });
 
       return this.convertRowToConfig(configRow);
@@ -400,6 +403,7 @@ export class MasterPricingEngine {
 
   /**
    * TIER 1: Calculate labor hours with base-independent percentage system
+   * ALL VALUES READ FROM DATABASE - No hardcoded helpers
    */
   private calculateTier1(config: PaverPatioConfig, values: PaverPatioValues, sqft: number): Tier1Results {
     const optimalTeamSize = config?.baseSettings?.laborSettings?.optimalTeamSize?.value ?? 3;
@@ -409,10 +413,20 @@ export class MasterPricingEngine {
     const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
     let adjustedHours = baseHours;
 
-    // Apply base-independent variable system
-    const tearoutPercentage = getTearoutPercentage(values.excavation.tearoutComplexity);
-    const accessPercentage = getAccessPercentage(values.siteAccess.accessDifficulty);
-    const teamSizePercentage = getTeamSizePercentage(values.labor.teamSize);
+    // CRITICAL FIX: Read tearout percentage from DATABASE, not hardcoded helper
+    const tearoutVar = config?.variables?.excavation?.tearoutComplexity;
+    const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
+    const tearoutPercentage = tearoutOption?.value ?? 0;
+
+    // CRITICAL FIX: Read access percentage from DATABASE, not hardcoded helper
+    const accessVar = config?.variables?.siteAccess?.accessDifficulty;
+    const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'easy'];
+    const accessPercentage = accessOption?.value ?? 0;
+
+    // CRITICAL FIX: Read team size percentage from DATABASE, not hardcoded helper
+    const teamVar = config?.variables?.labor?.teamSize;
+    const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'threePlus'];
+    const teamSizePercentage = teamOption?.value ?? 0;
 
     // Apply each variable as independent percentage of base hours
     if (tearoutPercentage > 0) {
@@ -462,7 +476,23 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste
-    const materialMultiplier = getMaterialMultiplier(values.materials.paverStyle);
+    // CRITICAL FIX: Read multiplier from config.variables instead of hardcoded helper
+    const paverVar = config?.variables?.materials?.paverStyle;
+    const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
+    const paverOption = paverVar?.options?.[paverStyleValue];
+    const materialMultiplier = paverOption?.multiplier ?? 1.0;
+
+    // 🔍 DEBUG: Log what material multiplier is being used
+    console.log('🔍 [MASTER ENGINE DEBUG] Material multiplier from DATABASE:', {
+      selectedPaverStyle: paverStyleValue,
+      paverStyleOptions: paverVar?.options,
+      selectedOption: paverOption,
+      multiplierFromDB: materialMultiplier,
+      premiumOption: paverVar?.options?.premium,
+      premiumValue: paverVar?.options?.premium?.value,
+      premiumMultiplier: paverVar?.options?.premium?.multiplier
+    });
+
     const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
     const cuttingVar = config?.variables?.materials?.cuttingComplexity;
@@ -485,8 +515,25 @@ export class MasterPricingEngine {
     // 5. Subtotal
     const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
 
-    // 6. Apply complexity multiplier to subtotal FIRST (per master-formula.md)
-    const complexityMultiplier = getComplexityMultiplier(values.complexity.overallComplexity);
+    // 6. CRITICAL FIX: Read complexity from DATABASE, not hardcoded helper
+    // Convert from percentage format to multiplier (e.g., 0% = 1.0, 10% = 1.1, 30% = 1.3)
+    const complexityVar = config?.variables?.complexity?.overallComplexity;
+    const complexityValue = values?.complexity?.overallComplexity;
+
+    let complexityMultiplier = 1.0;
+
+    // Check if it's stored as a percentage value in the database
+    if (complexityVar?.options && typeof complexityValue === 'string') {
+      const complexityOption = complexityVar.options[complexityValue];
+      // If database stores as percentage (e.g., 0, 10, 30, 50), convert to multiplier
+      if (complexityOption?.value !== undefined) {
+        complexityMultiplier = 1 + (complexityOption.value / 100);
+      }
+    } else if (typeof complexityValue === 'number') {
+      // Legacy: If stored as direct multiplier
+      complexityMultiplier = complexityValue;
+    }
+
     const adjustedTotal = subtotal * complexityMultiplier;
 
     // 7. Calculate profit on adjusted total (after complexity)
