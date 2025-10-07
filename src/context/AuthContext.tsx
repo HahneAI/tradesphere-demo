@@ -28,7 +28,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  console.log('🟢 AUTH_CONTEXT - Provider mounting (Supabase Auth)...');
+  console.log('🟢 AUTH_CONTEXT - Provider mounting');
 
   // 🚨 DEMO MODE: Configurable via localStorage for easy toggle
   // Check localStorage first to allow runtime configuration
@@ -37,13 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const stored = localStorage.getItem('DEMO_MODE');
     if (stored !== null) {
-      const enabled = stored === 'true';
-      console.log(`🚨 DEMO_MODE: ${enabled ? 'ENABLED' : 'DISABLED'} (from localStorage)`);
-      return enabled;
+      return stored === 'true';
     }
 
     // Default to false (disabled) - use manual login
-    console.log('🚨 DEMO_MODE: DISABLED (default)');
     return false;
   })();
 
@@ -74,51 +71,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       (window as any).enableDemoMode = () => {
         localStorage.setItem('DEMO_MODE', 'true');
-        console.log('✅ Demo mode ENABLED - refresh page to activate auto-login');
-        console.log('💡 To disable: disableDemoMode()');
+        console.log('✅ Demo mode ENABLED - refresh page');
       };
 
       (window as any).disableDemoMode = () => {
         localStorage.setItem('DEMO_MODE', 'false');
-        console.log('✅ Demo mode DISABLED - refresh page to use manual login');
-        console.log('💡 To enable: enableDemoMode()');
+        console.log('✅ Demo mode DISABLED - refresh page');
       };
 
       (window as any).checkDemoMode = () => {
         const enabled = localStorage.getItem('DEMO_MODE') === 'true';
-        console.log(`🚨 Demo mode is currently: ${enabled ? 'ENABLED' : 'DISABLED'}`);
-        console.log('💡 Toggle with: enableDemoMode() or disableDemoMode()');
+        console.log(`Demo mode: ${enabled ? 'ENABLED' : 'DISABLED'}`);
         return enabled;
       };
-
-      console.log('💡 Demo mode helpers available:');
-      console.log('  - enableDemoMode()  - Auto-login on page load');
-      console.log('  - disableDemoMode() - Require manual login');
-      console.log('  - checkDemoMode()   - Check current status');
     }
   }, []);
 
   // Initialize auth state and listen for changes
   useEffect(() => {
-    console.log('🔐 AUTH_CONTEXT - Initializing Supabase Auth listener');
-
     // Step 1: Get initial session (runs once on mount)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔍 AUTH_CONTEXT - Initial session check:', {
-        hasSession: !!session,
-        userId: session?.user?.id
-      });
-
       if (session?.user) {
-        // Fire-and-forget user data fetch
         fetchUserData(session.user.id);
       } else if (!DEMO_MODE) {
-        // Only set loading false if NOT demo mode (demo will auto-login below)
-        console.log('ℹ️ AUTH_CONTEXT - No session found, setting loading to false');
         setLoading(false);
       }
     }).catch((error) => {
-      console.error('❌ AUTH_CONTEXT - Session check failed:', error);
+      console.error('❌ Session check failed:', error);
       if (!DEMO_MODE) {
         setLoading(false);
       }
@@ -127,73 +106,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Step 2: Set up auth state listener (runs for lifetime of app)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('🔄 AUTH_CONTEXT - Auth state changed:', event, {
-          hasSession: !!session,
-          userId: session?.user?.id
-        });
-
-        // CRITICAL: Don't use await here - fire-and-forget to prevent deadlocks
         if (event === 'SIGNED_IN' && session?.user) {
-          fetchUserData(session.user.id);  // Removed await
+          fetchUserData(session.user.id);
         } else if (event === 'SIGNED_OUT') {
-          console.log('👋 AUTH_CONTEXT - User signed out, clearing state');
           setUser(null);
           setIsAdmin(false);
           setLoading(false);
-        } else if (event === 'TOKEN_REFRESHED') {
-          console.log('✅ AUTH_CONTEXT - Token refreshed successfully');
-          // Don't change loading state or fetch user data on token refresh
         } else if (event === 'INITIAL_SESSION') {
-          // Already handled in getSession() above - skip to avoid double-fetch
-          console.log('ℹ️ AUTH_CONTEXT - INITIAL_SESSION event (already handled by getSession)');
           if (!session) {
             setLoading(false);
           }
-          return;  // Explicit return to prevent fallthrough
-        } else {
-          console.log('ℹ️ AUTH_CONTEXT - Unhandled auth event:', event);
+          return;
         }
       }
     );
 
     // Step 3: Emergency timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      console.warn('⚠️ AUTH_CONTEXT - Timeout reached, forcing loading to false');
       setLoading(false);
     }, 5000);
 
     // Step 4: DEMO MODE auto-login (happens AFTER listeners are set up)
-    // This ensures DEMO_MODE uses the same auth flow as production
-    // CRITICAL FIX: Only auto-login if NO existing session (prevents auto-login after logout)
     if (DEMO_MODE) {
-      console.log('🚨 DEMO MODE: Checking for existing session before auto-login...');
-      // Use setTimeout to not block the listener setup
       setTimeout(async () => {
         try {
-          // CRITICAL: Check if session already exists from previous login/logout
           const { data: { session } } = await supabase.auth.getSession();
 
           if (!session) {
-            console.log('🚨 DEMO MODE: No session found, proceeding with auto-login...');
             const { error } = await supabase.auth.signInWithPassword({
               email: 'anthony@test.com',
               password: '99'
             });
 
             if (error) {
-              console.error('❌ DEMO MODE: Auto-login failed:', error.message);
-              // Fallback to hardcoded user if auto-login fails
               setUser(DEMO_USER);
               setIsAdmin(true);
               setLoading(false);
-            } else {
-              console.log('✅ DEMO MODE: Auto-login successful');
-              // onAuthStateChange listener will handle the SIGNED_IN event
             }
           } else {
-            console.log('✅ DEMO MODE: Existing session found, skipping auto-login');
-            // Session exists - user was already logged in or refreshed while logged in
-            // Fetch user data for this session
             if (session.user) {
               fetchUserData(session.user.id);
             } else {
@@ -201,27 +151,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (error) {
-          console.error('💥 DEMO MODE: Auto-login error:', error);
           setUser(DEMO_USER);
           setIsAdmin(true);
           setLoading(false);
         }
-      }, 100);  // Small delay to ensure listeners are attached
+      }, 100);
     }
 
     return () => {
-      console.log('🔴 AUTH_CONTEXT - Cleaning up auth listener');
       clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, []);  // Empty deps - run once on mount
+  }, []);
 
   /**
    * Fetch user data from users table
    */
   const fetchUserData = async (userId: string) => {
-    console.log('📥 AUTH_CONTEXT - Fetching user data for:', userId);
-
     try {
       // Add 3 second timeout to prevent hanging
       const fetchPromise = supabase
@@ -237,29 +183,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
 
       if (error) {
-        console.error('❌ AUTH_CONTEXT - Failed to fetch user data:', error);
+        console.error('❌ Failed to fetch user data:', error);
         throw error;
       }
 
       if (data) {
-        console.log('✅ AUTH_CONTEXT - User data loaded:', {
+        // Log state change to authenticated with role
+        console.log(`✅ Authenticated as ${data.role.toUpperCase()}`);
+
+        // Log user payload
+        console.log('👤 User payload:', {
           email: data.email,
+          name: data.name,
           role: data.role,
-          isAdmin: data.is_admin,
-          companyId: data.company_id
+          title: data.title,
+          company_id: data.company_id,
+          is_admin: data.is_admin
         });
 
         setUser(data);
         setIsAdmin(data.is_admin);
-      } else {
-        console.warn('⚠️ AUTH_CONTEXT - No user data found for ID:', userId);
       }
     } catch (error) {
-      console.error('💥 AUTH_CONTEXT - Error fetching user data:', error);
-      // Clear any invalid session
+      console.error('❌ Error fetching user data:', error);
       await supabase.auth.signOut();
     } finally {
-      console.log('🏁 AUTH_CONTEXT - Setting loading to false');
       setLoading(false);
     }
   };
@@ -268,9 +216,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Sign in with email and password
    */
   const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    console.group('🔐 AUTH_CONTEXT - Sign In Attempt');
-    console.log('📧 Email:', email);
-
     try {
       // Step 1: Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -279,13 +224,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (authError) {
-        console.error('❌ AUTH_CONTEXT - Authentication failed:', authError.message);
-        console.groupEnd();
+        console.error('❌ Authentication failed:', authError.message);
         return { success: false, error: authError.message };
       }
-
-      console.log('✅ AUTH_CONTEXT - Authentication successful');
-      console.log('🔍 Auth User ID:', authData.user?.id);
 
       // Step 2: Fetch user record from users table
       const { data: userData, error: userError } = await supabase
@@ -295,33 +236,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (userError) {
-        console.error('❌ AUTH_CONTEXT - Failed to fetch user record:', userError.message);
-        console.groupEnd();
-        setLoading(false);  // ✅ Set loading to false on error too
+        console.error('❌ Failed to fetch user record:', userError.message);
+        setLoading(false);
         return { success: false, error: 'User record not found' };
       }
 
-      console.log('✅ AUTH_CONTEXT - User record loaded:', {
+      // Log state change to authenticated with role
+      console.log(`✅ Authenticated as ${userData.role.toUpperCase()}`);
+
+      // Log user payload
+      console.log('👤 User payload:', {
         email: userData.email,
+        name: userData.name,
         role: userData.role,
         title: userData.title,
-        isAdmin: userData.is_admin,
-        companyId: userData.company_id
+        company_id: userData.company_id,
+        is_admin: userData.is_admin
       });
 
       // Step 3: Update context state
       setUser(userData);
       setIsAdmin(userData.is_admin);
-      setLoading(false);  // ✅ CRITICAL: Set loading to false after successful login
+      setLoading(false);
 
-      console.log('✅ AUTH_CONTEXT - Sign in complete');
-      console.groupEnd();
       return { success: true };
 
     } catch (error: any) {
-      console.error('💥 AUTH_CONTEXT - Sign in error:', error);
-      console.groupEnd();
-      setLoading(false);  // ✅ Set loading to false on error too
+      console.error('❌ Sign in error:', error);
+      setLoading(false);
       return { success: false, error: error.message || 'Login failed' };
     }
   };
@@ -330,24 +272,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Sign out
    */
   const signOut = async (): Promise<void> => {
-    console.log('🚪 AUTH_CONTEXT - Signing out...');
-
     try {
       // Call Supabase sign out with 'local' scope to clear all storage
       const { error } = await supabase.auth.signOut({ scope: 'local' });
 
       if (error) {
-        console.error('❌ AUTH_CONTEXT - Sign out error:', error);
-        // Don't throw - continue with manual cleanup
+        console.error('❌ Sign out error:', error);
       }
 
-      // ✅ CRITICAL FIX: Explicitly clear all Supabase auth localStorage keys
-      // Supabase stores session tokens that auto-restore on page load
+      // Clear all Supabase auth localStorage keys
       if (typeof window !== 'undefined' && window.localStorage) {
         const keysToRemove: string[] = [];
 
-        // Scan all localStorage keys for Supabase-related entries
-        // Pattern: 'sb-{project-ref}-auth-token' and legacy 'supabase.auth.token'
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && (
@@ -355,28 +291,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             key.includes('supabase') ||
             key.includes('auth') ||
             key === 'tradesphere-auth-token' ||
-            key.startsWith('paver') // Clear app-specific calculator data too
+            key.startsWith('paver')
           )) {
             keysToRemove.push(key);
           }
         }
 
-        // Remove all found keys
-        keysToRemove.forEach(key => {
-          localStorage.removeItem(key);
-          console.log(`🧹 Removed localStorage key: ${key}`);
-        });
-
-        console.log('✅ Cleared Supabase localStorage keys:', keysToRemove);
+        keysToRemove.forEach(key => localStorage.removeItem(key));
       }
 
       // Clear React state
       setUser(null);
       setIsAdmin(false);
-      console.log('✅ AUTH_CONTEXT - Signed out successfully');
     } catch (error) {
-      console.error('💥 AUTH_CONTEXT - Sign out failed:', error);
-      // Still clear state even if API call fails
+      console.error('❌ Sign out failed:', error);
       setUser(null);
       setIsAdmin(false);
     }
@@ -386,15 +314,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * Update user icon
    */
   const updateUserIcon = async (iconName: string): Promise<boolean> => {
-    console.log('🎨 AUTH_CONTEXT - Updating user icon to:', iconName);
-
     if (!user) {
-      console.error('❌ AUTH_CONTEXT - No user logged in');
+      console.error('❌ No user logged in');
       return false;
     }
 
     try {
-      // Update users table
       const { error } = await supabase
         .from('users')
         .update({
@@ -404,11 +329,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('id', user.id);
 
       if (error) {
-        console.error('❌ AUTH_CONTEXT - Failed to update user icon:', error);
+        console.error('❌ Failed to update user icon:', error);
         return false;
       }
 
-      // Update local state
       const updatedUser = {
         ...user,
         user_icon: iconName,
@@ -416,11 +340,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
       setUser(updatedUser);
-      console.log('✅ AUTH_CONTEXT - User icon updated successfully');
       return true;
 
     } catch (error) {
-      console.error('💥 AUTH_CONTEXT - Update user icon error:', error);
+      console.error('❌ Update user icon error:', error);
       return false;
     }
   };
@@ -436,7 +359,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={value}>
-      {console.log('🎨 AUTH_CONTEXT - Providing:', { loading, hasUser: !!user, isAdmin })}
       {children}
     </AuthContext.Provider>
   );
