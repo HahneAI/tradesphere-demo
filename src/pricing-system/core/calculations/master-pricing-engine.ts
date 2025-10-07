@@ -212,12 +212,26 @@ export class MasterPricingEngine {
       this.subscriptions.get(subscriptionKey).unsubscribe();
     }
 
+    // CRITICAL: Check if we're authenticated before subscribing
+    const { data: { session } } = await this.supabase.auth.getSession();
+
     console.log('🔧 [MASTER ENGINE] Creating subscription channel:', {
       channelName: `pricing_config_${subscriptionKey}`,
       companyId,
       serviceName,
-      table: 'service_pricing_configs'
+      table: 'service_pricing_configs',
+      isAuthenticated: !!session,
+      userId: session?.user?.id,
+      userEmail: session?.user?.email,
+      accessToken: session?.access_token ? `${session.access_token.substring(0, 20)}...` : 'NONE'
     });
+
+    if (!session) {
+      console.error('❌ [MASTER ENGINE] CRITICAL: No auth session found! Real-time will NOT work with RLS!');
+      console.error('❌ [MASTER ENGINE] Subscription will appear SUBSCRIBED but events will never fire!');
+    } else {
+      console.log('✅ [MASTER ENGINE] Auth session found - real-time should work');
+    }
 
     // Create new subscription
     const subscription = this.supabase
