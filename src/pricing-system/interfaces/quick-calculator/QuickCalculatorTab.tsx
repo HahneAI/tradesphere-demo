@@ -67,7 +67,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
       console.log('🔌 [QUICK CALCULATOR] Modal closed - cleaning up subscription');
       unsubscribe();
     };
-  }, [isOpen, user?.company_id, store]);
+  }, [isOpen, user?.company_id]); // REMOVED: store from dependencies to prevent infinite loop
 
   if (!isOpen) return null;
 
