@@ -71,6 +71,8 @@ interface ServiceVariableUpdate {
     minor?: number;
     major?: number;
   };
+  calculationSettings?: any; // For generic JSONB updates (excavation, etc.)
+  [key: string]: any; // Allow any additional categories for future services
 }
 
 interface ServiceBaseSettingsStore {
@@ -616,6 +618,66 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         obstacleOptions.major.value = updates.obstacleSettings.major;
       }
     }
+
+    // ============================================================================
+    // GENERIC HANDLER: Process any JSONB category updates (for new service templates)
+    // ============================================================================
+    // This handles updates from all service template types:
+    // - calculationSettings (VOLUME_BASED_TEMPLATE)
+    // - dimensions, installation (LINEAR_MEASUREMENT_TEMPLATE)
+    // - labor, scheduling (SIMPLE_HOURLY_TEMPLATE)
+    // - Any future categories from new templates
+
+    const knownCategories = [
+      'equipmentCosts', 'cuttingComplexity', 'laborMultipliers',
+      'materialSettings', 'complexitySettings', 'obstacleSettings'
+    ];
+
+    Object.keys(updates).forEach(updateKey => {
+      // Skip if this is a known/handled category
+      if (knownCategories.includes(updateKey)) return;
+
+      const updateValue = updates[updateKey];
+      if (!updateValue || typeof updateValue !== 'object') return;
+
+      console.log(`🔧 [GENERIC UPDATE] Processing category: ${updateKey}`, updateValue);
+
+      // Check if this category exists in the service's variables_config
+      if (!updatedVariables[updateKey]) {
+        console.warn(`⚠️ [GENERIC UPDATE] Category '${updateKey}' not found in variables_config, creating it`);
+        updatedVariables[updateKey] = updateValue;
+        return;
+      }
+
+      // Deep merge: Update each variable's default value while preserving structure
+      Object.entries(updateValue).forEach(([varKey, varValue]: [string, any]) => {
+        // Skip metadata fields
+        if (['label', 'description'].includes(varKey)) return;
+
+        if (updatedVariables[updateKey][varKey]) {
+          // Variable exists, update its default value
+          if (typeof varValue === 'object' && 'default' in varValue) {
+            // Format: { default: value, ... } (from ExcavationSpecificsModal)
+            updatedVariables[updateKey][varKey] = {
+              ...updatedVariables[updateKey][varKey],
+              ...varValue
+            };
+            console.log(`  ✓ Updated ${updateKey}.${varKey}.default =`, varValue.default);
+          } else {
+            // Format: direct value (simple updates)
+            updatedVariables[updateKey][varKey] = {
+              ...updatedVariables[updateKey][varKey],
+              default: varValue
+            };
+            console.log(`  ✓ Updated ${updateKey}.${varKey}.default =`, varValue);
+          }
+        } else {
+          // New variable, add it
+          console.log(`  + Adding new variable ${updateKey}.${varKey}`);
+          updatedVariables[updateKey][varKey] = varValue;
+        }
+      });
+    });
 
     const updatedService = {
       ...service,
