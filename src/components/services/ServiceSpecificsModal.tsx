@@ -131,10 +131,10 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   // CRITICAL FIX: Refresh services from Supabase when modal opens with loading state
   useEffect(() => {
     if (isOpen) {
-      console.log('🔄 [SPECIFICS MODAL] Modal opened, refreshing services from Supabase');
+      console.log('🔄 [SPECIFICS MODAL] Modal opened, forcing fresh load from database (bypassing all caches)');
       setIsRefreshing(true);
       refreshServices().then(() => {
-        console.log('✅ [SPECIFICS MODAL] Refresh complete, will load values now');
+        console.log('✅ [SPECIFICS MODAL] Fresh data loaded from database, loading values now');
         setIsRefreshing(false);
       });
     }
@@ -167,6 +167,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
       // Load current values from service configuration
       const vars = service.variables;
 
+      console.log('📊 [MODAL LOAD] DATA SOURCE: Loading from fresh Supabase query (not cache, not JSON)');
+
       // Load equipment costs
       if (vars.excavation?.equipmentRequired?.options) {
         const equipmentOptions = vars.excavation.equipmentRequired.options;
@@ -176,7 +178,8 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
           lightMachinery: equipmentOptions.lightMachinery?.value || 250,
           heavyMachinery: equipmentOptions.heavyMachinery?.value || 350,
         };
-        console.log('🔧 [MODAL LOAD] Loading equipment costs from database:', {
+        console.log('🔧 [MODAL LOAD] Equipment costs from DATABASE:', {
+          dataSource: 'Supabase service_pricing_configs table',
           fromDatabase: {
             handTools: equipmentOptions.handTools?.value,
             attachments: equipmentOptions.attachments?.value,

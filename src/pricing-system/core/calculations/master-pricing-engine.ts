@@ -374,6 +374,38 @@ export class MasterPricingEngine {
   }
 
   /**
+   * Clear ALL cached pricing configs
+   * Called on app startup to ensure fresh data
+   */
+  public clearAllCaches(): void {
+    const cacheSize = this.configCache.size;
+    this.configCache.clear();
+    console.log('🧹🧹🧹 [MASTER ENGINE] ALL CACHES CLEARED on app startup (cleared', cacheSize, 'entries)');
+  }
+
+  /**
+   * Force reload config from database, bypassing cache
+   * Use when you need guaranteed fresh data
+   */
+  public async forceReloadFromDatabase(
+    serviceName: string = 'paver_patio_sqft',
+    companyId?: string
+  ): Promise<PaverPatioConfig> {
+    // Clear cache first
+    if (companyId) {
+      this.clearCache(serviceName, companyId);
+    }
+
+    console.log('🔄 [MASTER ENGINE] Force reloading from database (bypassing cache):', {
+      serviceName,
+      companyId
+    });
+
+    // Load fresh from database
+    return this.loadPricingConfig(serviceName, companyId);
+  }
+
+  /**
    * Calculate pricing using live Supabase configuration
    */
   public async calculatePricing(
@@ -554,27 +586,31 @@ export class MasterPricingEngine {
     const adjustedLaborCost = laborCost * complexityMultiplier;
     const adjustedMaterialCost = totalMaterialCost * complexityMultiplier;
 
-    // 6. Calculate subtotal with complexity-adjusted labor/materials + fixed equipment/obstacle costs
-    const subtotal = adjustedLaborCost + adjustedMaterialCost + equipmentCost + obstacleCost;
+    // 6. Calculate profit ONLY on labor and materials (the actual work)
+    // Equipment rentals and obstacle removal are pass-through costs (no profit markup)
+    const profitableSubtotal = adjustedLaborCost + adjustedMaterialCost;
+    const profit = profitableSubtotal * profitMargin;
 
-    // 7. Calculate profit on subtotal
-    const profit = subtotal * profitMargin;
+    // 7. Calculate final subtotal: profitable costs + profit + pass-through costs
+    const subtotalBeforePassThrough = profitableSubtotal + profit;
+    const subtotal = subtotalBeforePassThrough + equipmentCost + obstacleCost;
 
-    // 8. Final total
-    const total = subtotal + profit;
+    // 8. Final total (subtotal already includes profit)
+    const total = subtotal;
 
-    console.log('💰 [MASTER ENGINE] Tier 2 calculation:', {
-      laborCostBase: laborCost.toFixed(2),
-      laborCostAdjusted: adjustedLaborCost.toFixed(2),
-      materialCostBase: totalMaterialCost.toFixed(2),
-      materialCostAdjusted: adjustedMaterialCost.toFixed(2),
-      equipmentCost: equipmentCost.toFixed(2),
-      obstacleCost: obstacleCost.toFixed(2),
-      complexityMultiplier: complexityMultiplier,
-      subtotal: subtotal.toFixed(2),
-      profitMargin: (profitMargin * 100).toFixed(1) + '%',
-      profit: profit.toFixed(2),
-      total: total.toFixed(2)
+    console.log('💰 [MASTER ENGINE] Tier 2 calculation (detailed breakdown):', {
+      '1_laborCostBase': laborCost.toFixed(2),
+      '2_laborCostAfterComplexity': adjustedLaborCost.toFixed(2),
+      '3_materialCostBase': totalMaterialCost.toFixed(2),
+      '4_materialCostAfterComplexity': adjustedMaterialCost.toFixed(2),
+      '5_profitableSubtotal': profitableSubtotal.toFixed(2),
+      '6_profitMargin': (profitMargin * 100).toFixed(1) + '%',
+      '7_profitAmount': profit.toFixed(2),
+      '8_subtotalWithProfit': subtotalBeforePassThrough.toFixed(2),
+      '9_PASS_THROUGH_equipmentCost': equipmentCost.toFixed(2) + ' (no profit markup)',
+      '10_PASS_THROUGH_obstacleCost': obstacleCost.toFixed(2) + ' (no profit markup)',
+      '11_finalSubtotal': subtotal.toFixed(2),
+      '12_finalTotal': total.toFixed(2)
     });
 
     return {

@@ -7,6 +7,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ThemeApplicator } from './components/ThemeApplicator';
 import { useAppLoading } from './utils/loading-manager';
 import { EnvironmentManager } from './config/defaults';
+import { masterPricingEngine } from './pricing-system/core/calculations/master-pricing-engine';
 
 // 🎯 DEBUG: Using centralized environment manager for debug logging
 console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
@@ -45,6 +46,11 @@ function App() {
 
     if (!authLoading && isMinDurationPassed && appState === 'loading') {
       console.log('📍 Initial load complete');
+
+      // CRITICAL: Clear all pricing caches on app startup to ensure fresh data
+      console.log('🧹 [APP.TSX] Clearing all pricing caches on startup...');
+      masterPricingEngine.clearAllCaches();
+
       setIsExitingLoading(true);
 
       const timer = setTimeout(() => {
