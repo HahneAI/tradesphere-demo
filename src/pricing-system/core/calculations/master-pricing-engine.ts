@@ -805,7 +805,8 @@ export class MasterPricingEngine {
         tier1: "man_hours_calculation",
         tier2: "cost_calculation"
       },
-      variables: row.variables_config
+      variables: row.variables_config,  // For paver patio (uses 'variables')
+      variables_config: row.variables_config  // For excavation & new services (uses 'variables_config')
     } as PaverPatioConfig;
   }
 

@@ -63,6 +63,7 @@ export interface PaverPatioConfig {
     labor: Record<string, PaverPatioVariable | string>;
     complexity: Record<string, PaverPatioVariable | string>;
   };
+  variables_config?: any; // For excavation & new services (JSONB structure)
 }
 
 export interface PaverPatioValues {
