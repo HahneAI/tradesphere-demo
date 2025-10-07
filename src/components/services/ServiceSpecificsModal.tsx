@@ -74,7 +74,7 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
   theme,
 }) => {
   const { user } = useAuth();
-  const { getService, updateServiceVariables } = useServiceBaseSettings(user?.company_id);
+  const { getService, updateServiceVariables, refreshServices } = useServiceBaseSettings(user?.company_id);
   const [activeTab, setActiveTab] = useState<'equipment' | 'cutting' | 'labor' | 'materials' | 'complexity'>('equipment');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -120,10 +120,25 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     extreme: 50
   });
 
+  // CRITICAL FIX: Refresh services from Supabase when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('🔄 [SPECIFICS MODAL] Modal opened, refreshing services from Supabase');
+      refreshServices();
+    }
+  }, [isOpen, refreshServices]);
+
   const service = getService(serviceId);
 
   useEffect(() => {
     if (service && service.variables) {
+      console.log('📝 [SPECIFICS MODAL] Loading service variables:', {
+        serviceId,
+        hasPremiumValue: !!service.variables.materials?.paverStyle?.options?.premium?.value,
+        premiumValue: service.variables.materials?.paverStyle?.options?.premium?.value,
+        premiumMultiplier: service.variables.materials?.paverStyle?.options?.premium?.multiplier
+      });
+
       // Load current values from service configuration
       const vars = service.variables;
 

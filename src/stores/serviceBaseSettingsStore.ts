@@ -75,6 +75,7 @@ interface ServiceBaseSettingsStore {
   updateBaseSetting: (serviceId: string, setting: string, value: number) => void;
   updateServiceVariables: (serviceId: string, updates: ServiceVariableUpdate) => void;
   getService: (serviceId: string) => ServiceConfig | undefined;
+  refreshServices: () => Promise<void>; // NEW: Refresh from Supabase
 }
 
 // Load services from JSON configurations
@@ -303,20 +304,90 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize services
+  // CRITICAL FIX: Load services from Supabase instead of JSON files
   useEffect(() => {
-    try {
-      const defaultServices = loadServices();
-      const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
-      setServices(servicesWithOverrides);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load services');
-      console.error('Service loading error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    const loadServicesFromSupabase = async () => {
+      try {
+        setIsLoading(true);
+
+        if (!companyId) {
+          console.warn('⚠️ No company_id available, loading from JSON files only');
+          const defaultServices = loadServices();
+          const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
+          setServices(servicesWithOverrides);
+          setError(null);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('🚀 [SERVICES STORE] Loading services from Supabase for company:', companyId);
+
+        const supabase = getSupabase();
+        const { data, error: fetchError } = await supabase
+          .from('service_pricing_configs')
+          .select('*')
+          .eq('company_id', companyId)
+          .eq('is_active', true);
+
+        if (fetchError) {
+          console.error('❌ [SERVICES STORE] Error fetching from Supabase:', fetchError);
+          throw fetchError;
+        }
+
+        if (data && data.length > 0) {
+          console.log(`✅ [SERVICES STORE] Loaded ${data.length} services from Supabase`);
+
+          // Convert Supabase rows to ServiceConfig format
+          const supabaseServices = data.map(row => ({
+            service: row.service_name,
+            serviceId: row.service_name,
+            category: 'Hardscaping', // Could be stored in DB if needed
+            baseSettings: {
+              laborSettings: {
+                hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
+                optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
+                baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+              },
+              materialSettings: {
+                baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+              },
+              businessSettings: {
+                profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+              }
+            },
+            variables: row.variables_config || {},
+            lastModified: new Date(row.updated_at).toISOString().split('T')[0]
+          }));
+
+          setServices(supabaseServices);
+          setError(null);
+        } else {
+          // No data in Supabase, fall back to JSON files
+          console.warn('⚠️ No services found in Supabase, falling back to JSON files');
+          const defaultServices = loadServices();
+          const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
+          setServices(servicesWithOverrides);
+          setError(null);
+        }
+      } catch (err) {
+        console.error('❌ [SERVICES STORE] Error loading services:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load services');
+
+        // Fallback to JSON files on error
+        try {
+          const defaultServices = loadServices();
+          const servicesWithOverrides = defaultServices.map(loadServiceWithOverrides);
+          setServices(servicesWithOverrides);
+        } catch (fallbackErr) {
+          console.error('❌ [SERVICES STORE] Fallback also failed:', fallbackErr);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadServicesFromSupabase();
+  }, [companyId]); // Re-load when companyId changes
 
   // Listen for changes from other tabs/windows
   useEffect(() => {
@@ -536,12 +607,67 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
     return services.find(service => service.serviceId === serviceId);
   }, [services]);
 
+  // NEW: Refresh services from Supabase (called when modal opens)
+  const refreshServices = useCallback(async () => {
+    if (!companyId) {
+      console.warn('⚠️ Cannot refresh without company_id');
+      return;
+    }
+
+    console.log('🔄 [SERVICES STORE] Refreshing services from Supabase');
+
+    try {
+      const supabase = getSupabase();
+      const { data, error: fetchError } = await supabase
+        .from('service_pricing_configs')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('is_active', true);
+
+      if (fetchError) {
+        console.error('❌ [SERVICES STORE] Error refreshing from Supabase:', fetchError);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        console.log(`✅ [SERVICES STORE] Refreshed ${data.length} services from Supabase`);
+
+        // Convert Supabase rows to ServiceConfig format
+        const supabaseServices = data.map(row => ({
+          service: row.service_name,
+          serviceId: row.service_name,
+          category: 'Hardscaping',
+          baseSettings: {
+            laborSettings: {
+              hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
+              optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
+              baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+            },
+            materialSettings: {
+              baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+            },
+            businessSettings: {
+              profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+            }
+          },
+          variables: row.variables_config || {},
+          lastModified: new Date(row.updated_at).toISOString().split('T')[0]
+        }));
+
+        setServices(supabaseServices);
+      }
+    } catch (err) {
+      console.error('❌ [SERVICES STORE] Error refreshing services:', err);
+    }
+  }, [companyId]);
+
   return {
     services,
     isLoading,
     error,
     updateBaseSetting,
     updateServiceVariables,
-    getService
+    getService,
+    refreshServices
   };
 };
