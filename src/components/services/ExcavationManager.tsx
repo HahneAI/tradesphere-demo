@@ -194,8 +194,8 @@ export const ExcavationManager: React.FC<ExcavationManagerProps> = ({
                     {calc.cubic_yards_adjusted.toFixed(2)} yd³
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-3 bg-opacity-10 px-3 rounded"
-                     style={{ backgroundColor: visualConfig.colors.primary }}>
+                <div className="flex justify-between items-center py-3 px-3 rounded"
+                     style={{ backgroundColor: visualConfig.colors.primary + '20' }}>
                   <span className="font-medium" style={{ color: visualConfig.colors.text.primary }}>
                     Final Volume (Rounded)
                   </span>
