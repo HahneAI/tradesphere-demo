@@ -628,6 +628,106 @@ export class MasterPricingEngine {
   }
 
   /**
+   * Calculate excavation pricing - Simple volume-based calculation
+   */
+  public async calculateExcavationPricing(
+    area_sqft: number,
+    depth_inches: number,
+    calculationSettings: any,
+    serviceName: string = 'excavation_removal',
+    companyId?: string
+  ): Promise<any> {
+    // Load config from Supabase
+    const config = await this.loadPricingConfig(serviceName, companyId) as any;
+
+    // Extract calculation settings with defaults
+    const wasteFactor = calculationSettings?.wasteFactor?.default ?? 10;
+    const compactionFactor = calculationSettings?.compactionFactor?.default ?? 0;
+    const roundingRule = calculationSettings?.roundingRule?.default ?? 'up_whole';
+
+    // Extract base settings
+    const baseRate = config?.hourly_labor_rate ?? 25;  // Actually $/cubic yard
+    const profitMargin = config?.profit_margin ?? 0.05;
+    const teamSize = config?.optimal_team_size ?? 3;
+
+    console.log('🚀 [MASTER ENGINE] Excavation calculation:', {
+      area_sqft,
+      depth_inches,
+      wasteFactor,
+      compactionFactor,
+      roundingRule,
+      baseRate,
+      profitMargin,
+      teamSize
+    });
+
+    // STEP 1: Calculate cubic yards
+    const depth_ft = depth_inches / 12;
+    const cubic_feet = area_sqft * depth_ft;
+    const cy_raw = cubic_feet / 27;
+
+    // STEP 2: Apply waste and compaction factors
+    const waste_multiplier = 1 + (wasteFactor / 100);
+    const compaction_multiplier = 1 + (compactionFactor / 100);
+    const cy_adjusted = cy_raw * waste_multiplier * compaction_multiplier;
+
+    // STEP 3: Apply rounding rule
+    let cy_final = cy_adjusted;
+    if (roundingRule === 'up_whole') {
+      cy_final = Math.ceil(cy_adjusted);
+    } else if (roundingRule === 'up_half') {
+      cy_final = Math.ceil(cy_adjusted * 2) / 2;
+    }
+    // 'exact' means no rounding
+
+    // STEP 4: Calculate labor hours (progressive formula)
+    let total_hours = 0;
+    if (area_sqft <= 1000) {
+      // Zone 1: 12 hours per 100 sq ft
+      total_hours = Math.ceil(area_sqft / 100) * 12;
+    } else {
+      // Zone 1: First 1000 sq ft at 12 hrs/100 sq ft
+      total_hours = 10 * 12;  // 120 hours
+      // Zone 2: Everything past 1000 sq ft at 24 hrs/100 sq ft
+      const remaining_sq_ft = area_sqft - 1000;
+      total_hours += Math.ceil(remaining_sq_ft / 100) * 24;
+    }
+
+    const crew_hours = total_hours / teamSize;
+    const project_days = Math.ceil(crew_hours / 8);
+
+    // STEP 5: Calculate costs (simple formula - NO multipliers)
+    const base_cost = cy_final * baseRate;
+    const profit = base_cost * profitMargin;
+    const total_cost = base_cost + profit;
+
+    const result = {
+      // Volume calculations
+      area_sqft,
+      depth_inches,
+      cubic_yards_raw: Math.round(cy_raw * 100) / 100,
+      cubic_yards_adjusted: Math.round(cy_adjusted * 100) / 100,
+      cubic_yards_final: Math.round(cy_final * 100) / 100,
+
+      // Time estimates
+      base_hours: total_hours,
+      crew_hours: Math.round(crew_hours * 10) / 10,
+      project_days,
+
+      // Cost breakdown
+      base_cost: Math.round(base_cost * 100) / 100,
+      profit: Math.round(profit * 100) / 100,
+      total_cost: Math.round(total_cost * 100) / 100,
+      cost_per_cubic_yard: Math.round((total_cost / cy_final) * 100) / 100,
+      hours_per_cubic_yard: Math.round((total_hours / cy_final) * 10) / 10
+    };
+
+    console.log('✅ [MASTER ENGINE] Excavation calculation complete:', result);
+
+    return result;
+  }
+
+  /**
    * Get development mode company ID (first company in database)
    * RATE LIMITED to prevent infinite loops
    */

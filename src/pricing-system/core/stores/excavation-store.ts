@@ -1,0 +1,293 @@
+import { useState, useCallback, useEffect } from 'react';
+import type {
+  ExcavationConfig,
+  ExcavationValues,
+  ExcavationCalculationResult,
+  ExcavationStore
+} from '../master-formula/formula-types';
+import { masterPricingEngine } from '../calculations/master-pricing-engine';
+
+// Default values
+const getDefaultValues = (config: ExcavationConfig | null): ExcavationValues => {
+  const defaultDepth = config?.variables_config?.calculationSettings?.defaultDepth?.default ?? 12;
+
+  return {
+    area_sqft: 100,
+    depth_inches: defaultDepth
+  };
+};
+
+// Load values from localStorage
+const loadStoredValues = (config: ExcavationConfig | null): ExcavationValues => {
+  try {
+    const stored = localStorage.getItem('excavationValues');
+    if (stored) {
+      const parsedValues = JSON.parse(stored);
+      const defaults = getDefaultValues(config);
+
+      return {
+        area_sqft: parsedValues.area_sqft || defaults.area_sqft,
+        depth_inches: parsedValues.depth_inches || defaults.depth_inches
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to load stored excavation values:', error);
+  }
+  return getDefaultValues(config);
+};
+
+// Save values to localStorage
+const saveStoredValues = (values: ExcavationValues) => {
+  try {
+    localStorage.setItem('excavationValues', JSON.stringify(values));
+    localStorage.setItem('excavationLastModified', new Date().toISOString());
+  } catch (error) {
+    console.warn('Failed to save excavation values:', error);
+  }
+};
+
+// Calculate excavation pricing
+const calculatePrice = async (
+  config: ExcavationConfig | null,
+  values: ExcavationValues,
+  companyId?: string
+): Promise<ExcavationCalculationResult> => {
+  console.log('🚀 [EXCAVATION STORE] Calculating excavation pricing');
+
+  try {
+    // Use master pricing engine for excavation calculation
+    const result = await masterPricingEngine.calculateExcavationPricing(
+      values.area_sqft,
+      values.depth_inches,
+      config?.variables_config?.calculationSettings || {},
+      'excavation_removal',
+      companyId
+    );
+
+    console.log('✅ [EXCAVATION STORE] Calculation complete:', {
+      total: result.total_cost,
+      cubic_yards: result.cubic_yards_final,
+      source: 'Master Pricing Engine + Live Supabase'
+    });
+
+    return result;
+  } catch (error) {
+    console.error('❌ [EXCAVATION STORE] Calculation failed:', error);
+
+    // Fallback to local calculation
+    return calculateLocalFallback(config, values);
+  }
+};
+
+// Local fallback calculation (when Supabase unavailable)
+const calculateLocalFallback = (
+  config: ExcavationConfig | null,
+  values: ExcavationValues
+): ExcavationCalculationResult => {
+  console.warn('🔄 [FALLBACK] Using local excavation calculation');
+
+  const { area_sqft, depth_inches } = values;
+
+  // Get configuration values with defaults
+  const wasteFactor = config?.variables_config?.calculationSettings?.wasteFactor?.default ?? 10;
+  const compactionFactor = config?.variables_config?.calculationSettings?.compactionFactor?.default ?? 0;
+  const roundingRule = config?.variables_config?.calculationSettings?.roundingRule?.default ?? 'up_whole';
+  const baseRate = config?.hourly_labor_rate ?? 25;
+  const profitMargin = config?.profit_margin ?? 0.05;
+  const teamSize = config?.optimal_team_size ?? 3;
+
+  // Calculate cubic yards
+  const depth_ft = depth_inches / 12;
+  const cubic_feet = area_sqft * depth_ft;
+  const cy_raw = cubic_feet / 27;
+
+  // Apply waste and compaction
+  const waste_multiplier = 1 + (wasteFactor / 100);
+  const compaction_multiplier = 1 + (compactionFactor / 100);
+  const cy_adjusted = cy_raw * waste_multiplier * compaction_multiplier;
+
+  // Apply rounding rule
+  let cy_final = cy_adjusted;
+  if (roundingRule === 'up_whole') {
+    cy_final = Math.ceil(cy_adjusted);
+  } else if (roundingRule === 'up_half') {
+    cy_final = Math.ceil(cy_adjusted * 2) / 2;
+  }
+
+  // Calculate labor hours (progressive formula)
+  let total_hours = 0;
+  if (area_sqft <= 1000) {
+    total_hours = Math.ceil(area_sqft / 100) * 12;
+  } else {
+    total_hours = (10 * 12) + Math.ceil((area_sqft - 1000) / 100) * 24;
+  }
+
+  const crew_hours = total_hours / teamSize;
+  const project_days = Math.ceil(crew_hours / 8);
+
+  // Calculate costs
+  const base_cost = cy_final * baseRate;
+  const profit = base_cost * profitMargin;
+  const total_cost = base_cost + profit;
+
+  return {
+    area_sqft,
+    depth_inches,
+    cubic_yards_raw: Math.round(cy_raw * 100) / 100,
+    cubic_yards_adjusted: Math.round(cy_adjusted * 100) / 100,
+    cubic_yards_final: Math.round(cy_final * 100) / 100,
+    base_hours: total_hours,
+    crew_hours: Math.round(crew_hours * 10) / 10,
+    project_days,
+    base_cost: Math.round(base_cost * 100) / 100,
+    profit: Math.round(profit * 100) / 100,
+    total_cost: Math.round(total_cost * 100) / 100,
+    cost_per_cubic_yard: Math.round((total_cost / cy_final) * 100) / 100,
+    hours_per_cubic_yard: Math.round((total_hours / cy_final) * 10) / 10
+  };
+};
+
+// Custom hook for excavation store
+export const useExcavationStore = (companyId?: string): ExcavationStore => {
+  const [config, setConfig] = useState<ExcavationConfig | null>(null);
+  const [values, setValues] = useState<ExcavationValues>({ area_sqft: 100, depth_inches: 12 });
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastCalculation, setLastCalculation] = useState<ExcavationCalculationResult | null>(null);
+
+  // Load configuration from Supabase
+  const loadConfig = useCallback(async () => {
+    if (!companyId || companyId.trim() === '') {
+      console.error('❌ [EXCAVATION STORE] Cannot load config without company_id');
+      setError('User company data not available');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      console.log('🚀 [EXCAVATION STORE] Loading configuration from Supabase', { companyId });
+
+      // Load live configuration from master pricing engine
+      const configData = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
+      setConfig(configData);
+
+      // Load or initialize values
+      const initialValues = loadStoredValues(configData);
+      setValues(initialValues);
+
+      // Calculate initial price
+      const calculation = await calculatePrice(configData, initialValues, companyId);
+      setLastCalculation(calculation);
+
+      console.log('✅ [EXCAVATION STORE] Configuration loaded from Supabase');
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load configuration';
+      setError(errorMessage);
+      console.error('Error loading excavation config:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [companyId]);
+
+  // Recalculate when config changes (real-time subscription updates)
+  useEffect(() => {
+    if (!config || !companyId) return;
+
+    console.log('🔄 [EXCAVATION STORE] Config changed, recalculating');
+
+    const recalculate = async () => {
+      try {
+        const calculation = await calculatePrice(config, values, companyId);
+        setLastCalculation(calculation);
+        console.log('✅ [EXCAVATION STORE] Recalculation complete');
+      } catch (error) {
+        console.error('❌ [EXCAVATION STORE] Failed to recalculate:', error);
+      }
+    };
+
+    recalculate();
+  }, [config, values, companyId]);
+
+  // Update area
+  const updateArea = useCallback(async (sqft: number) => {
+    if (!config) return;
+
+    const updated = { ...values, area_sqft: sqft };
+    setValues(updated);
+    saveStoredValues(updated);
+
+    try {
+      const calculation = await calculatePrice(config, updated, companyId);
+      setLastCalculation(calculation);
+    } catch (error) {
+      console.error('Failed to recalculate after area update:', error);
+    }
+  }, [config, values, companyId]);
+
+  // Update depth
+  const updateDepth = useCallback(async (inches: number) => {
+    if (!config) return;
+
+    const updated = { ...values, depth_inches: inches };
+    setValues(updated);
+    saveStoredValues(updated);
+
+    try {
+      const calculation = await calculatePrice(config, updated, companyId);
+      setLastCalculation(calculation);
+    } catch (error) {
+      console.error('Failed to recalculate after depth update:', error);
+    }
+  }, [config, values, companyId]);
+
+  // Calculate with current values
+  const calculate = useCallback(async () => {
+    if (!config) throw new Error('Configuration not loaded');
+
+    const calculation = await calculatePrice(config, values, companyId);
+    setLastCalculation(calculation);
+    return calculation;
+  }, [config, values, companyId]);
+
+  // Manual reload for when modal opens
+  const reloadConfig = useCallback(async () => {
+    console.log('🔄 [EXCAVATION STORE] Manually reloading config from Supabase');
+    setIsLoading(true);
+    try {
+      const freshConfig = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
+      setConfig(freshConfig);
+      console.log('✅ [EXCAVATION STORE] Config reloaded successfully');
+    } catch (err) {
+      console.error('❌ [EXCAVATION STORE] Failed to reload config:', err);
+      setError('Failed to reload configuration');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [companyId]);
+
+  // Load config on mount
+  useEffect(() => {
+    if (companyId && companyId.trim() !== '') {
+      console.log('🔍 [EXCAVATION STORE] Loading initial config on mount');
+      loadConfig();
+    }
+  }, [companyId, loadConfig]);
+
+  return {
+    config,
+    values,
+    isLoading,
+    error,
+    lastCalculation,
+    loadConfig,
+    updateArea,
+    updateDepth,
+    calculate,
+    reloadConfig,
+    setConfig
+  };
+};

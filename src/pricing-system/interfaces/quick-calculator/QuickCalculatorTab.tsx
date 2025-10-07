@@ -5,7 +5,9 @@ import { useTheme } from '../../../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../../../config/industry';
 import { PaverPatioManager } from '../../../components/services/PaverPatioManager';
 import { PaverPatioReadOnly } from '../../../components/services/PaverPatioReadOnly';
+import { ExcavationManager } from '../../../components/services/ExcavationManager';
 import { usePaverPatioStore } from '../../core/stores/paver-patio-store';
+import { useExcavationStore } from '../../core/stores/excavation-store';
 import { SERVICE_REGISTRY, ServiceId } from '../../config/service-registry';
 import { masterPricingEngine } from '../../core/calculations/master-pricing-engine';
 
@@ -19,20 +21,24 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
   const [selectedService, setSelectedService] = useState<ServiceId>('paver_patio_sqft');
-  const store = usePaverPatioStore(user?.company_id || '');
+  const paverPatioStore = usePaverPatioStore(user?.company_id || '');
+  const excavationStore = useExcavationStore(user?.company_id || '');
   const hasReset = useRef(false);
 
   // Reset to defaults when opening (prevent infinite loop by using useRef)
   useEffect(() => {
-    if (isOpen && !hasReset.current && store.resetToDefaults100) {
-      store.resetToDefaults100();
+    if (isOpen && !hasReset.current) {
+      // Reset paver patio if selected
+      if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
+        paverPatioStore.resetToDefaults100();
+      }
       hasReset.current = true;
     }
 
     if (!isOpen) {
       hasReset.current = false; // Reset flag when closing
     }
-  }, [isOpen]); // Remove store.resetToDefaults100 from deps to prevent loop
+  }, [isOpen, selectedService]); // Remove stores from deps to prevent loop
 
   // REAL-TIME SUBSCRIPTION MANAGEMENT - Lifecycle tied to modal open/close
   useEffect(() => {
@@ -43,31 +49,58 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
 
     console.log('🚀 [QUICK CALCULATOR] Modal opened - setting up real-time subscription');
     console.log('👤 [QUICK CALCULATOR] User:', user.email, 'Company:', user.company_id);
+    console.log('🔧 [QUICK CALCULATOR] Selected service:', selectedService);
 
-    // IMMEDIATE: Reload config to show latest data
-    store.reloadConfig();
+    // Handle paver patio service
+    if (selectedService === 'paver_patio_sqft') {
+      // IMMEDIATE: Reload config to show latest data
+      paverPatioStore.reloadConfig();
 
-    // REAL-TIME: Set up subscription for live updates
-    console.log('📡 [QUICK CALCULATOR] Creating real-time subscription...');
-    const unsubscribe = masterPricingEngine.subscribeToConfigChanges(
-      'paver_patio_sqft',
-      user.company_id,
-      (newConfig) => {
-        console.log('🎯🎯🎯 [QUICK CALCULATOR] ========== REAL-TIME UPDATE RECEIVED ==========');
-        console.log('🔄 [QUICK CALCULATOR] Updating store with new config from real-time subscription');
-        store.setConfig(newConfig);
-      }
-    );
+      // REAL-TIME: Set up subscription for live updates
+      console.log('📡 [QUICK CALCULATOR] Creating paver patio real-time subscription...');
+      const unsubscribe = masterPricingEngine.subscribeToConfigChanges(
+        'paver_patio_sqft',
+        user.company_id,
+        (newConfig) => {
+          console.log('🎯🎯🎯 [QUICK CALCULATOR] ========== PAVER PATIO REAL-TIME UPDATE ==========');
+          console.log('🔄 [QUICK CALCULATOR] Updating paver patio store');
+          paverPatioStore.setConfig(newConfig);
+        }
+      );
 
-    console.log('✅ [QUICK CALCULATOR] Subscription created successfully');
+      console.log('✅ [QUICK CALCULATOR] Paver patio subscription created');
 
-    // CLEANUP: Runs when isOpen becomes false (IRONCLAD)
-    // Guaranteed to run when modal closes, no matter how it's closed
-    return () => {
-      console.log('🔌 [QUICK CALCULATOR] Modal closed - cleaning up subscription');
-      unsubscribe();
-    };
-  }, [isOpen, user?.company_id]); // REMOVED: store from dependencies to prevent infinite loop
+      return () => {
+        console.log('🔌 [QUICK CALCULATOR] Cleaning up paver patio subscription');
+        unsubscribe();
+      };
+    }
+
+    // Handle excavation service
+    if (selectedService === 'excavation_removal') {
+      // IMMEDIATE: Reload config to show latest data
+      excavationStore.reloadConfig();
+
+      // REAL-TIME: Set up subscription for live updates
+      console.log('📡 [QUICK CALCULATOR] Creating excavation real-time subscription...');
+      const unsubscribe = masterPricingEngine.subscribeToConfigChanges(
+        'excavation_removal',
+        user.company_id,
+        (newConfig) => {
+          console.log('🎯🎯🎯 [QUICK CALCULATOR] ========== EXCAVATION REAL-TIME UPDATE ==========');
+          console.log('🔄 [QUICK CALCULATOR] Updating excavation store');
+          excavationStore.setConfig(newConfig);
+        }
+      );
+
+      console.log('✅ [QUICK CALCULATOR] Excavation subscription created');
+
+      return () => {
+        console.log('🔌 [QUICK CALCULATOR] Cleaning up excavation subscription');
+        unsubscribe();
+      };
+    }
+  }, [isOpen, user?.company_id, selectedService]); // React to service changes
 
   if (!isOpen) return null;
 
@@ -89,8 +122,8 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
         className="fixed inset-0 bg-black bg-opacity-50 z-50 animate-overlay-fade-in"
         onClick={() => {
           // Reset to defaults when closing via overlay click
-          if (store.resetToDefaults100) {
-            store.resetToDefaults100();
+          if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
+            paverPatioStore.resetToDefaults100();
           }
           onClose();
         }}
@@ -101,8 +134,8 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={() => {
           // Reset to defaults when closing via background click
-          if (store.resetToDefaults100) {
-            store.resetToDefaults100();
+          if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
+            paverPatioStore.resetToDefaults100();
           }
           onClose();
         }}
@@ -140,8 +173,8 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
             <button
               onClick={() => {
                 // Reset to defaults when closing via X button
-                if (store.resetToDefaults100) {
-                  store.resetToDefaults100();
+                if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
+                  paverPatioStore.resetToDefaults100();
                 }
                 onClose();
               }}
@@ -156,14 +189,22 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Main Content Area */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Render Variable Editor Interface - Available to All Users */}
-              {selectedService === 'paver_patio_sqft' ? (
+              {/* Render Service-Specific Interface */}
+              {selectedService === 'paver_patio_sqft' && (
                 <PaverPatioManager
                   visualConfig={visualConfig}
                   theme={theme}
-                  store={store}
+                  store={paverPatioStore}
                 />
-              ) : (
+              )}
+              {selectedService === 'excavation_removal' && (
+                <ExcavationManager
+                  visualConfig={visualConfig}
+                  theme={theme}
+                  store={excavationStore}
+                />
+              )}
+              {selectedService !== 'paver_patio_sqft' && selectedService !== 'excavation_removal' && (
                 <div className="flex flex-col items-center justify-center h-full gap-4">
                   <Icons.Construction className="h-16 w-16" style={{ color: visualConfig.colors.text.secondary }} />
                   <p className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
