@@ -71,6 +71,33 @@ Display Layer (VariableDropdown + Pricing Breakdown)
 
 ## Cache Clearing & Real-Time Updates
 
+### App Startup Cache Clearing
+
+**CRITICAL:** All pricing caches are cleared on app startup to ensure fresh data.
+
+```typescript
+// Location: src/App.tsx:50-52
+useEffect(() => {
+  if (!authLoading && isMinDurationPassed && appState === 'loading') {
+    console.log('🧹 [APP.TSX] Clearing all pricing caches on startup...');
+    masterPricingEngine.clearAllCaches();
+    // ... transition to next state
+  }
+}, [authLoading, isMinDurationPassed, appState, user]);
+```
+
+**What This Does:**
+- Clears entire `configCache` Map on every app startup
+- Ensures no stale pricing data persists across sessions
+- Users always see latest database values
+- Prevents cache inconsistencies after browser refresh
+
+**Console Log:**
+```
+🧹 [APP.TSX] Clearing all pricing caches on startup...
+🧹🧹🧹 [MASTER ENGINE] ALL CACHES CLEARED on app startup (cleared 3 entries)
+```
+
 ### How Cache Clearing Works
 
 **ServiceConfigManager.saveServiceConfig()** automatically clears cache after every save:
@@ -92,6 +119,19 @@ public async saveServiceConfig(...) {
 **Cache Key Format**: `${companyId}:${serviceName}`
 
 Example: `abc123-def456:paver_patio_sqft`
+
+### Force Reload from Database
+
+For guaranteed fresh data, use `forceReloadFromDatabase()`:
+
+```typescript
+// Location: src/pricing-system/core/calculations/master-pricing-engine.ts:390-406
+const config = await masterPricingEngine.forceReloadFromDatabase(
+  'paver_patio_sqft',
+  user.company_id
+);
+// Bypasses cache completely, always loads from Supabase
+```
 
 ### Why Cache Clearing is Critical
 
@@ -248,6 +288,85 @@ When saving ANY variable (equipment costs shown as example), you should see this
 ```
 
 If you see this log after the real-time update, recalculation is working correctly for ALL variable types.
+
+---
+
+## Profit Margin Calculation (Pass-Through Logic)
+
+### How Profit is Applied
+
+**CRITICAL:** Profit margin is applied **ONLY to labor and materials** (your actual work), not to pass-through costs like equipment rentals and obstacle removal fees.
+
+**Calculation Flow:**
+
+```typescript
+// Step 1: Calculate complexity-adjusted costs
+adjustedLaborCost = laborCost × complexityMultiplier
+adjustedMaterialCost = materialCost × complexityMultiplier
+
+// Step 2: Calculate profit on YOUR WORK (labor + materials)
+profitableSubtotal = adjustedLaborCost + adjustedMaterialCost
+profit = profitableSubtotal × profitMargin
+
+// Step 3: Add pass-through costs at cost (no markup)
+total = profitableSubtotal + profit + equipmentCost + obstacleCost
+```
+
+**Visual Breakdown:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Labor: $600 (after complexity)                     │
+│  Materials: $400 (after complexity)                 │
+│  ─────────────────────────────                      │
+│  Profitable Subtotal: $1,000                        │
+│  × 20% Profit Margin = $200 profit ✅               │
+├─────────────────────────────────────────────────────┤
+│  Equipment: $200/day (pass-through) 🔒              │
+│  Obstacles: $100 (pass-through) 🔒                  │
+│  NO PROFIT APPLIED TO THESE ✅                      │
+├─────────────────────────────────────────────────────┤
+│  FINAL TOTAL: $1,500                                │
+│  ($1,000 + $200 profit + $200 equipment + $100)    │
+└─────────────────────────────────────────────────────┘
+```
+
+**Why This Matters:**
+
+Before this fix (WRONG):
+```typescript
+subtotal = $600 + $400 + $200 + $100 = $1,300
+profit = $1,300 × 20% = $260  // ❌ Includes profit on rentals!
+total = $1,560
+// $200 equipment becomes $240 with profit markup
+```
+
+After this fix (CORRECT):
+```typescript
+profitableSubtotal = $600 + $400 = $1,000
+profit = $1,000 × 20% = $200  // ✅ Profit only on your work
+total = $1,000 + $200 + $200 + $100 = $1,500
+// $200 equipment stays $200 (no markup)
+```
+
+**Console Logs:**
+
+When calculations run, you'll see:
+```
+💰 [MASTER ENGINE] Tier 2 calculation (detailed breakdown):
+  5_profitableSubtotal: 1000.00
+  6_profitMargin: 20.0%
+  7_profitAmount: 200.00
+  8_subtotalWithProfit: 1200.00
+  9_PASS_THROUGH_equipmentCost: 200.00 (no profit markup)
+  10_PASS_THROUGH_obstacleCost: 100.00 (no profit markup)
+  11_finalSubtotal: 1500.00
+```
+
+**Code Location:**
+- Implementation: `src/pricing-system/core/calculations/master-pricing-engine.ts:589-599`
+- Logic: Profit calculated on `profitableSubtotal` (labor + materials) only
+- Pass-through costs added after profit calculation
 
 ---
 
@@ -578,14 +697,66 @@ subtotal = laborCost + materialCost + equipmentCost + value
 
 Quick reference for all 6 effect types:
 
-| Effect Type | Fields Required | Display Format | Calculation Method | Examples | Tier |
-|-------------|----------------|----------------|-------------------|----------|------|
-| **labor_time_percentage** | `value`, `multiplier` | `+20%` | `adjustedHours += baseHours * (value/100)` | tearoutComplexity, accessDifficulty, teamSize | 1 |
-| **material_cost_multiplier** | `value`, `multiplier` | `+40%` | `materialCost *= multiplier` | paverStyle | 2 |
-| **total_project_multiplier** | `value`, `multiplier` | `(+30%)` | `total *= multiplier` | overallComplexity | 2 |
-| **cutting_complexity** | `laborPercentage`, `materialWaste` | `+20% hours, +15% waste` | `hours += hours * (labor/100)`<br>`waste += cost * (waste/100)` | cuttingComplexity | 1+2 |
-| **daily_equipment_cost** | `value` only | `$250/day` | `cost = value * projectDays` | equipmentRequired | 2 |
-| **flat_additional_cost** | `value` only | `$500` | `subtotal += value` | obstacleRemoval | 2 |
+| Effect Type | Fields Required | Display Format | Calculation Method | Examples | Tier | Pass-Through Cost? |
+|-------------|----------------|----------------|-------------------|----------|------|--------------------|
+| **labor_time_percentage** | `value`, `multiplier` | `+20%` | `adjustedHours += baseHours * (value/100)` | tearoutComplexity, accessDifficulty, teamSize | 1 | ❌ No (profit applied) |
+| **material_cost_multiplier** | `value`, `multiplier` | `+40%` | `materialCost *= multiplier` | paverStyle | 2 | ❌ No (profit applied) |
+| **total_project_multiplier** | `value`, `multiplier` | `(+30%)` | `total *= multiplier` | overallComplexity | 2 | ❌ No (complexity applied to labor/materials) |
+| **cutting_complexity** | `laborPercentage`, `materialWaste` | `+20% hours, +15% waste` | `hours += hours * (labor/100)`<br>`waste += cost * (waste/100)` | cuttingComplexity | 1+2 | ❌ No (profit applied) |
+| **daily_equipment_cost** | `value` only | `$250/day` | `cost = value * projectDays` | equipmentRequired | 2 | ✅ **YES** (no profit/complexity) |
+| **flat_additional_cost** | `value` only | `$500` | `subtotal += value` | obstacleRemoval | 2 | ✅ **YES** (no profit/complexity) |
+
+### Pass-Through Costs (CRITICAL for Custom Services)
+
+**What are Pass-Through Costs?**
+
+Pass-through costs are expenses that are added to the project total **at cost** without profit markup or complexity adjustments. These represent third-party costs that the business doesn't profit from.
+
+**Variable Types that are Pass-Through:**
+- ✅ `daily_equipment_cost` - Equipment rentals (e.g., $200/day skid steer)
+- ✅ `flat_additional_cost` - One-time fees (e.g., $500 disposal fee)
+
+**Why Pass-Through?**
+- Equipment rentals are fixed costs from suppliers
+- Disposal fees are mandated by facilities
+- These costs don't represent your actual work (labor/materials)
+- Adding profit margin to rentals would inflate quotes artificially
+
+**Example Calculation:**
+
+```typescript
+// Profitable costs (labor + materials)
+laborCost = $600 (after complexity)
+materialCost = $400 (after complexity)
+profitableSubtotal = $1,000
+
+// Apply profit margin to profitable costs only
+profit = $1,000 × 20% = $200
+
+// Pass-through costs (added at cost)
+equipmentCost = $200 (no profit, no complexity)
+obstacleCost = $100 (no profit, no complexity)
+
+// Final total
+total = $1,000 + $200 (profit) + $200 (equipment) + $100 (obstacle) = $1,500
+```
+
+**Without Pass-Through Logic (WRONG):**
+```typescript
+// Old incorrect method
+subtotal = $600 + $400 + $200 + $100 = $1,300
+profit = $1,300 × 20% = $260
+total = $1,300 + $260 = $1,560
+// ❌ Adds $60 profit to pass-through costs!
+```
+
+**When Creating Custom Services:**
+
+If your service includes costs that you don't mark up (rentals, permits, disposal fees, subcontractor flat fees), use:
+- `daily_equipment_cost` for per-day rentals
+- `flat_additional_cost` for one-time fees
+
+These will automatically be treated as pass-through costs in calculations.
 
 ### Field Sync Requirements
 
@@ -604,10 +775,10 @@ multiplier: 1.4    // Auto-calculated: 1 + (40/100) = 1.4
 
 **Types that use value only (NO multiplier):**
 - `cutting_complexity` (uses `laborPercentage` + `materialWaste` instead)
-- `daily_equipment_cost` (direct dollar amount)
-- `flat_additional_cost` (direct dollar amount)
+- `daily_equipment_cost` (direct dollar amount, **pass-through cost**)
+- `flat_additional_cost` (direct dollar amount, **pass-through cost**)
 
-⚠️ **CRITICAL**: Never add a `multiplier` field to equipment costs or obstacle removal! These are dollar amounts, not percentages.
+⚠️ **CRITICAL**: Never add a `multiplier` field to equipment costs or obstacle removal! These are dollar amounts, not percentages, and are pass-through costs.
 
 ---
 
