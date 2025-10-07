@@ -682,6 +682,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
     const updatedService = {
       ...service,
       variables: updatedVariables,
+      variables_config: updatedVariables, // Also update variables_config for excavation & new services
       lastModified: new Date().toISOString().split('T')[0]
     };
 
