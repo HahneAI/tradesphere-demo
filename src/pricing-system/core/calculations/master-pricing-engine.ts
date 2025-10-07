@@ -519,11 +519,9 @@ export class MasterPricingEngine {
     const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
     const obstacleCost = obstacleOption?.value ?? 0;
 
-    // 5. Subtotal
-    const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
-
-    // 6. CRITICAL FIX: Read complexity from DATABASE, not hardcoded helper
-    // Convert from percentage format to multiplier (e.g., 0% = 1.0, 10% = 1.1, 30% = 1.3)
+    // 5. CRITICAL: Apply complexity multiplier ONLY to labor and materials
+    // Equipment rental rates and obstacle removal fees are fixed costs that don't scale with complexity
+    // (Complexity already affects equipment costs indirectly via increased projectDays from tier1 labor calculations)
     const complexityVar = config?.variables?.complexity?.overallComplexity;
     const complexityValue = values?.complexity?.overallComplexity;
 
@@ -541,31 +539,49 @@ export class MasterPricingEngine {
       complexityMultiplier = complexityValue;
     }
 
-    const adjustedTotal = subtotal * complexityMultiplier;
+    console.log('🎯 [MASTER ENGINE] Complexity calculation:', {
+      selectedComplexity: complexityValue,
+      complexityMultiplier,
+      laborBeforeComplexity: laborCost.toFixed(2),
+      materialsBeforeComplexity: totalMaterialCost.toFixed(2),
+      laborAfterComplexity: (laborCost * complexityMultiplier).toFixed(2),
+      materialsAfterComplexity: (totalMaterialCost * complexityMultiplier).toFixed(2),
+      equipmentNotAffected: equipmentCost.toFixed(2),
+      obstacleNotAffected: obstacleCost.toFixed(2)
+    });
 
-    // 7. Calculate profit on adjusted total (after complexity)
-    const profit = adjustedTotal * profitMargin;
+    // Apply complexity to labor and materials only
+    const adjustedLaborCost = laborCost * complexityMultiplier;
+    const adjustedMaterialCost = totalMaterialCost * complexityMultiplier;
+
+    // 6. Calculate subtotal with complexity-adjusted labor/materials + fixed equipment/obstacle costs
+    const subtotal = adjustedLaborCost + adjustedMaterialCost + equipmentCost + obstacleCost;
+
+    // 7. Calculate profit on subtotal
+    const profit = subtotal * profitMargin;
 
     // 8. Final total
-    const total = adjustedTotal + profit;
+    const total = subtotal + profit;
 
     console.log('💰 [MASTER ENGINE] Tier 2 calculation:', {
-      laborCost: laborCost.toFixed(2),
-      totalMaterialCost: totalMaterialCost.toFixed(2),
+      laborCostBase: laborCost.toFixed(2),
+      laborCostAdjusted: adjustedLaborCost.toFixed(2),
+      materialCostBase: totalMaterialCost.toFixed(2),
+      materialCostAdjusted: adjustedMaterialCost.toFixed(2),
       equipmentCost: equipmentCost.toFixed(2),
       obstacleCost: obstacleCost.toFixed(2),
+      complexityMultiplier: complexityMultiplier,
       subtotal: subtotal.toFixed(2),
       profitMargin: (profitMargin * 100).toFixed(1) + '%',
       profit: profit.toFixed(2),
-      complexityMultiplier: complexityMultiplier,
       total: total.toFixed(2)
     });
 
     return {
-      laborCost: Math.round(laborCost * 100) / 100,
+      laborCost: Math.round(adjustedLaborCost * 100) / 100,
       materialCostBase: Math.round(materialCostBase * 100) / 100,
       materialWasteCost: Math.round(materialWasteCost * 100) / 100,
-      totalMaterialCost: Math.round(totalMaterialCost * 100) / 100,
+      totalMaterialCost: Math.round(adjustedMaterialCost * 100) / 100,
       equipmentCost: Math.round(equipmentCost * 100) / 100,
       obstacleCost: Math.round(obstacleCost * 100) / 100,
       subtotal: Math.round(subtotal * 100) / 100,
