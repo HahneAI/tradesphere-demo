@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getSupabase } from '../services/supabase';
+import { masterPricingEngine } from '../pricing-system/core/calculations/master-pricing-engine';
 
 // Import the JSON configurations
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
@@ -167,6 +168,10 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
     }
 
     console.log('✅ [SERVICES] Configuration saved to Supabase successfully');
+
+    // CRITICAL: Clear master engine cache so Quick Calculator sees fresh data
+    masterPricingEngine.clearCache(serviceId, companyId);
+    console.log('🧹 [SERVICES] Cleared master engine cache');
 
     // STEP 3: Also store in localStorage for immediate local access
     const storageKey = `service_config_${serviceId}`;

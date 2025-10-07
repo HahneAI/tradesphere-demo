@@ -361,6 +361,16 @@ export class MasterPricingEngine {
   }
 
   /**
+   * Clear cache for a specific service/company combo
+   * Called by Services Database after direct Supabase saves
+   */
+  public clearCache(serviceName: string, companyId: string): void {
+    const cacheKey = `${companyId}:${serviceName}`;
+    this.configCache.delete(cacheKey);
+    console.log('🧹 [MASTER ENGINE] Cache cleared for:', cacheKey);
+  }
+
+  /**
    * Calculate pricing using live Supabase configuration
    */
   public async calculatePricing(
