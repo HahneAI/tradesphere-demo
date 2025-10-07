@@ -705,14 +705,21 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
   // Load config on mount and set up real-time subscription
   useEffect(() => {
+    console.log('🔍 [QUICK CALCULATOR] useEffect triggered!', {
+      hasCompanyId: !!companyId,
+      companyIdValue: companyId,
+      companyIdLength: companyId?.length
+    });
+
     // Guard: Don't proceed without companyId
     if (!companyId || companyId.trim() === '') {
-      console.error('❌ [QUICK CALCULATOR] Cannot subscribe without company_id');
+      console.error('❌ [QUICK CALCULATOR] Cannot subscribe without company_id', { companyId });
       setError('No company ID available');
       setIsLoading(false);
       return;
     }
 
+    console.log('✅ [QUICK CALCULATOR] Company ID valid, loading config and setting up subscription');
     loadConfig();
 
     // Subscribe ONCE to real-time configuration changes from Supabase
