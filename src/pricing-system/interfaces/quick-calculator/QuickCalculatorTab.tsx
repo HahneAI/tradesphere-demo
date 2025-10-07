@@ -7,6 +7,7 @@ import { PaverPatioManager } from '../../../components/services/PaverPatioManage
 import { PaverPatioReadOnly } from '../../../components/services/PaverPatioReadOnly';
 import { usePaverPatioStore } from '../../core/stores/paver-patio-store';
 import { SERVICE_REGISTRY, ServiceId } from '../../config/service-registry';
+import { masterPricingEngine } from '../../core/calculations/master-pricing-engine';
 
 interface QuickCalculatorTabProps {
   isOpen: boolean;
@@ -32,6 +33,41 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
       hasReset.current = false; // Reset flag when closing
     }
   }, [isOpen]); // Remove store.resetToDefaults100 from deps to prevent loop
+
+  // REAL-TIME SUBSCRIPTION MANAGEMENT - Lifecycle tied to modal open/close
+  useEffect(() => {
+    // Only run when modal is actually open AND user is authenticated
+    if (!isOpen || !user?.company_id) {
+      return;
+    }
+
+    console.log('🚀 [QUICK CALCULATOR] Modal opened - setting up real-time subscription');
+    console.log('👤 [QUICK CALCULATOR] User:', user.email, 'Company:', user.company_id);
+
+    // IMMEDIATE: Reload config to show latest data
+    store.reloadConfig();
+
+    // REAL-TIME: Set up subscription for live updates
+    console.log('📡 [QUICK CALCULATOR] Creating real-time subscription...');
+    const unsubscribe = masterPricingEngine.subscribeToConfigChanges(
+      'paver_patio_sqft',
+      user.company_id,
+      (newConfig) => {
+        console.log('🎯🎯🎯 [QUICK CALCULATOR] ========== REAL-TIME UPDATE RECEIVED ==========');
+        console.log('🔄 [QUICK CALCULATOR] Updating store with new config from real-time subscription');
+        store.setConfig(newConfig);
+      }
+    );
+
+    console.log('✅ [QUICK CALCULATOR] Subscription created successfully');
+
+    // CLEANUP: Runs when isOpen becomes false (IRONCLAD)
+    // Guaranteed to run when modal closes, no matter how it's closed
+    return () => {
+      console.log('🔌 [QUICK CALCULATOR] Modal closed - cleaning up subscription');
+      unsubscribe();
+    };
+  }, [isOpen, user?.company_id, store]);
 
   if (!isOpen) return null;
 
