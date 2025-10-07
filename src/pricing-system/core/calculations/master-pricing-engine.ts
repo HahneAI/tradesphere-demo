@@ -224,6 +224,13 @@ export class MasterPricingEngine {
           filter: `company_id=eq.${companyId}`
         },
         async (payload) => {
+          console.log('🎯 [MASTER ENGINE] Real-time event received!', {
+            event: payload.eventType,
+            serviceName: payload.new?.service_name || payload.old?.service_name,
+            targetService: serviceName,
+            willProcess: (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName)
+          });
+
           // Only process updates for matching service
           if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
             console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
