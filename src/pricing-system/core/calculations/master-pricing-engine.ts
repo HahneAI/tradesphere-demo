@@ -505,7 +505,14 @@ export class MasterPricingEngine {
     const projectDays = tier1Results.totalManHours / (optimalTeamSize * 8);
     const equipmentVar = config?.variables?.excavation?.equipmentRequired;
     const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
+    console.log('💰 [MASTER ENGINE] Equipment calculation:', {
+      selectedEquipment: values?.excavation?.equipmentRequired ?? 'handTools',
+      equipmentValue: equipmentOption?.value,
+      projectDays: projectDays.toFixed(2),
+      calculation: `${equipmentOption?.value ?? 0} * ${projectDays.toFixed(2)}`
+    });
     const equipmentCost = (equipmentOption?.value ?? 0) * projectDays;
+    console.log('💰 [MASTER ENGINE] Equipment cost result:', equipmentCost);
 
     // 4. Obstacle costs
     const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval;

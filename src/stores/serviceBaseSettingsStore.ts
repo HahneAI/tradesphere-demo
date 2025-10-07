@@ -66,6 +66,11 @@ interface ServiceVariableUpdate {
     complex?: number;
     extreme?: number;
   };
+  obstacleSettings?: {
+    none?: number;
+    minor?: number;
+    major?: number;
+  };
 }
 
 interface ServiceBaseSettingsStore {
@@ -458,19 +463,44 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
 
     // Update equipment costs
     if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
+      console.log('🔧 [UPDATE EQUIPMENT] Starting equipment cost updates:', {
+        updates: updates.equipmentCosts,
+        currentValues: {
+          handTools: updatedVariables.excavation.equipmentRequired.options.handTools?.value,
+          attachments: updatedVariables.excavation.equipmentRequired.options.attachments?.value,
+          lightMachinery: updatedVariables.excavation.equipmentRequired.options.lightMachinery?.value,
+          heavyMachinery: updatedVariables.excavation.equipmentRequired.options.heavyMachinery?.value,
+        }
+      });
+
       const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
       if (updates.equipmentCosts.handTools !== undefined) {
+        const oldValue = equipmentOptions.handTools.value;
         equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
+        console.log('🔧 [UPDATE EQUIPMENT] handTools:', oldValue, '→', updates.equipmentCosts.handTools);
       }
       if (updates.equipmentCosts.attachments !== undefined) {
+        const oldValue = equipmentOptions.attachments.value;
         equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
+        console.log('🔧 [UPDATE EQUIPMENT] attachments:', oldValue, '→', updates.equipmentCosts.attachments);
       }
       if (updates.equipmentCosts.lightMachinery !== undefined) {
+        const oldValue = equipmentOptions.lightMachinery.value;
         equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
+        console.log('🔧 [UPDATE EQUIPMENT] lightMachinery:', oldValue, '→', updates.equipmentCosts.lightMachinery);
       }
       if (updates.equipmentCosts.heavyMachinery !== undefined) {
+        const oldValue = equipmentOptions.heavyMachinery.value;
         equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
+        console.log('🔧 [UPDATE EQUIPMENT] heavyMachinery:', oldValue, '→', updates.equipmentCosts.heavyMachinery);
       }
+
+      console.log('🔧 [UPDATE EQUIPMENT] Updated values:', {
+        handTools: equipmentOptions.handTools?.value,
+        attachments: equipmentOptions.attachments?.value,
+        lightMachinery: equipmentOptions.lightMachinery?.value,
+        heavyMachinery: equipmentOptions.heavyMachinery?.value,
+      });
     }
 
     // Update cutting complexity
@@ -570,6 +600,20 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         const percentageValue = updates.complexitySettings.extreme;
         complexityOptions.extreme.value = percentageValue;
         complexityOptions.extreme.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+    }
+
+    // Update obstacle removal costs (flat_additional_cost type - value only, no multiplier)
+    if (updates.obstacleSettings && updatedVariables.siteAccess?.obstacleRemoval?.options) {
+      const obstacleOptions = updatedVariables.siteAccess.obstacleRemoval.options;
+      if (updates.obstacleSettings.none !== undefined && obstacleOptions.none) {
+        obstacleOptions.none.value = updates.obstacleSettings.none;
+      }
+      if (updates.obstacleSettings.minor !== undefined && obstacleOptions.minor) {
+        obstacleOptions.minor.value = updates.obstacleSettings.minor;
+      }
+      if (updates.obstacleSettings.major !== undefined && obstacleOptions.major) {
+        obstacleOptions.major.value = updates.obstacleSettings.major;
       }
     }
 
