@@ -61,6 +61,12 @@ Display Layer (VariableDropdown + Pricing Breakdown)
 - Sets up subscription via `masterPricingEngine.subscribeToConfigChanges()`
 - Unsubscribes on modal close (ironclad cleanup)
 
+**Paver Patio Store** (`src/pricing-system/core/stores/paver-patio-store.ts`)
+- Manages Quick Calculator state (config, values, sqft, lastCalculation)
+- **CRITICAL**: useEffect watches `config` changes and auto-recalculates (line 554-578)
+- When real-time subscription calls `store.setConfig(newConfig)`, recalculation triggers automatically
+- Works for ALL variable types (equipment, labor, materials, complexity, cutting, obstacles)
+
 ---
 
 ## Cache Clearing & Real-Time Updates
@@ -152,9 +158,73 @@ const config = await masterPricingEngine.loadPricingConfig(
 // Bypasses cache, loads directly from Supabase
 ```
 
+### Automatic Recalculation for All Variable Types
+
+**CRITICAL FEATURE**: The Quick Calculator automatically recalculates when ANY variable changes, regardless of type.
+
+**How It Works:**
+
+The `paver-patio-store.ts` includes a useEffect that watches the `config` state:
+
+```typescript
+// Location: src/pricing-system/core/stores/paver-patio-store.ts:554-578
+useEffect(() => {
+  if (!config || !companyId) return;
+
+  console.log('🔄 [QUICK CALCULATOR] Config changed, recalculating with new values');
+
+  // Recalculate with current values and sqft
+  const recalculate = async () => {
+    try {
+      const calculation = await calculatePrice(config, values, sqft, companyId);
+      setLastCalculation(calculation);
+      console.log('✅ [QUICK CALCULATOR] Recalculation complete after config change');
+    } catch (error) {
+      console.error('❌ [QUICK CALCULATOR] Failed to recalculate after config change:', error);
+    }
+  };
+
+  recalculate();
+}, [config, values, sqft, companyId]); // Recalculate when config, values, or sqft changes
+```
+
+**This Ensures:**
+
+1. **Real-time subscription triggers recalculation**
+   - When `store.setConfig(newConfig)` is called from subscription callback
+   - Config state change triggers useEffect
+   - Recalculation happens automatically
+
+2. **Works for ALL 6 variable types:**
+   - ✅ `daily_equipment_cost` (equipment costs)
+   - ✅ `labor_time_percentage` (tearout, access, team size)
+   - ✅ `material_cost_multiplier` (paver style/quality)
+   - ✅ `total_project_multiplier` (overall complexity)
+   - ✅ `cutting_complexity` (labor % + waste %)
+   - ✅ `flat_additional_cost` (obstacle removal)
+
+3. **No manual intervention needed**
+   - Developer doesn't need to call recalculate manually
+   - User doesn't need to refresh page
+   - Changes propagate automatically
+
+**Why This Was Critical:**
+
+Before this fix:
+- `setConfig()` was a raw React `useState` setter
+- Updated config state but didn't trigger recalculation
+- User would see new value in dropdown but old calculation
+- Required page refresh to see updated math
+
+After this fix:
+- Config change automatically triggers useEffect
+- Recalculation happens immediately
+- Math updates in real-time
+- Works for all current AND future variable types
+
 ### Console Logs to Watch For
 
-When saving equipment costs, you should see this sequence:
+When saving ANY variable (equipment costs shown as example), you should see this sequence:
 
 ```
 🔧 [MODAL SAVE] Saving equipment costs: { lightMachinery: 500, ... }
@@ -166,8 +236,18 @@ When saving equipment costs, you should see this sequence:
 🧹 [SERVICE MANAGER] Cache cleared automatically
 🎯🎯🎯 [QUICK CALCULATOR] ========== REAL-TIME UPDATE RECEIVED ==========
 🔄 [QUICK CALCULATOR] Updating store with new config from real-time subscription
+🔄 [QUICK CALCULATOR] Config changed, recalculating with new values
+🔍 [QUICK CALCULATOR] New config equipment values: { lightMachinery: 500, ... }
 💰 [MASTER ENGINE] Equipment calculation: { equipmentValue: 500, ... }
+✅ [QUICK CALCULATOR] Recalculation complete after config change
 ```
+
+**Key Log to Look For:**
+```
+🔄 [QUICK CALCULATOR] Config changed, recalculating with new values
+```
+
+If you see this log after the real-time update, recalculation is working correctly for ALL variable types.
 
 ---
 

@@ -551,6 +551,32 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     }
   }, [companyId]); // Include companyId in dependencies
 
+  // CRITICAL: Recalculate when config changes (e.g., from real-time subscription)
+  useEffect(() => {
+    if (!config || !companyId) return;
+
+    console.log('🔄 [QUICK CALCULATOR] Config changed, recalculating with new values');
+    console.log('🔍 [QUICK CALCULATOR] New config equipment values:', {
+      handTools: config.variables?.excavation?.equipmentRequired?.options?.handTools?.value,
+      attachments: config.variables?.excavation?.equipmentRequired?.options?.attachments?.value,
+      lightMachinery: config.variables?.excavation?.equipmentRequired?.options?.lightMachinery?.value,
+      heavyMachinery: config.variables?.excavation?.equipmentRequired?.options?.heavyMachinery?.value,
+    });
+
+    // Recalculate with current values and sqft
+    const recalculate = async () => {
+      try {
+        const calculation = await calculatePrice(config, values, sqft, companyId);
+        setLastCalculation(calculation);
+        console.log('✅ [QUICK CALCULATOR] Recalculation complete after config change');
+      } catch (error) {
+        console.error('❌ [QUICK CALCULATOR] Failed to recalculate after config change:', error);
+      }
+    };
+
+    recalculate();
+  }, [config, values, sqft, companyId]); // Recalculate when config, values, or sqft changes
+
   // Update a specific value
   const updateValue = useCallback(async (category: keyof PaverPatioValues, variable: string, value: string | number) => {
     if (!config) return;
