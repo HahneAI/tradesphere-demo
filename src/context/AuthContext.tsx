@@ -30,8 +30,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   console.log('🟢 AUTH_CONTEXT - Provider mounting (Supabase Auth)...');
 
-  // 🚨 DEMO MODE: Hardcoded admin user for presentation
-  const DEMO_MODE = true;
+  // 🚨 DEMO MODE: Configurable via localStorage for easy toggle
+  // Check localStorage first to allow runtime configuration
+  const DEMO_MODE = (() => {
+    if (typeof window === 'undefined') return false;
+
+    const stored = localStorage.getItem('DEMO_MODE');
+    if (stored !== null) {
+      const enabled = stored === 'true';
+      console.log(`🚨 DEMO_MODE: ${enabled ? 'ENABLED' : 'DISABLED'} (from localStorage)`);
+      return enabled;
+    }
+
+    // Default to false (disabled) - use manual login
+    console.log('🚨 DEMO_MODE: DISABLED (default)');
+    return false;
+  })();
+
   const DEMO_USER: User = {
     id: 'cd7ad550-37f3-477a-975e-a34b226b7332',
     email: 'anthony@test.com',
@@ -53,6 +68,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const supabase = getSupabase();
+
+  // Add helper functions to window for easy console access
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).enableDemoMode = () => {
+        localStorage.setItem('DEMO_MODE', 'true');
+        console.log('✅ Demo mode ENABLED - refresh page to activate auto-login');
+        console.log('💡 To disable: disableDemoMode()');
+      };
+
+      (window as any).disableDemoMode = () => {
+        localStorage.setItem('DEMO_MODE', 'false');
+        console.log('✅ Demo mode DISABLED - refresh page to use manual login');
+        console.log('💡 To enable: enableDemoMode()');
+      };
+
+      (window as any).checkDemoMode = () => {
+        const enabled = localStorage.getItem('DEMO_MODE') === 'true';
+        console.log(`🚨 Demo mode is currently: ${enabled ? 'ENABLED' : 'DISABLED'}`);
+        console.log('💡 Toggle with: enableDemoMode() or disableDemoMode()');
+        return enabled;
+      };
+
+      console.log('💡 Demo mode helpers available:');
+      console.log('  - enableDemoMode()  - Auto-login on page load');
+      console.log('  - disableDemoMode() - Require manual login');
+      console.log('  - checkDemoMode()   - Check current status');
+    }
+  }, []);
 
   // Initialize auth state and listen for changes
   useEffect(() => {

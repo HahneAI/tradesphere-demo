@@ -736,13 +736,22 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   // Auto-recalculate when config changes from real-time subscription
   useEffect(() => {
     if (config && sqft > 0 && !isLoading) {
-      console.log('🔄 [QUICK CALCULATOR] Config changed, auto-recalculating price for', sqft, 'sqft');
+      const configTimestamp = (config as any)._lastUpdated;
+      const updateSource = (config as any)._updateSource;
+
+      console.log('🔄 [QUICK CALCULATOR] Config changed!', {
+        timestamp: configTimestamp,
+        source: updateSource || 'initial-load',
+        sqft: sqft,
+        willRecalculate: true
+      });
+
       // Recalculate with current sqft value
       calculatePriceForSqft(sqft).catch(err => {
         console.error('❌ [QUICK CALCULATOR] Auto-recalculation failed:', err);
       });
     }
-  }, [config, calculatePriceForSqft, sqft, isLoading]); // Watch config for real-time updates
+  }, [config]); // Only watch config - timestamp in config forces new reference
 
   // REMOVED: Redundant storage event listener - Supabase subscription handles real-time updates
 

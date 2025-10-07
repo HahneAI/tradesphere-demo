@@ -233,7 +233,18 @@ export class MasterPricingEngine {
 
             // Load fresh config
             const newConfig = await this.loadPricingConfig(serviceName, companyId);
-            onUpdate(newConfig);
+
+            // CRITICAL FIX: Add timestamp to force React to detect change
+            // Without this, setConfig(newConfig) won't trigger useEffect because
+            // the object structure is identical
+            const configWithTimestamp = {
+              ...newConfig,
+              _lastUpdated: Date.now(),
+              _updateSource: 'real-time-subscription'
+            };
+
+            console.log('🔄 [MASTER ENGINE] Triggering config update with timestamp:', configWithTimestamp._lastUpdated);
+            onUpdate(configWithTimestamp as any);
           }
         }
       )
