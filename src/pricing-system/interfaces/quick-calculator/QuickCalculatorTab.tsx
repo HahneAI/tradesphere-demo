@@ -125,6 +125,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
                 <PaverPatioManager
                   visualConfig={visualConfig}
                   theme={theme}
+                  store={store}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full gap-4">

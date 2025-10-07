@@ -3,21 +3,23 @@ import * as Icons from 'lucide-react';
 import { usePaverPatioStore } from '../../pricing-system/core/stores/paver-patio-store';
 import { PricingPreview } from './PricingPreview';
 import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
-import { useAuth } from '../../context/AuthContext';
 
 interface PaverPatioReadOnlyProps {
   visualConfig: any;
   theme: 'light' | 'dark';
   userName?: string;
+  store: ReturnType<typeof usePaverPatioStore>; // Store passed from parent to prevent duplicate instances
 }
 
 export const PaverPatioReadOnly: React.FC<PaverPatioReadOnlyProps> = ({
   visualConfig,
   theme,
   userName = 'User',
+  store, // Receive store from parent instead of creating new instance
 }) => {
-  const { user } = useAuth();
-  const store = usePaverPatioStore(user?.company_id);
+  // ✅ REMOVED: const { user } = useAuth();
+  // ✅ REMOVED: const store = usePaverPatioStore(user?.company_id);
+  // This was creating a DUPLICATE store instance, preventing real-time updates from propagating to UI
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['materials', 'complexity']) // Show most relevant sections by default
   );

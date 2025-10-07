@@ -549,7 +549,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     } finally {
       setIsLoading(false);
     }
-  }, []); // Empty deps - companyId accessed from closure
+  }, [companyId]); // Include companyId in dependencies
 
   // Update a specific value
   const updateValue = useCallback(async (category: keyof PaverPatioValues, variable: string, value: string | number) => {
