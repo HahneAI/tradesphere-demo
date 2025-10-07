@@ -286,7 +286,7 @@ export const ServicesPage: React.FC = () => {
               </th>
               <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
-                Hourly Labor Rate
+                Base Rate
               </th>
               <th className="p-4 text-left font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
