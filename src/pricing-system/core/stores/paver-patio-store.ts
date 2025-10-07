@@ -724,12 +724,16 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
     // Subscribe ONCE to real-time configuration changes from Supabase
     console.log('🔄 [QUICK CALCULATOR] Setting up real-time subscription to pricing config changes', { companyId });
+    console.log('🎬 [QUICK CALCULATOR] Registering callback function for real-time updates');
 
     const unsubscribe = masterPricingEngine.subscribeToConfigChanges('paver_patio_sqft', companyId, async (newConfig) => {
-      console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase');
+      console.log('🎯🎯🎯 [QUICK CALCULATOR] ========== CALLBACK FIRED IN STORE ==========');
+      console.log('🔄 [QUICK CALCULATOR] Real-time config update received from Supabase', newConfig);
       setConfig(newConfig);
       // Note: Recalculation handled by separate useEffect on config change
     });
+
+    console.log('✅ [QUICK CALCULATOR] Callback registered, unsubscribe function created');
 
     // Cleanup subscription on unmount
     return () => {
