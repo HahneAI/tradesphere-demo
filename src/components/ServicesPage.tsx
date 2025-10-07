@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../config/industry';
 import { useServiceBaseSettings } from '../stores/serviceBaseSettingsStore';
 import { ServiceSpecificsModal } from './services/ServiceSpecificsModal';
+import { serviceConfigManager } from '../services/ServiceConfigManager';
 
 export const ServicesPage: React.FC = () => {
   const { user } = useAuth();
@@ -100,6 +101,47 @@ export const ServicesPage: React.FC = () => {
   const validateProfitMargin = (value: number): boolean => {
     const percentage = value * 100;
     return percentage >= 5 && percentage <= 50;
+  };
+
+  const handleInsertService = async () => {
+    console.log('➕ [INSERT SERVICE] Button clicked');
+
+    // For now: Test with hardcoded service to verify ServiceConfigManager works
+    const testServiceId = 'lawn_mowing_sqft';
+    const testServiceName = 'Lawn Mowing';
+    const testCategory = 'Lawn Care';
+
+    console.log('🧪 [INSERT SERVICE] Creating test service:', {
+      id: testServiceId,
+      name: testServiceName,
+      category: testCategory,
+      companyId: user?.company_id,
+      userId: user?.id
+    });
+
+    if (!user?.company_id) {
+      alert('No company ID available. Please log in.');
+      return;
+    }
+
+    try {
+      await serviceConfigManager.createService(
+        testServiceId,
+        testServiceName,
+        testCategory,
+        user.company_id,
+        user.id
+      );
+
+      console.log('✅ [INSERT SERVICE] Service created successfully!');
+      alert('✅ Test service "Lawn Mowing" created!\n\nCheck:\n- Console for debug logs\n- Supabase table for new row\n- Quick Calculator should show it after refresh');
+
+      // TODO: Refresh services list to show new service
+      window.location.reload(); // Temporary: Force refresh to show new service
+    } catch (error) {
+      console.error('❌ [INSERT SERVICE] Failed:', error);
+      alert('Failed to create service: ' + (error as Error).message);
+    }
   };
 
   const EditableCell = ({
@@ -202,14 +244,19 @@ export const ServicesPage: React.FC = () => {
           
           {/* Insert Button */}
           <button
+            onClick={handleInsertService}
+            disabled={!user?.company_id || !isAdmin}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
             style={{
               backgroundColor: visualConfig.colors.primary,
-              color: 'white'
+              color: 'white',
+              opacity: (!user?.company_id || !isAdmin) ? 0.5 : 1,
+              cursor: (!user?.company_id || !isAdmin) ? 'not-allowed' : 'pointer'
             }}
+            title={!isAdmin ? 'Admin access required' : !user?.company_id ? 'Please log in' : 'Create test service'}
           >
             <Icons.Plus className="h-4 w-4" />
-            Insert
+            Insert (Test)
           </button>
           
           {/* Sort Button */}

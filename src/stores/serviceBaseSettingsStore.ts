@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getSupabase } from '../services/supabase';
 import { masterPricingEngine } from '../pricing-system/core/calculations/master-pricing-engine';
+import { serviceConfigManager } from '../services/ServiceConfigManager';
 
 // Import the JSON configurations
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
@@ -352,9 +353,10 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           lastModified: new Date().toISOString().split('T')[0]
         };
 
-        // Save to Supabase (async) - FIXED: Now passing userId
-        saveServiceConfig(serviceId, updatedService, companyId, userId).catch(error => {
+        // Save to Supabase using ServiceConfigManager (guaranteed cache clear)
+        serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId).catch(error => {
           console.error('Failed to save base setting:', error);
+          alert('Failed to save configuration. Please try again.');
         });
 
         return updatedService;
@@ -366,7 +368,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
     setServices(updatedServices);
   }, [services, companyId, userId]);
 
-  const updateServiceVariables = useCallback((serviceId: string, updates: ServiceVariableUpdate) => {
+  const updateServiceVariables = useCallback(async (serviceId: string, updates: ServiceVariableUpdate) => {
     setServices(prev => {
       const updatedServices = prev.map(service => {
         if (service.serviceId === serviceId) {
@@ -449,10 +451,23 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           };
 
           // Save to Supabase - FIXED: Now passing userId
+          console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
+            serviceId,
+            hasCompanyId: !!companyId,
+            companyId,
+            hasUserId: !!userId,
+            userId,
+            hasVariables: !!updatedService.variables,
+            variableKeys: Object.keys(updatedService.variables || {})
+          });
+
           try {
-            saveServiceConfig(serviceId, updatedService, companyId, userId);
+            await serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId);
+            console.log('✅ [UPDATE VARIABLES] Save successful');
           } catch (error) {
-            console.error('Failed to save service variables:', error);
+            console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
+            alert('Failed to save service variables: ' + (error as Error).message);
+            throw error; // Re-throw to show user
           }
 
           return updatedService;
@@ -462,7 +477,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
 
       return updatedServices;
     });
-  }, []);
+  }, [companyId, userId]); // FIXED: Added dependencies to prevent stale closure
 
   const getService = useCallback((serviceId: string): ServiceConfig | undefined => {
     return services.find(service => service.serviceId === serviceId);
