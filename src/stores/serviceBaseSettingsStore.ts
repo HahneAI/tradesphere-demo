@@ -369,115 +369,114 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   }, [services, companyId, userId]);
 
   const updateServiceVariables = useCallback(async (serviceId: string, updates: ServiceVariableUpdate) => {
-    setServices(prev => {
-      const updatedServices = prev.map(service => {
-        if (service.serviceId === serviceId) {
-          const updatedVariables = { ...service.variables };
+    // Find the service to update
+    const service = services.find(s => s.serviceId === serviceId);
+    if (!service) {
+      console.error('Service not found:', serviceId);
+      return;
+    }
 
-          // Update equipment costs
-          if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
-            const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
-            if (updates.equipmentCosts.handTools !== undefined) {
-              equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
-            }
-            if (updates.equipmentCosts.attachments !== undefined) {
-              equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
-            }
-            if (updates.equipmentCosts.lightMachinery !== undefined) {
-              equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
-            }
-            if (updates.equipmentCosts.heavyMachinery !== undefined) {
-              equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
-            }
+    const updatedVariables = { ...service.variables };
+
+    // Update equipment costs
+    if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
+      const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
+      if (updates.equipmentCosts.handTools !== undefined) {
+        equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
+      }
+      if (updates.equipmentCosts.attachments !== undefined) {
+        equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
+      }
+      if (updates.equipmentCosts.lightMachinery !== undefined) {
+        equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
+      }
+      if (updates.equipmentCosts.heavyMachinery !== undefined) {
+        equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
+      }
+    }
+
+    // Update cutting complexity
+    if (updates.cuttingComplexity && updatedVariables.materials?.cuttingComplexity?.options) {
+      const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
+      Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
+        if (cuttingOptions[level] && values) {
+          if (values.laborPercentage !== undefined) {
+            cuttingOptions[level].laborPercentage = values.laborPercentage;
           }
-
-          // Update cutting complexity
-          if (updates.cuttingComplexity && updatedVariables.materials?.cuttingComplexity?.options) {
-            const cuttingOptions = updatedVariables.materials.cuttingComplexity.options;
-            Object.entries(updates.cuttingComplexity).forEach(([level, values]) => {
-              if (cuttingOptions[level] && values) {
-                if (values.laborPercentage !== undefined) {
-                  cuttingOptions[level].laborPercentage = values.laborPercentage;
-                }
-                if (values.materialWaste !== undefined) {
-                  cuttingOptions[level].materialWaste = values.materialWaste;
-                }
-              }
-            });
+          if (values.materialWaste !== undefined) {
+            cuttingOptions[level].materialWaste = values.materialWaste;
           }
-
-          // Update labor multipliers
-          if (updates.laborMultipliers) {
-            if (updates.laborMultipliers.tearoutGrass !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.grass) {
-              updatedVariables.excavation.tearoutComplexity.options.grass.value = updates.laborMultipliers.tearoutGrass;
-            }
-            if (updates.laborMultipliers.tearoutConcrete !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.concrete) {
-              updatedVariables.excavation.tearoutComplexity.options.concrete.value = updates.laborMultipliers.tearoutConcrete;
-            }
-            if (updates.laborMultipliers.tearoutAsphalt !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.asphalt) {
-              updatedVariables.excavation.tearoutComplexity.options.asphalt.value = updates.laborMultipliers.tearoutAsphalt;
-            }
-            if (updates.laborMultipliers.accessEasy !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.easy) {
-              updatedVariables.siteAccess.accessDifficulty.options.easy.value = updates.laborMultipliers.accessEasy;
-            }
-            if (updates.laborMultipliers.accessModerate !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.moderate) {
-              updatedVariables.siteAccess.accessDifficulty.options.moderate.value = updates.laborMultipliers.accessModerate;
-            }
-            if (updates.laborMultipliers.accessDifficult !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.difficult) {
-              updatedVariables.siteAccess.accessDifficulty.options.difficult.value = updates.laborMultipliers.accessDifficult;
-            }
-            if (updates.laborMultipliers.teamTwoPerson !== undefined && updatedVariables.labor?.teamSize?.options?.twoPerson) {
-              updatedVariables.labor.teamSize.options.twoPerson.value = updates.laborMultipliers.teamTwoPerson;
-            }
-            if (updates.laborMultipliers.teamThreePlus !== undefined && updatedVariables.labor?.teamSize?.options?.threePlus) {
-              updatedVariables.labor.teamSize.options.threePlus.value = updates.laborMultipliers.teamThreePlus;
-            }
-          }
-
-          // Update material settings
-          if (updates.materialSettings) {
-            if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
-              updatedVariables.materials.paverStyle.options.standard.value = updates.materialSettings.standardGrade;
-            }
-            if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
-              updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
-            }
-          }
-
-          const updatedService = {
-            ...service,
-            variables: updatedVariables,
-            lastModified: new Date().toISOString().split('T')[0]
-          };
-
-          // Save to Supabase - FIXED: Now passing userId
-          console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
-            serviceId,
-            hasCompanyId: !!companyId,
-            companyId,
-            hasUserId: !!userId,
-            userId,
-            hasVariables: !!updatedService.variables,
-            variableKeys: Object.keys(updatedService.variables || {})
-          });
-
-          try {
-            await serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId);
-            console.log('✅ [UPDATE VARIABLES] Save successful');
-          } catch (error) {
-            console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
-            alert('Failed to save service variables: ' + (error as Error).message);
-            throw error; // Re-throw to show user
-          }
-
-          return updatedService;
         }
-        return service;
       });
+    }
 
-      return updatedServices;
+    // Update labor multipliers
+    if (updates.laborMultipliers) {
+      if (updates.laborMultipliers.tearoutGrass !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.grass) {
+        updatedVariables.excavation.tearoutComplexity.options.grass.value = updates.laborMultipliers.tearoutGrass;
+      }
+      if (updates.laborMultipliers.tearoutConcrete !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.concrete) {
+        updatedVariables.excavation.tearoutComplexity.options.concrete.value = updates.laborMultipliers.tearoutConcrete;
+      }
+      if (updates.laborMultipliers.tearoutAsphalt !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.asphalt) {
+        updatedVariables.excavation.tearoutComplexity.options.asphalt.value = updates.laborMultipliers.tearoutAsphalt;
+      }
+      if (updates.laborMultipliers.accessEasy !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.easy) {
+        updatedVariables.siteAccess.accessDifficulty.options.easy.value = updates.laborMultipliers.accessEasy;
+      }
+      if (updates.laborMultipliers.accessModerate !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.moderate) {
+        updatedVariables.siteAccess.accessDifficulty.options.moderate.value = updates.laborMultipliers.accessModerate;
+      }
+      if (updates.laborMultipliers.accessDifficult !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.difficult) {
+        updatedVariables.siteAccess.accessDifficulty.options.difficult.value = updates.laborMultipliers.accessDifficult;
+      }
+      if (updates.laborMultipliers.teamTwoPerson !== undefined && updatedVariables.labor?.teamSize?.options?.twoPerson) {
+        updatedVariables.labor.teamSize.options.twoPerson.value = updates.laborMultipliers.teamTwoPerson;
+      }
+      if (updates.laborMultipliers.teamThreePlus !== undefined && updatedVariables.labor?.teamSize?.options?.threePlus) {
+        updatedVariables.labor.teamSize.options.threePlus.value = updates.laborMultipliers.teamThreePlus;
+      }
+    }
+
+    // Update material settings
+    if (updates.materialSettings) {
+      if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
+        updatedVariables.materials.paverStyle.options.standard.value = updates.materialSettings.standardGrade;
+      }
+      if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
+        updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
+      }
+    }
+
+    const updatedService = {
+      ...service,
+      variables: updatedVariables,
+      lastModified: new Date().toISOString().split('T')[0]
+    };
+
+    // Save to Supabase using ServiceConfigManager
+    console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
+      serviceId,
+      hasCompanyId: !!companyId,
+      companyId,
+      hasUserId: !!userId,
+      userId,
+      hasVariables: !!updatedService.variables,
+      variableKeys: Object.keys(updatedService.variables || {})
     });
-  }, [companyId, userId]); // FIXED: Added dependencies to prevent stale closure
+
+    try {
+      await serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId);
+      console.log('✅ [UPDATE VARIABLES] Save successful');
+
+      // Update local state after successful save
+      setServices(prev => prev.map(s => s.serviceId === serviceId ? updatedService : s));
+    } catch (error) {
+      console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
+      alert('Failed to save service variables: ' + (error as Error).message);
+      throw error;
+    }
+  }, [services, companyId, userId]);
 
   const getService = useCallback((serviceId: string): ServiceConfig | undefined => {
     return services.find(service => service.serviceId === serviceId);
