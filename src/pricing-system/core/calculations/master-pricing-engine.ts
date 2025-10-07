@@ -255,8 +255,18 @@ export class MasterPricingEngine {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, error) => {
         console.log('📡 [MASTER ENGINE] Subscription status:', status, subscriptionKey);
+
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [MASTER ENGINE] Real-time subscription ACTIVE and ready');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [MASTER ENGINE] Subscription FAILED:', error);
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏱️ [MASTER ENGINE] Subscription TIMED OUT - WebSocket connection failed');
+        } else if (status === 'CLOSED') {
+          console.warn('🔌 [MASTER ENGINE] Subscription CLOSED (component unmounted or StrictMode cleanup)');
+        }
       });
 
     this.subscriptions.set(subscriptionKey, subscription);
