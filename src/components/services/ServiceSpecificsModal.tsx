@@ -112,12 +112,12 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     premiumGrade: 20,
   });
 
-  // Complexity state
+  // Complexity state - FIXED: Store as percentages (0, 10, 30, 50) not multipliers
   const [complexitySettings, setComplexitySettings] = useState({
-    simple: 1.0,
-    standard: 1.1,
-    complex: 1.3,
-    extreme: 1.5
+    simple: 0,
+    standard: 10,
+    complex: 30,
+    extreme: 50
   });
 
   const service = getService(serviceId);
@@ -179,14 +179,14 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
         });
       }
 
-      // Load complexity settings
+      // Load complexity settings - FIXED: Load as percentages (value field) not multipliers
       if (vars.complexity?.overallComplexity?.options) {
         const complexityOptions = vars.complexity.overallComplexity.options;
         setComplexitySettings({
-          simple: complexityOptions.simple?.multiplier || 1.0,
-          standard: complexityOptions.standard?.multiplier || 1.1,
-          complex: complexityOptions.complex?.multiplier || 1.3,
-          extreme: complexityOptions.extreme?.multiplier || 1.5,
+          simple: complexityOptions.simple?.value ?? 0,
+          standard: complexityOptions.standard?.value ?? 10,
+          complex: complexityOptions.complex?.value ?? 30,
+          extreme: complexityOptions.extreme?.value ?? 50,
         });
       }
     }
@@ -675,46 +675,46 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <NumberInput
-                        label="Simple Project (100%)"
+                        label="Simple Project"
                         value={complexitySettings.simple}
                         onChange={(value) => updateComplexitySettings('simple', value)}
-                        unit="x"
-                        min={0.8}
-                        max={1.2}
-                        step={0.1}
+                        unit="%"
+                        min={0}
+                        max={20}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
                       <NumberInput
-                        label="Standard Project (110%)"
+                        label="Standard Project"
                         value={complexitySettings.standard}
                         onChange={(value) => updateComplexitySettings('standard', value)}
-                        unit="x"
-                        min={1.0}
-                        max={1.3}
-                        step={0.1}
+                        unit="%"
+                        min={0}
+                        max={30}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
                       <NumberInput
-                        label="Complex Project (130%)"
+                        label="Complex Project"
                         value={complexitySettings.complex}
                         onChange={(value) => updateComplexitySettings('complex', value)}
-                        unit="x"
-                        min={1.2}
-                        max={1.5}
-                        step={0.1}
+                        unit="%"
+                        min={20}
+                        max={50}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
                       <NumberInput
-                        label="Extreme Complexity (150%)"
+                        label="Extreme Complexity"
                         value={complexitySettings.extreme}
                         onChange={(value) => updateComplexitySettings('extreme', value)}
-                        unit="x"
-                        min={1.3}
-                        max={2.0}
-                        step={0.1}
+                        unit="%"
+                        min={30}
+                        max={100}
+                        step={5}
                         isAdmin={isAdmin}
                         visualConfig={visualConfig}
                       />
@@ -725,10 +725,10 @@ export const ServiceSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
                         Complexity Level Descriptions
                       </h5>
                       <div className="space-y-2 text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                        <div>• <strong>Simple (100%)</strong> - Straightforward rectangular patio</div>
-                        <div>• <strong>Standard (110%)</strong> - Typical patio with some features</div>
-                        <div>• <strong>Complex (130%)</strong> - Multiple levels, curves, or features</div>
-                        <div>• <strong>Extreme (150%)</strong> - Highly complex design with multiple challenges</div>
+                        <div>• <strong>Simple (0% increase)</strong> - Straightforward rectangular patio, baseline pricing</div>
+                        <div>• <strong>Standard (10% increase)</strong> - Typical patio with some features</div>
+                        <div>• <strong>Complex (30% increase)</strong> - Multiple levels, curves, or features</div>
+                        <div>• <strong>Extreme (50% increase)</strong> - Highly complex design with multiple challenges</div>
                       </div>
                     </div>
                   </div>

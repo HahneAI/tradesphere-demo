@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { getSupabase } from '../services/supabase';
 import { masterPricingEngine } from '../pricing-system/core/calculations/master-pricing-engine';
 import { serviceConfigManager } from '../services/ServiceConfigManager';
+import { calculateMultiplierFromPercentage } from '../pricing-system/utils/variable-helpers';
 
 // Import the JSON configurations
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
@@ -58,6 +59,12 @@ interface ServiceVariableUpdate {
   materialSettings?: {
     standardGrade?: number;
     premiumGrade?: number;
+  };
+  complexitySettings?: {
+    simple?: number;
+    standard?: number;
+    complex?: number;
+    extreme?: number;
   };
 }
 
@@ -410,41 +417,88 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       });
     }
 
-    // Update labor multipliers
+    // Update labor multipliers - CRITICAL FIX: Sync both value AND multiplier
     if (updates.laborMultipliers) {
       if (updates.laborMultipliers.tearoutGrass !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.grass) {
-        updatedVariables.excavation.tearoutComplexity.options.grass.value = updates.laborMultipliers.tearoutGrass;
+        const value = updates.laborMultipliers.tearoutGrass;
+        updatedVariables.excavation.tearoutComplexity.options.grass.value = value;
+        updatedVariables.excavation.tearoutComplexity.options.grass.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.tearoutConcrete !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.concrete) {
-        updatedVariables.excavation.tearoutComplexity.options.concrete.value = updates.laborMultipliers.tearoutConcrete;
+        const value = updates.laborMultipliers.tearoutConcrete;
+        updatedVariables.excavation.tearoutComplexity.options.concrete.value = value;
+        updatedVariables.excavation.tearoutComplexity.options.concrete.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.tearoutAsphalt !== undefined && updatedVariables.excavation?.tearoutComplexity?.options?.asphalt) {
-        updatedVariables.excavation.tearoutComplexity.options.asphalt.value = updates.laborMultipliers.tearoutAsphalt;
+        const value = updates.laborMultipliers.tearoutAsphalt;
+        updatedVariables.excavation.tearoutComplexity.options.asphalt.value = value;
+        updatedVariables.excavation.tearoutComplexity.options.asphalt.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.accessEasy !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.easy) {
-        updatedVariables.siteAccess.accessDifficulty.options.easy.value = updates.laborMultipliers.accessEasy;
+        const value = updates.laborMultipliers.accessEasy;
+        updatedVariables.siteAccess.accessDifficulty.options.easy.value = value;
+        updatedVariables.siteAccess.accessDifficulty.options.easy.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.accessModerate !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.moderate) {
-        updatedVariables.siteAccess.accessDifficulty.options.moderate.value = updates.laborMultipliers.accessModerate;
+        const value = updates.laborMultipliers.accessModerate;
+        updatedVariables.siteAccess.accessDifficulty.options.moderate.value = value;
+        updatedVariables.siteAccess.accessDifficulty.options.moderate.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.accessDifficult !== undefined && updatedVariables.siteAccess?.accessDifficulty?.options?.difficult) {
-        updatedVariables.siteAccess.accessDifficulty.options.difficult.value = updates.laborMultipliers.accessDifficult;
+        const value = updates.laborMultipliers.accessDifficult;
+        updatedVariables.siteAccess.accessDifficulty.options.difficult.value = value;
+        updatedVariables.siteAccess.accessDifficulty.options.difficult.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.teamTwoPerson !== undefined && updatedVariables.labor?.teamSize?.options?.twoPerson) {
-        updatedVariables.labor.teamSize.options.twoPerson.value = updates.laborMultipliers.teamTwoPerson;
+        const value = updates.laborMultipliers.teamTwoPerson;
+        updatedVariables.labor.teamSize.options.twoPerson.value = value;
+        updatedVariables.labor.teamSize.options.twoPerson.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.laborMultipliers.teamThreePlus !== undefined && updatedVariables.labor?.teamSize?.options?.threePlus) {
-        updatedVariables.labor.teamSize.options.threePlus.value = updates.laborMultipliers.teamThreePlus;
+        const value = updates.laborMultipliers.teamThreePlus;
+        updatedVariables.labor.teamSize.options.threePlus.value = value;
+        updatedVariables.labor.teamSize.options.threePlus.multiplier = calculateMultiplierFromPercentage(value);
       }
     }
 
-    // Update material settings
+    // Update material settings - CRITICAL FIX: Sync both value AND multiplier
     if (updates.materialSettings) {
       if (updates.materialSettings.standardGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.standard) {
-        updatedVariables.materials.paverStyle.options.standard.value = updates.materialSettings.standardGrade;
+        const value = updates.materialSettings.standardGrade;
+        updatedVariables.materials.paverStyle.options.standard.value = value;
+        updatedVariables.materials.paverStyle.options.standard.multiplier = calculateMultiplierFromPercentage(value);
       }
       if (updates.materialSettings.premiumGrade !== undefined && updatedVariables.materials?.paverStyle?.options?.premium) {
-        updatedVariables.materials.paverStyle.options.premium.value = updates.materialSettings.premiumGrade;
+        const value = updates.materialSettings.premiumGrade;
+        updatedVariables.materials.paverStyle.options.premium.value = value;
+        updatedVariables.materials.paverStyle.options.premium.multiplier = calculateMultiplierFromPercentage(value);
+      }
+    }
+
+    // Update complexity settings - CRITICAL FIX: Convert percentage to both value AND multiplier
+    if (updates.complexitySettings && updatedVariables.complexity?.overallComplexity?.options) {
+      const complexityOptions = updatedVariables.complexity.overallComplexity.options;
+
+      if (updates.complexitySettings.simple !== undefined && complexityOptions.simple) {
+        // Input is percentage (0, 10, 30, 50), convert to value + multiplier
+        const percentageValue = updates.complexitySettings.simple;
+        complexityOptions.simple.value = percentageValue;
+        complexityOptions.simple.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+      if (updates.complexitySettings.standard !== undefined && complexityOptions.standard) {
+        const percentageValue = updates.complexitySettings.standard;
+        complexityOptions.standard.value = percentageValue;
+        complexityOptions.standard.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+      if (updates.complexitySettings.complex !== undefined && complexityOptions.complex) {
+        const percentageValue = updates.complexitySettings.complex;
+        complexityOptions.complex.value = percentageValue;
+        complexityOptions.complex.multiplier = calculateMultiplierFromPercentage(percentageValue);
+      }
+      if (updates.complexitySettings.extreme !== undefined && complexityOptions.extreme) {
+        const percentageValue = updates.complexitySettings.extreme;
+        complexityOptions.extreme.value = percentageValue;
+        complexityOptions.extreme.multiplier = calculateMultiplierFromPercentage(percentageValue);
       }
     }
 
