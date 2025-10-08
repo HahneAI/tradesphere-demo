@@ -2,127 +2,116 @@ import React from 'react';
 import { NumberInput } from './NumberInput';
 import { SelectInput } from './SelectInput';
 import { SliderInput } from './SliderInput';
+import { ToggleInput } from './ToggleInput';
 
 // Note: These imports use direct paths to avoid circular dependency with index.ts
 
 interface GenericVariableRendererProps {
-  variablesConfig: any; // JSONB structure
-  values: Record<string, any>; // Current values
-  onChange: (category: string, variable: string, value: any) => void;
+  categoryId: string; // Category identifier (for debugging/keys)
+  variables: any; // JSONB structure for a SINGLE category's variables
+  values: Record<string, any>; // Current values for this category
+  onChange: (variableKey: string, value: any) => void;
   visualConfig: any;
   isAdmin: boolean;
+  theme?: string;
 }
 
 export const GenericVariableRenderer: React.FC<GenericVariableRendererProps> = ({
-  variablesConfig,
+  categoryId,
+  variables,
   values,
   onChange,
   visualConfig,
-  isAdmin
+  isAdmin,
+  theme
 }) => {
-  if (!variablesConfig || typeof variablesConfig !== 'object') {
+  if (!variables || typeof variables !== 'object') {
     return (
       <div className="p-4 text-center" style={{ color: visualConfig.colors.text.secondary }}>
-        No variables configuration found for this service.
+        No variables found for this category.
       </div>
     );
   }
 
-  // Iterate through categories (calculationSettings, materials, etc.)
+  // Iterate through variables in this category
   return (
-    <div className="space-y-6">
-      {Object.entries(variablesConfig).map(([categoryKey, categoryConfig]: [string, any]) => {
-        // Skip if not a valid category object
-        if (!categoryConfig || typeof categoryConfig !== 'object') {
-          return null;
-        }
+    <div className="space-y-4">
+      {Object.entries(variables)
+        .filter(([key]) => !['label', 'description'].includes(key))
+        .map(([varKey, varConfig]: [string, any]) => {
+          // Skip if not a valid variable config
+          if (!varConfig || typeof varConfig !== 'object' || !varConfig.type) {
+            return null;
+          }
 
-        return (
-          <div key={categoryKey}>
-            {/* Category Header */}
-            {categoryConfig.label && (
-              <div className="mb-4">
-                <h3 className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                  {categoryConfig.label}
-                </h3>
-                {categoryConfig.description && (
-                  <p className="text-sm mt-1" style={{ color: visualConfig.colors.text.secondary }}>
-                    {categoryConfig.description}
-                  </p>
-                )}
-              </div>
-            )}
+          const currentValue = values[varKey] ?? varConfig.default;
 
-            {/* Iterate through variables in category */}
-            <div className="space-y-4">
-              {Object.entries(categoryConfig)
-                .filter(([key]) => !['label', 'description'].includes(key))
-                .map(([varKey, varConfig]: [string, any]) => {
-                  // Skip if not a valid variable config
-                  if (!varConfig || typeof varConfig !== 'object' || !varConfig.type) {
-                    return null;
-                  }
+          // Render based on type
+          return (
+            <div
+              key={`${categoryId}-${varKey}`}
+              className="p-4 rounded-lg border"
+              style={{
+                borderColor: visualConfig.colors.text.secondary + '40',
+                backgroundColor: visualConfig.colors.background
+              }}
+            >
+              {varConfig.type === 'number' && (
+                <NumberInput
+                  label={varConfig.label || varKey}
+                  value={currentValue}
+                  onChange={(val) => onChange(varKey, val)}
+                  min={varConfig.min ?? 0}
+                  max={varConfig.max ?? 1000}
+                  step={varConfig.step ?? 1}
+                  unit={varConfig.unit}
+                  isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
+                  visualConfig={visualConfig}
+                  description={varConfig.description}
+                />
+              )}
 
-                  const currentValue = values[categoryKey]?.[varKey] ?? varConfig.default;
+              {varConfig.type === 'select' && (
+                <SelectInput
+                  label={varConfig.label || varKey}
+                  value={currentValue}
+                  onChange={(val) => onChange(varKey, val)}
+                  options={varConfig.options || {}}
+                  isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
+                  visualConfig={visualConfig}
+                  description={varConfig.description}
+                />
+              )}
 
-                  // Render based on type
-                  return (
-                    <div
-                      key={`${categoryKey}-${varKey}`}
-                      className="p-4 rounded-lg border"
-                      style={{
-                        borderColor: visualConfig.colors.text.secondary + '40',
-                        backgroundColor: visualConfig.colors.background
-                      }}
-                    >
-                      {varConfig.type === 'number' && (
-                        <NumberInput
-                          label={varConfig.label || varKey}
-                          value={currentValue}
-                          onChange={(val) => onChange(categoryKey, varKey, val)}
-                          min={varConfig.min ?? 0}
-                          max={varConfig.max ?? 1000}
-                          step={varConfig.step ?? 1}
-                          unit={varConfig.unit}
-                          isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
-                          visualConfig={visualConfig}
-                          description={varConfig.description}
-                        />
-                      )}
+              {varConfig.type === 'slider' && (
+                <SliderInput
+                  label={varConfig.label || varKey}
+                  value={currentValue}
+                  onChange={(val) => onChange(varKey, val)}
+                  min={varConfig.min ?? 0}
+                  max={varConfig.max ?? 100}
+                  step={varConfig.step ?? 1}
+                  unit={varConfig.unit}
+                  isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
+                  visualConfig={visualConfig}
+                  description={varConfig.description}
+                />
+              )}
 
-                      {varConfig.type === 'select' && (
-                        <SelectInput
-                          label={varConfig.label || varKey}
-                          value={currentValue}
-                          onChange={(val) => onChange(categoryKey, varKey, val)}
-                          options={varConfig.options || {}}
-                          isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
-                          visualConfig={visualConfig}
-                          description={varConfig.description}
-                        />
-                      )}
-
-                      {varConfig.type === 'slider' && (
-                        <SliderInput
-                          label={varConfig.label || varKey}
-                          value={currentValue}
-                          onChange={(val) => onChange(categoryKey, varKey, val)}
-                          min={varConfig.min ?? 0}
-                          max={varConfig.max ?? 100}
-                          step={varConfig.step ?? 1}
-                          unit={varConfig.unit}
-                          isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
-                          visualConfig={visualConfig}
-                          description={varConfig.description}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+              {varConfig.type === 'toggle' && (
+                <ToggleInput
+                  label={varConfig.label || varKey}
+                  value={currentValue}
+                  onChange={(val) => onChange(varKey, val)}
+                  isAdmin={isAdmin && (varConfig.adminEditable ?? true)}
+                  visualConfig={visualConfig}
+                  description={varConfig.description}
+                  linkedService={varConfig.linkedService}
+                />
+              )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 };
