@@ -8,18 +8,22 @@
  * DynamicServiceModal automatically:
  * - Reads standardized JSONB variables_config structure
  * - Creates tabs for multi-category services (labor, materials, etc.)
- * - Renders all variable types (number, select, slider, toggle)
+ * - Renders all variable types using improved input components:
+ *   * NumberInput - Smooth editing, no auto-zero on delete
+ *   * OptionValueEditor - Edit values inside options (equipment costs, etc.)
+ *   * ToggleInput - Boolean switches
  * - Handles save/cancel with proper change tracking
+ * - All improvements automatically apply to new services!
  *
  * ONLY USE THIS TEMPLATE IF:
  * - You need HIGHLY custom UI that DynamicServiceModal cannot provide
  * - You have complex variable interactions requiring custom logic
  * - You need specialized validation or conditional rendering
  *
- * FOR STANDARD SERVICES:
+ * FOR STANDARD SERVICES (RECOMMENDED):
  * 1. Define your JSONB structure in Supabase with standardized format
  * 2. Add service_id to DynamicServiceModal router in ServiceSpecificsModal.tsx
- * 3. Done! No custom modal needed.
+ * 3. Done! No custom modal needed - gets all improvements automatically!
  *
  * Standardized JSONB Structure:
  * {
@@ -32,6 +36,14 @@
  *       "type": "number|select|slider|toggle",
  *       "label": "Variable Label",
  *       "default": value,
+ *       "options": {  // For select types - edit values inside each option
+ *         "optionKey": {
+ *           "label": "Option Label",
+ *           "value": 100,  // Admin edits this in Services Config
+ *           "laborPercentage": 20,  // Optional fields
+ *           "materialWaste": 15
+ *         }
+ *       },
  *       "min": 0,
  *       "max": 100,
  *       ...
@@ -46,7 +58,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useServiceBaseSettings } from '../../../stores/serviceBaseSettingsStore';
-import { NumberInput, SelectInput, SliderInput } from './shared';
+import { NumberInput, OptionValueEditor, ToggleInput } from './shared';
 
 interface ServiceSpecificsModalProps {
   isOpen: boolean;
