@@ -123,18 +123,12 @@ const calculateLocalFallback = (
     cy_final = Math.ceil(cy_adjusted * 2) / 2;
   }
 
-  // Calculate project duration using base_productivity (PRODUCTIVITY-BASED FORMULA)
-  const baseProductivity = config?.base_productivity ?? 25;  // yd³/day from database
-  const projectDays = cy_final / baseProductivity;
-
-  // Calculate calendar hours and crew-hours
-  const calendarHours = projectDays * 8;  // 8-hour workday
-  const totalCrewHours = calendarHours * teamSize;
-
-  // For display and backwards compatibility
-  const total_hours = totalCrewHours;  // Total man-hours
-  const crew_hours = calendarHours;    // Hours per person
-  const project_days = Math.ceil(projectDays);  // Business days (rounded up)
+  // Calculate time using AREA-BASED TIERS
+  // Time is based ONLY on area (depth does not affect time)
+  // 12 hours per 1000 sqft tier, 1.5 days per 1000 sqft tier
+  const sqftTiers = Math.ceil(area_sqft / 1000);
+  const total_hours = sqftTiers * 12;
+  const project_days = sqftTiers * 1.5;
 
   // Calculate costs
   const base_cost = cy_final * baseRate;
@@ -148,8 +142,7 @@ const calculateLocalFallback = (
     cubic_yards_adjusted: Math.round(cy_adjusted * 100) / 100,
     cubic_yards_final: Math.round(cy_final * 100) / 100,
     base_hours: total_hours,
-    crew_hours: Math.round(crew_hours * 10) / 10,
-    project_days,
+    project_days: project_days,
     base_cost: Math.round(base_cost * 100) / 100,
     profit: Math.round(profit * 100) / 100,
     total_cost: Math.round(total_cost * 100) / 100,
