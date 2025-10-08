@@ -207,12 +207,15 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
         // CRITICAL: When config changes, reload depth from new config defaults
         // This ensures edited defaults (like depth) show immediately via real-time subscription
         const newDefaults = getDefaultValues(config);
-        setValues(prev => ({
-          ...prev,
-          depth_inches: newDefaults.depth_inches // Update depth from new config, preserve area_sqft
-        }));
 
-        const calculation = await calculatePrice(config, values, companyId);
+        // Update values with new depth
+        const updatedValues = {
+          area_sqft: values.area_sqft, // Preserve area from current values
+          depth_inches: newDefaults.depth_inches // Use new depth from config
+        };
+        setValues(updatedValues);
+
+        const calculation = await calculatePrice(config, updatedValues, companyId);
         setLastCalculation(calculation);
       } catch (error) {
         console.error('Failed to recalculate:', error);
@@ -220,7 +223,7 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
     };
 
     recalculate();
-  }, [config, values, companyId]);
+  }, [config, companyId]); // REMOVED 'values' to prevent infinite loop
 
   // Update area
   const updateArea = useCallback(async (sqft: number) => {
