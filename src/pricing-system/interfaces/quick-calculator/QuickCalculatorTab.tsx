@@ -26,24 +26,95 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const paverPatioStore = usePaverPatioStore(user?.company_id || '');
   const excavationStore = useExcavationStore(user?.company_id || '');
 
+  // Transition state management
+  const [transitionState, setTransitionState] = useState<'idle' | 'exiting' | 'entering'>('idle');
+  const [transitionType, setTransitionType] = useState<'zoom-in' | 'slide-back' | 'screen-switch' | null>(null);
+
   // Reset to selection screen when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowSelectionScreen(true);
       setSelectedService(null);
+      setTransitionState('idle');
+      setTransitionType(null);
     }
   }, [isOpen]);
 
-  // Handle service selection from front menu
+  // Handle service selection from front menu (ZOOM IN transition)
   const handleServiceSelect = (serviceId: ServiceId) => {
-    setSelectedService(serviceId);
-    setShowSelectionScreen(false);
+    setTransitionType('zoom-in');
+    setTransitionState('exiting');
+
+    setTimeout(() => {
+      setSelectedService(serviceId);
+      setShowSelectionScreen(false);
+      setTransitionState('entering');
+    }, 300);
+
+    setTimeout(() => {
+      setTransitionState('idle');
+      setTransitionType(null);
+    }, 700);
   };
 
-  // Handle back to selection screen
+  // Handle back to selection screen (SLIDE BACK transition)
   const handleBackToSelection = () => {
-    setShowSelectionScreen(true);
-    setSelectedService(null);
+    setTransitionType('slide-back');
+    setTransitionState('exiting');
+
+    setTimeout(() => {
+      setShowSelectionScreen(true);
+      setSelectedService(null);
+      setTransitionState('entering');
+    }, 350);
+
+    setTimeout(() => {
+      setTransitionState('idle');
+      setTransitionType(null);
+    }, 750);
+  };
+
+  // Handle service-to-service switch via dropdown (SCREEN SWITCH transition)
+  const handleServiceSwitch = (newServiceId: ServiceId) => {
+    if (newServiceId === selectedService) return;
+
+    setTransitionType('screen-switch');
+    setTransitionState('exiting');
+
+    setTimeout(() => {
+      setSelectedService(newServiceId);
+      setTransitionState('entering');
+    }, 200);
+
+    setTimeout(() => {
+      setTransitionState('idle');
+      setTransitionType(null);
+    }, 450);
+  };
+
+  // Get transition CSS class based on current state
+  const getTransitionClass = () => {
+    if (transitionState === 'idle') return '';
+
+    switch (transitionType) {
+      case 'zoom-in':
+        return transitionState === 'exiting'
+          ? 'animate-zoom-out-selection'
+          : 'animate-zoom-in-service';
+
+      case 'slide-back':
+        return transitionState === 'exiting'
+          ? 'animate-slide-back-exit'
+          : 'animate-slide-back-enter';
+
+      case 'screen-switch':
+        return transitionState === 'exiting'
+          ? 'animate-screen-switch-exit'
+          : 'animate-screen-switch-enter';
+
+      default:
+        return '';
+    }
   };
 
   // REAL-TIME SUBSCRIPTION MANAGEMENT - Lifecycle tied to modal open/close
@@ -162,7 +233,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
               {!showSelectionScreen && selectedService && (
                 <select
                   value={selectedService}
-                  onChange={(e) => handleServiceSelect(e.target.value as ServiceId)}
+                  onChange={(e) => handleServiceSwitch(e.target.value as ServiceId)}
                   className="px-4 py-2 rounded-lg border transition-colors"
                   style={{
                     backgroundColor: visualConfig.colors.surface,
@@ -189,8 +260,8 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
 
           {/* Modal Body */}
           <div className="flex flex-col flex-1 overflow-hidden">
-            {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Main Content Area with Transitions */}
+            <div className={`flex-1 overflow-y-auto ${getTransitionClass()}`}>
               {/* Show Selection Screen OR Service-Specific Interface */}
               {showSelectionScreen ? (
                 <ServiceSelectionScreen
