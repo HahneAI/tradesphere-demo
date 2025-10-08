@@ -9,7 +9,14 @@ import { masterPricingEngine } from '../calculations/master-pricing-engine';
 
 // Default values
 const getDefaultValues = (config: ExcavationConfig | null): ExcavationValues => {
-  const defaultDepth = config?.variables_config?.calculationSettings?.defaultDepth?.default ?? 12;
+  const defaultDepth = config?.variables_config?.calculationSettings?.defaultDepth?.default ?? 11;
+
+  console.log('🔍 [EXCAVATION STORE] getDefaultValues called:', {
+    hasConfig: !!config,
+    defaultDepthFromDB: config?.variables_config?.calculationSettings?.defaultDepth?.default,
+    defaultDepthUsed: defaultDepth,
+    fullCalculationSettings: config?.variables_config?.calculationSettings
+  });
 
   return {
     area_sqft: 100,
@@ -21,15 +28,26 @@ const getDefaultValues = (config: ExcavationConfig | null): ExcavationValues => 
 const loadStoredValues = (config: ExcavationConfig | null): ExcavationValues => {
   try {
     const stored = localStorage.getItem('excavationValues');
+    const defaults = getDefaultValues(config);
+
     if (stored) {
       const parsedValues = JSON.parse(stored);
-      const defaults = getDefaultValues(config);
+
+      console.log('🔍 [EXCAVATION STORE] loadStoredValues:', {
+        storedValues: parsedValues,
+        defaultsFromDB: defaults,
+        willUseStored: !!parsedValues.depth_inches,
+        storedDepth: parsedValues.depth_inches,
+        defaultDepth: defaults.depth_inches
+      });
 
       return {
         area_sqft: parsedValues.area_sqft || defaults.area_sqft,
         depth_inches: parsedValues.depth_inches || defaults.depth_inches
       };
     }
+
+    console.log('🔍 [EXCAVATION STORE] No localStorage - using defaults from DB:', defaults);
   } catch (error) {
     console.warn('Failed to load stored excavation values:', error);
   }
@@ -140,7 +158,7 @@ const calculateLocalFallback = (
 // Custom hook for excavation store
 export const useExcavationStore = (companyId?: string): ExcavationStore => {
   const [config, setConfig] = useState<ExcavationConfig | null>(null);
-  const [values, setValues] = useState<ExcavationValues>({ area_sqft: 100, depth_inches: 12 });
+  const [values, setValues] = useState<ExcavationValues>({ area_sqft: 100, depth_inches: 11 }); // Will be overridden by config
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastCalculation, setLastCalculation] = useState<ExcavationCalculationResult | null>(null);
