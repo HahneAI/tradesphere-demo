@@ -150,7 +150,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       base_productivity: updatedService.baseSettings?.laborSettings?.baseProductivity?.value || 50,
       base_material_cost: updatedService.baseSettings?.materialSettings?.baseMaterialCost?.value || 5.84,
       profit_margin: updatedService.baseSettings?.businessSettings?.profitMarginTarget?.value || 0.20,
-      variables_config: updatedService.variables || {},
+      variables_config: updatedService.variables_config || updatedService.variables || {},
       default_variables: {},
       is_active: true,
       version: '2.0.0',
@@ -162,7 +162,9 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       company_id: supabaseData.company_id,
       service_name: supabaseData.service_name,
       updated_by: supabaseData.updated_by,
-      hasVariables: !!supabaseData.variables_config
+      hasVariables: !!supabaseData.variables_config,
+      variablesConfigKeys: Object.keys(supabaseData.variables_config || {}),
+      calculationSettings: supabaseData.variables_config?.calculationSettings,
     });
 
     // STEP 2: Upsert to Supabase (update if exists, insert if not)
