@@ -515,3 +515,98 @@
 .customer-loading {
   animation: customer-loading-pulse 1.5s ease-in-out infinite;
 }
+
+/* === QUICK CALCULATOR TRANSITIONS === */
+
+/* 1. ZOOM IN - Selection Screen → Service (feels like "diving into" a service) */
+@keyframes zoom-out-selection {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes zoom-in-service {
+  from {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-zoom-out-selection {
+  animation: zoom-out-selection 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-zoom-in-service {
+  animation: zoom-in-service 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* 2. SLIDE BACK - Service → Selection Screen (feels like "walking backwards out") */
+@keyframes slide-back-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(30px) scale(0.98);
+  }
+}
+
+@keyframes slide-back-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-30px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-slide-back-exit {
+  animation: slide-back-exit 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-slide-back-enter {
+  animation: slide-back-enter 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* 3. SCREEN SWITCH - Service → Service via dropdown (feels like "digital screen flip") */
+@keyframes screen-switch-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes screen-switch-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-screen-switch-exit {
+  animation: screen-switch-exit 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-screen-switch-enter {
+  animation: screen-switch-enter 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}

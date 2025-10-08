@@ -76,6 +76,12 @@ export const AdminEditableField: React.FC<AdminEditableFieldProps> = ({
   };
 
   const formatDisplayValue = (val: number) => {
+    // UNIVERSAL ZERO HANDLING: Show em dash for ANY zero/null/undefined value
+    // This indicates "this variable is not used in this service's calculation"
+    if (val === 0 || val === null || val === undefined || Number(val) === 0) {
+      return '—';  // Em dash (N/A)
+    }
+
     if (unit === 'percentage') {
       return `${(val * 100).toFixed(0)}%`;
     }
@@ -90,6 +96,13 @@ export const AdminEditableField: React.FC<AdminEditableFieldProps> = ({
     }
     if (unit === '$/hour/person') {
       return `$${val.toFixed(0)}/hr/person`;
+    }
+    // Excavation-specific units
+    if (unit === '$ per cubic yard') {
+      return `$${val.toFixed(0)} per yd³`;
+    }
+    if (unit === 'cubic yards/day') {
+      return `${val.toFixed(0)} yd³/day`;
     }
     if (unit === 'people') {
       return `${val.toFixed(0)} ${unit}`;

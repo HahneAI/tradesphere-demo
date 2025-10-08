@@ -393,6 +393,7 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
               calculation={store.lastCalculation}
               onCalculate={store.calculatePrice}
               visualConfig={visualConfig}
+              initialSqft={store.sqft}
             />
           </div>
         </div>

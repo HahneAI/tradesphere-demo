@@ -8,6 +8,7 @@ import { ThemeApplicator } from './components/ThemeApplicator';
 import { useAppLoading } from './utils/loading-manager';
 import { EnvironmentManager } from './config/defaults';
 import { masterPricingEngine } from './pricing-system/core/calculations/master-pricing-engine';
+import { useServiceBaseSettings } from './stores/serviceBaseSettingsStore';
 
 // 🎯 DEBUG: Using centralized environment manager for debug logging
 console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
@@ -26,6 +27,10 @@ function App() {
   const [animationState, setAnimationState] = useState<AnimationState>('in');
   const [currentAppState, setCurrentAppState] = useState<AppState>(appState);
   const [isExitingLoading, setIsExitingLoading] = useState(false);
+
+  // CRITICAL: Preload ALL service configurations on authentication
+  // This ensures default values (like excavation depth) are available BEFORE components mount
+  const { services, isLoading: servicesLoading, refreshServices } = useServiceBaseSettings(user?.company_id, user?.id);
 
   const isMinDurationPassed = useAppLoading();
   // Simple loading check - wait for BOTH auth and minimum duration
@@ -51,6 +56,11 @@ function App() {
       console.log('🧹 [APP.TSX] Clearing all pricing caches on startup...');
       masterPricingEngine.clearAllCaches();
 
+      // Note: localStorage is NOT cleared here - let stores manage their own persistence
+      // - Sqft values persist across sessions (user convenience)
+      // - Stores force fresh DB config loads when they mount
+      // - This gives users persistent inputs while ensuring fresh defaults
+
       setIsExitingLoading(true);
 
       const timer = setTimeout(() => {
@@ -62,6 +72,19 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [authLoading, isMinDurationPassed, appState, user]);
+
+  // Effect 3: Preload service configurations when user authenticates
+  useEffect(() => {
+    if (user?.company_id && appState === 'authenticated') {
+      console.log('🔄 [APP.TSX] User authenticated - preloading all service configurations...');
+      console.log('📊 [APP.TSX] Services loaded:', {
+        count: services.length,
+        serviceIds: services.map(s => s.serviceId),
+        hasExcavation: services.some(s => s.serviceId === 'excavation_removal'),
+        excavationDefaults: services.find(s => s.serviceId === 'excavation_removal')?.variables_config?.calculationSettings
+      });
+    }
+  }, [user, appState, services]);
 
   // Effect 2: Handle ONLY auth changes AFTER initial load
   useEffect(() => {

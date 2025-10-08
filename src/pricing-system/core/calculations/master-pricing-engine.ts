@@ -446,17 +446,17 @@ export class MasterPricingEngine {
     let adjustedHours = baseHours;
 
     // CRITICAL FIX: Read tearout percentage from DATABASE, not hardcoded helper
-    const tearoutVar = config?.variables?.excavation?.tearoutComplexity;
+    const tearoutVar = config?.variables_config?.excavation?.tearoutComplexity;
     const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
     const tearoutPercentage = tearoutOption?.value ?? 0;
 
     // CRITICAL FIX: Read access percentage from DATABASE, not hardcoded helper
-    const accessVar = config?.variables?.siteAccess?.accessDifficulty;
+    const accessVar = config?.variables_config?.siteAccess?.accessDifficulty;
     const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'easy'];
     const accessPercentage = accessOption?.value ?? 0;
 
     // CRITICAL FIX: Read team size percentage from DATABASE, not hardcoded helper
-    const teamVar = config?.variables?.labor?.teamSize;
+    const teamVar = config?.variables_config?.labor?.teamSize;
     const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'threePlus'];
     const teamSizePercentage = teamOption?.value ?? 0;
 
@@ -472,7 +472,7 @@ export class MasterPricingEngine {
     }
 
     // Add cutting complexity labor percentage (calculated from BASE hours)
-    const cuttingVar = config?.variables?.materials?.cuttingComplexity;
+    const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
     const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
     if (cuttingLaborPercentage > 0) {
@@ -508,8 +508,8 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste
-    // CRITICAL FIX: Read multiplier from config.variables instead of hardcoded helper
-    const paverVar = config?.variables?.materials?.paverStyle;
+    // CRITICAL FIX: Read multiplier from config.variables_config instead of hardcoded helper
+    const paverVar = config?.variables_config?.materials?.paverStyle;
     const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
     const paverOption = paverVar?.options?.[paverStyleValue];
     const materialMultiplier = paverOption?.multiplier ?? 1.0;
@@ -527,7 +527,7 @@ export class MasterPricingEngine {
 
     const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
-    const cuttingVar = config?.variables?.materials?.cuttingComplexity;
+    const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
     const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
     const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
@@ -535,7 +535,7 @@ export class MasterPricingEngine {
 
     // 3. Equipment costs
     const projectDays = tier1Results.totalManHours / (optimalTeamSize * 8);
-    const equipmentVar = config?.variables?.excavation?.equipmentRequired;
+    const equipmentVar = config?.variables_config?.excavation?.equipmentRequired;
     const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
     console.log('💰 [MASTER ENGINE] Equipment calculation:', {
       selectedEquipment: values?.excavation?.equipmentRequired ?? 'handTools',
@@ -547,14 +547,14 @@ export class MasterPricingEngine {
     console.log('💰 [MASTER ENGINE] Equipment cost result:', equipmentCost);
 
     // 4. Obstacle costs
-    const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval;
+    const obstacleVar = config?.variables_config?.siteAccess?.obstacleRemoval;
     const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
     const obstacleCost = obstacleOption?.value ?? 0;
 
     // 5. CRITICAL: Apply complexity multiplier ONLY to labor and materials
     // Equipment rental rates and obstacle removal fees are fixed costs that don't scale with complexity
     // (Complexity already affects equipment costs indirectly via increased projectDays from tier1 labor calculations)
-    const complexityVar = config?.variables?.complexity?.overallComplexity;
+    const complexityVar = config?.variables_config?.complexity?.overallComplexity;
     const complexityValue = values?.complexity?.overallComplexity;
 
     let complexityMultiplier = 1.0;
@@ -625,6 +625,85 @@ export class MasterPricingEngine {
       total: Math.round(total * 100) / 100,
       pricePerSqft: Math.round((total / sqft) * 100) / 100
     };
+  }
+
+  /**
+   * Calculate excavation pricing - Simple volume-based calculation
+   */
+  public async calculateExcavationPricing(
+    area_sqft: number,
+    depth_inches: number,
+    calculationSettings: any,
+    serviceName: string = 'excavation_removal',
+    companyId?: string
+  ): Promise<any> {
+    // Load config from Supabase
+    const config = await this.loadPricingConfig(serviceName, companyId) as any;
+
+    // Extract calculation settings with defaults
+    const wasteFactor = calculationSettings?.wasteFactor?.default ?? 10;
+    const compactionFactor = calculationSettings?.compactionFactor?.default ?? 0;
+    const roundingRule = calculationSettings?.roundingRule?.default ?? 'up_whole';
+
+    // Extract base settings
+    const baseRate = config?.hourly_labor_rate ?? 25;  // Actually $/cubic yard
+    const profitMargin = config?.profit_margin ?? 0.05;
+    const teamSize = config?.optimal_team_size ?? 3;
+
+    // Calculate cubic yards
+    const depth_ft = depth_inches / 12;
+    const cubic_feet = area_sqft * depth_ft;
+    const cy_raw = cubic_feet / 27;
+
+    // STEP 2: Apply waste and compaction factors
+    const waste_multiplier = 1 + (wasteFactor / 100);
+    const compaction_multiplier = 1 + (compactionFactor / 100);
+    const cy_adjusted = cy_raw * waste_multiplier * compaction_multiplier;
+
+    // STEP 3: Apply rounding rule
+    let cy_final = cy_adjusted;
+    if (roundingRule === 'up_whole') {
+      cy_final = Math.ceil(cy_adjusted);
+    } else if (roundingRule === 'up_half') {
+      cy_final = Math.ceil(cy_adjusted * 2) / 2;
+    }
+    // 'exact' means no rounding
+
+    // STEP 4: Calculate time using AREA-BASED TIERS
+    // Time is based ONLY on area (depth does not affect time)
+    // 12 hours per 1000 sqft tier, 1.5 days per 1000 sqft tier
+    const sqftTiers = Math.ceil(area_sqft / 1000);
+    const base_hours = sqftTiers * 12;
+    const project_days = sqftTiers * 1.5;
+
+    // STEP 5: Calculate costs (simple formula - NO multipliers)
+    const base_cost = cy_final * baseRate;
+    const profit = base_cost * profitMargin;
+    const total_cost = base_cost + profit;
+
+    const result = {
+      // Volume calculations
+      area_sqft,
+      depth_inches,
+      cubic_yards_raw: Math.round(cy_raw * 100) / 100,
+      cubic_yards_adjusted: Math.round(cy_adjusted * 100) / 100,
+      cubic_yards_final: Math.round(cy_final * 100) / 100,
+
+      // Time estimates (area-based tiers)
+      base_hours: base_hours,
+      project_days: project_days,
+
+      // Cost breakdown
+      base_cost: Math.round(base_cost * 100) / 100,
+      profit: Math.round(profit * 100) / 100,
+      total_cost: Math.round(total_cost * 100) / 100,
+      cost_per_cubic_yard: Math.round((total_cost / cy_final) * 100) / 100,
+      hours_per_cubic_yard: Math.round((base_hours / cy_final) * 10) / 10
+    };
+
+    console.log('✅ [MASTER ENGINE] Excavation calculation complete:', result);
+
+    return result;
   }
 
   /**
@@ -705,7 +784,8 @@ export class MasterPricingEngine {
         tier1: "man_hours_calculation",
         tier2: "cost_calculation"
       },
-      variables: row.variables_config
+      variables: row.variables_config,  // For paver patio (uses 'variables')
+      variables_config: row.variables_config  // For excavation & new services (uses 'variables_config')
     } as PaverPatioConfig;
   }
 

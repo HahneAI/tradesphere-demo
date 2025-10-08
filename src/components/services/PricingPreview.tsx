@@ -7,6 +7,7 @@ interface PricingPreviewProps {
   onCalculate: (sqft: number) => PaverPatioCalculationResult;
   visualConfig: any;
   className?: string;
+  initialSqft?: number; // Allow passing initial sqft from store
 }
 
 export const PricingPreview: React.FC<PricingPreviewProps> = ({
@@ -14,8 +15,9 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
   onCalculate,
   visualConfig,
   className = '',
+  initialSqft = 100, // Default to 100 if not provided
 }) => {
-  const [sqft, setSqft] = useState<string>('100');
+  const [sqft, setSqft] = useState<string>(initialSqft.toString());
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   const handleSqftChange = (value: string) => {

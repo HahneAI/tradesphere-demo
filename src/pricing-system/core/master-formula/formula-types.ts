@@ -63,6 +63,7 @@ export interface PaverPatioConfig {
     labor: Record<string, PaverPatioVariable | string>;
     complexity: Record<string, PaverPatioVariable | string>;
   };
+  variables_config?: any; // For excavation & new services (JSONB structure)
 }
 
 export interface PaverPatioValues {
@@ -144,4 +145,104 @@ export interface LegacyPaverPatioVariable {
   max?: number;
   step?: number;
   options: Record<string, LegacyPaverPatioOption>;
+}
+
+// ============================================================================
+// EXCAVATION SERVICE TYPES
+// ============================================================================
+
+export interface ExcavationCalculationSettings {
+  defaultDepth: {
+    type: 'number';
+    label: string;
+    default: number;
+    unit: string;
+    min: number;
+    max: number;
+    adminEditable: boolean;
+    description: string;
+  };
+  wasteFactor: {
+    type: 'number';
+    label: string;
+    default: number;
+    min: number;
+    max: number;
+    adminEditable: boolean;
+    description: string;
+  };
+  compactionFactor: {
+    type: 'number';
+    label: string;
+    default: number;
+    min: number;
+    max: number;
+    adminEditable: boolean;
+    description: string;
+  };
+  roundingRule: {
+    type: 'select';
+    label: string;
+    default: string;
+    options: {
+      up_whole: { label: string };
+      up_half: { label: string };
+      exact: { label: string };
+    };
+  };
+}
+
+export interface ExcavationConfig {
+  service: string;
+  serviceId: string;
+  hourly_labor_rate: number;  // Actually $/cubic yard base rate
+  optimal_team_size: number;
+  base_productivity: number;
+  base_material_cost: number;  // Always 0 for excavation
+  profit_margin: number;
+  variables_config: {
+    calculationSettings: ExcavationCalculationSettings;
+  };
+}
+
+export interface ExcavationValues {
+  area_sqft: number;
+  depth_inches: number;
+}
+
+export interface ExcavationCalculationResult {
+  // Volume calculations
+  area_sqft: number;
+  depth_inches: number;
+  cubic_yards_raw: number;
+  cubic_yards_adjusted: number;
+  cubic_yards_final: number;
+
+  // Time estimates
+  base_hours: number;
+  crew_hours: number;
+  project_days: number;
+
+  // Cost breakdown
+  base_cost: number;
+  profit: number;
+  total_cost: number;
+  cost_per_cubic_yard: number;
+  hours_per_cubic_yard: number;
+}
+
+export interface ExcavationStore {
+  config: ExcavationConfig | null;
+  values: ExcavationValues;
+  isLoading: boolean;
+  error: string | null;
+  lastCalculation: ExcavationCalculationResult | null;
+
+  // Actions
+  loadConfig: () => Promise<void>;
+  updateArea: (sqft: number) => void;
+  updateDepth: (inches: number) => void;
+  calculate: () => Promise<void>;
+  reloadConfig: () => Promise<void>;
+  setConfig: (config: ExcavationConfig) => void;
 }

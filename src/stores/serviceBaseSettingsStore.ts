@@ -4,9 +4,9 @@ import { masterPricingEngine } from '../pricing-system/core/calculations/master-
 import { serviceConfigManager } from '../services/ServiceConfigManager';
 import { calculateMultiplierFromPercentage } from '../pricing-system/utils/variable-helpers';
 
-// Import the JSON configurations
+// Import the JSON configurations (used as fallback only)
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
-import excavationConfigJson from '../pricing-system/config/excavation-removal-formula.json';
+// Excavation service now uses JSONB from database only - no JSON fallback
 
 interface BaseSetting {
   value: number;
@@ -71,6 +71,8 @@ interface ServiceVariableUpdate {
     minor?: number;
     major?: number;
   };
+  calculationSettings?: any; // For generic JSONB updates (excavation, etc.)
+  [key: string]: any; // Allow any additional categories for future services
 }
 
 interface ServiceBaseSettingsStore {
@@ -83,11 +85,11 @@ interface ServiceBaseSettingsStore {
   refreshServices: () => Promise<void>; // NEW: Refresh from Supabase
 }
 
-// Load services from JSON configurations
+// Load services from JSON configurations (FALLBACK ONLY - Database is primary source)
+// NOTE: Excavation service removed - it MUST exist in database with JSONB structure
 const loadServices = (): ServiceConfig[] => {
   try {
     const paverPatioConfig = paverPatioConfigJson as any;
-    const excavationConfig = excavationConfigJson as any;
 
     return [
       {
@@ -97,15 +99,9 @@ const loadServices = (): ServiceConfig[] => {
         baseSettings: paverPatioConfig.baseSettings,
         variables: paverPatioConfig.variables,
         lastModified: paverPatioConfig.lastModified
-      },
-      {
-        service: excavationConfig.service,
-        serviceId: excavationConfig.serviceId,
-        category: excavationConfig.category || 'Excavation',
-        baseSettings: excavationConfig.baseSettings,
-        variables: excavationConfig.variables,
-        lastModified: excavationConfig.lastModified
       }
+      // Excavation service REMOVED - must be initialized in database with proper
+      // variables_config JSONB structure. See: src/database/migrations/init-excavation-calculationSettings.sql
     ];
   } catch (error) {
     console.error('Error loading services configuration:', error);
@@ -122,23 +118,8 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       return;
     }
 
-    console.log('🚀 [SERVICES] Saving configuration to Supabase:', {
-      serviceId,
-      companyId,
-      userId,
-      hasBaseSettings: !!updatedService.baseSettings
-    });
-
-    // STEP 1: Get authenticated Supabase client (FIXED: was creating new unauthenticated client)
+    // Get authenticated Supabase client
     const supabase = getSupabase();
-
-    // 🔍 DEBUG: Check auth session before save
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔍 [SAVE DEBUG] Auth session status:', {
-      hasSession: !!session,
-      authUid: session?.user?.id,
-      userEmail: session?.user?.email
-    });
 
     const supabaseData = {
       company_id: companyId,
@@ -148,7 +129,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       base_productivity: updatedService.baseSettings?.laborSettings?.baseProductivity?.value || 50,
       base_material_cost: updatedService.baseSettings?.materialSettings?.baseMaterialCost?.value || 5.84,
       profit_margin: updatedService.baseSettings?.businessSettings?.profitMarginTarget?.value || 0.20,
-      variables_config: updatedService.variables || {},
+      variables_config: updatedService.variables_config || updatedService.variables || {},
       default_variables: {},
       is_active: true,
       version: '2.0.0',
@@ -156,14 +137,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       updated_by: userId || null  // FIXED: Use userId instead of companyId
     };
 
-    console.log('🔍 [SAVE DEBUG] Upsert data:', {
-      company_id: supabaseData.company_id,
-      service_name: supabaseData.service_name,
-      updated_by: supabaseData.updated_by,
-      hasVariables: !!supabaseData.variables_config
-    });
-
-    // STEP 2: Upsert to Supabase (update if exists, insert if not)
+    // Upsert to Supabase (update if exists, insert if not)
     const { error } = await supabase
       .from('service_pricing_configs')
       .upsert(supabaseData, {
@@ -181,13 +155,10 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       throw error;
     }
 
-    console.log('✅ [SERVICES] Configuration saved to Supabase successfully');
-
-    // CRITICAL: Clear master engine cache so Quick Calculator sees fresh data
+    // Clear master engine cache so Quick Calculator sees fresh data
     masterPricingEngine.clearCache(serviceId, companyId);
-    console.log('🧹 [SERVICES] Cleared master engine cache');
 
-    // STEP 3: Also store in localStorage for immediate local access
+    // Also store in localStorage for immediate local access
     const storageKey = `service_config_${serviceId}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedService));
 
@@ -203,11 +174,9 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       detail: { serviceId, updatedService }
     }));
 
-    console.log(`✅ [SERVICES] Service ${serviceId} configuration updated (Supabase + localStorage)`);
   } catch (error) {
-    console.error('❌ [SERVICES] Error saving service configuration:', error);
+    console.error('Error saving service configuration:', error);
     // Fallback to legacy localStorage method if Supabase fails
-    console.warn('🔄 [SERVICES] Falling back to localStorage method');
     await saveServiceConfigLegacy(serviceId, updatedService);
   }
 };
@@ -246,7 +215,6 @@ const saveServiceConfigLegacy = async (serviceId: string, updatedService: Servic
       detail: { serviceId, updatedService }
     }));
 
-    console.log(`✅ [LEGACY] Service ${serviceId} configuration updated (localStorage + JSON file sync)`);
   } catch (error) {
     console.error('Error saving service configuration:', error);
     throw error;
@@ -271,7 +239,6 @@ const writeConfigToJsonFile = async (updatedService: ServiceConfig) => {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    console.log('✅ JSON file updated successfully');
   } catch (error) {
     console.error('❌ Failed to update JSON file:', error);
     throw error;
@@ -309,6 +276,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+
   // CRITICAL FIX: Load services from Supabase instead of JSON files
   useEffect(() => {
     const loadServicesFromSupabase = async () => {
@@ -325,8 +293,6 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           return;
         }
 
-        console.log('🚀 [SERVICES STORE] Loading services from Supabase for company:', companyId);
-
         const supabase = getSupabase();
         const { data, error: fetchError } = await supabase
           .from('service_pricing_configs')
@@ -340,7 +306,17 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         }
 
         if (data && data.length > 0) {
-          console.log(`✅ [SERVICES STORE] Loaded ${data.length} services from Supabase`);
+          // Helper function to get service-specific units
+          const getServiceSpecificUnit = (serviceName: string, settingType: string): string => {
+            if (serviceName === 'excavation_removal') {
+              if (settingType === 'hourlyLaborRate') return '$ per cubic yard';
+              if (settingType === 'baseProductivity') return 'cubic yards/day';
+            }
+            // Default units for other services
+            if (settingType === 'hourlyLaborRate') return '$/hour/person';
+            if (settingType === 'baseProductivity') return 'sqft/day';
+            return '$/sqft';  // Material cost default
+          };
 
           // Convert Supabase rows to ServiceConfig format
           const supabaseServices = data.map(row => ({
@@ -349,18 +325,53 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
             category: 'Hardscaping', // Could be stored in DB if needed
             baseSettings: {
               laborSettings: {
-                hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
-                optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
-                baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+                hourlyLaborRate: {
+                  value: parseFloat(row.hourly_labor_rate),
+                  unit: getServiceSpecificUnit(row.service_name, 'hourlyLaborRate'),
+                  label: 'Base Rate',
+                  description: row.service_name === 'excavation_removal'
+                    ? 'Price per cubic yard of material'
+                    : 'Hourly labor rate per person',
+                  adminEditable: true
+                },
+                optimalTeamSize: {
+                  value: row.optimal_team_size,
+                  unit: 'people',
+                  label: 'Optimal Team Size',
+                  description: 'Recommended crew size for this service',
+                  adminEditable: true
+                },
+                baseProductivity: {
+                  value: parseFloat(row.base_productivity),
+                  unit: getServiceSpecificUnit(row.service_name, 'baseProductivity'),
+                  label: 'Base Productivity',
+                  description: row.service_name === 'excavation_removal'
+                    ? 'Cubic yards processed per day'
+                    : 'Square feet completed per day',
+                  adminEditable: true
+                }
               },
               materialSettings: {
-                baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+                baseMaterialCost: {
+                  value: parseFloat(row.base_material_cost),
+                  unit: '$/sqft',
+                  label: 'Base Material Cost',
+                  description: 'Material cost per square foot',
+                  adminEditable: true
+                }
               },
               businessSettings: {
-                profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+                profitMarginTarget: {
+                  value: parseFloat(row.profit_margin),
+                  unit: 'percentage',
+                  label: 'Profit Margin Target',
+                  description: 'Target profit margin percentage',
+                  adminEditable: true
+                }
               }
             },
             variables: row.variables_config || {},
+            variables_config: row.variables_config || {},
             lastModified: new Date(row.updated_at).toISOString().split('T')[0]
           }));
 
@@ -463,44 +474,19 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
 
     // Update equipment costs
     if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
-      console.log('🔧 [UPDATE EQUIPMENT] Starting equipment cost updates:', {
-        updates: updates.equipmentCosts,
-        currentValues: {
-          handTools: updatedVariables.excavation.equipmentRequired.options.handTools?.value,
-          attachments: updatedVariables.excavation.equipmentRequired.options.attachments?.value,
-          lightMachinery: updatedVariables.excavation.equipmentRequired.options.lightMachinery?.value,
-          heavyMachinery: updatedVariables.excavation.equipmentRequired.options.heavyMachinery?.value,
-        }
-      });
-
       const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
       if (updates.equipmentCosts.handTools !== undefined) {
-        const oldValue = equipmentOptions.handTools.value;
         equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
-        console.log('🔧 [UPDATE EQUIPMENT] handTools:', oldValue, '→', updates.equipmentCosts.handTools);
       }
       if (updates.equipmentCosts.attachments !== undefined) {
-        const oldValue = equipmentOptions.attachments.value;
         equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
-        console.log('🔧 [UPDATE EQUIPMENT] attachments:', oldValue, '→', updates.equipmentCosts.attachments);
       }
       if (updates.equipmentCosts.lightMachinery !== undefined) {
-        const oldValue = equipmentOptions.lightMachinery.value;
         equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
-        console.log('🔧 [UPDATE EQUIPMENT] lightMachinery:', oldValue, '→', updates.equipmentCosts.lightMachinery);
       }
       if (updates.equipmentCosts.heavyMachinery !== undefined) {
-        const oldValue = equipmentOptions.heavyMachinery.value;
         equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
-        console.log('🔧 [UPDATE EQUIPMENT] heavyMachinery:', oldValue, '→', updates.equipmentCosts.heavyMachinery);
       }
-
-      console.log('🔧 [UPDATE EQUIPMENT] Updated values:', {
-        handTools: equipmentOptions.handTools?.value,
-        attachments: equipmentOptions.attachments?.value,
-        lightMachinery: equipmentOptions.lightMachinery?.value,
-        heavyMachinery: equipmentOptions.heavyMachinery?.value,
-      });
     }
 
     // Update cutting complexity
@@ -617,31 +603,74 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       }
     }
 
+    // ============================================================================
+    // GENERIC HANDLER: Process any JSONB category updates (for new service templates)
+    // ============================================================================
+    // This handles updates from all service template types:
+    // - calculationSettings (VOLUME_BASED_TEMPLATE)
+    // - dimensions, installation (LINEAR_MEASUREMENT_TEMPLATE)
+    // - labor, scheduling (SIMPLE_HOURLY_TEMPLATE)
+    // - Any future categories from new templates
+
+    const knownCategories = [
+      'equipmentCosts', 'cuttingComplexity', 'laborMultipliers',
+      'materialSettings', 'complexitySettings', 'obstacleSettings'
+    ];
+
+    Object.keys(updates).forEach(updateKey => {
+      // Skip if this is a known/handled category
+      if (knownCategories.includes(updateKey)) return;
+
+      const updateValue = updates[updateKey];
+      if (!updateValue || typeof updateValue !== 'object') return;
+
+      // Check if this category exists in the service's variables_config
+      if (!updatedVariables[updateKey]) {
+        updatedVariables[updateKey] = updateValue;
+        return;
+      }
+
+      // Deep merge: Update each variable's default value while preserving structure
+      Object.entries(updateValue).forEach(([varKey, varValue]: [string, any]) => {
+        // Skip metadata fields
+        if (['label', 'description'].includes(varKey)) return;
+
+        if (updatedVariables[updateKey][varKey]) {
+          // Variable exists, update its default value
+          if (typeof varValue === 'object' && 'default' in varValue) {
+            // Format: { default: value, ... } (from ExcavationSpecificsModal)
+            updatedVariables[updateKey][varKey] = {
+              ...updatedVariables[updateKey][varKey],
+              ...varValue
+            };
+          } else {
+            // Format: direct value (simple updates)
+            updatedVariables[updateKey][varKey] = {
+              ...updatedVariables[updateKey][varKey],
+              default: varValue
+            };
+          }
+        } else {
+          // New variable, add it
+          updatedVariables[updateKey][varKey] = varValue;
+        }
+      });
+    });
+
     const updatedService = {
       ...service,
       variables: updatedVariables,
+      variables_config: updatedVariables, // Also update variables_config for excavation & new services
       lastModified: new Date().toISOString().split('T')[0]
     };
 
-    // Save to Supabase using ServiceConfigManager
-    console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
-      serviceId,
-      hasCompanyId: !!companyId,
-      companyId,
-      hasUserId: !!userId,
-      userId,
-      hasVariables: !!updatedService.variables,
-      variableKeys: Object.keys(updatedService.variables || {})
-    });
-
     try {
       await serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId);
-      console.log('✅ [UPDATE VARIABLES] Save successful');
 
       // Update local state after successful save
       setServices(prev => prev.map(s => s.serviceId === serviceId ? updatedService : s));
     } catch (error) {
-      console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
+      console.error('Failed to save service variables:', error);
       alert('Failed to save service variables: ' + (error as Error).message);
       throw error;
     }
@@ -651,14 +680,11 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
     return services.find(service => service.serviceId === serviceId);
   }, [services]);
 
-  // NEW: Refresh services from Supabase (called when modal opens)
+  // Refresh services from Supabase (called when modal opens)
   const refreshServices = useCallback(async () => {
     if (!companyId) {
-      console.warn('⚠️ Cannot refresh without company_id');
       return;
     }
-
-    console.log('🔄 [SERVICES STORE] Refreshing services from Supabase');
 
     try {
       const supabase = getSupabase();
@@ -669,12 +695,21 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         .eq('is_active', true);
 
       if (fetchError) {
-        console.error('❌ [SERVICES STORE] Error refreshing from Supabase:', fetchError);
+        console.error('Error refreshing from Supabase:', fetchError);
         return;
       }
 
       if (data && data.length > 0) {
-        console.log(`✅ [SERVICES STORE] Refreshed ${data.length} services from Supabase`);
+        // Helper function to get service-specific units (same as above)
+        const getServiceSpecificUnit = (serviceName: string, settingType: string): string => {
+          if (serviceName === 'excavation_removal') {
+            if (settingType === 'hourlyLaborRate') return '$ per cubic yard';
+            if (settingType === 'baseProductivity') return 'cubic yards/day';
+          }
+          if (settingType === 'hourlyLaborRate') return '$/hour/person';
+          if (settingType === 'baseProductivity') return 'sqft/day';
+          return '$/sqft';
+        };
 
         // Convert Supabase rows to ServiceConfig format
         const supabaseServices = data.map(row => ({
@@ -683,18 +718,53 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           category: 'Hardscaping',
           baseSettings: {
             laborSettings: {
-              hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
-              optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
-              baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+              hourlyLaborRate: {
+                value: parseFloat(row.hourly_labor_rate),
+                unit: getServiceSpecificUnit(row.service_name, 'hourlyLaborRate'),
+                label: 'Base Rate',
+                description: row.service_name === 'excavation_removal'
+                  ? 'Price per cubic yard of material'
+                  : 'Hourly labor rate per person',
+                adminEditable: true
+              },
+              optimalTeamSize: {
+                value: row.optimal_team_size,
+                unit: 'people',
+                label: 'Optimal Team Size',
+                description: 'Recommended crew size for this service',
+                adminEditable: true
+              },
+              baseProductivity: {
+                value: parseFloat(row.base_productivity),
+                unit: getServiceSpecificUnit(row.service_name, 'baseProductivity'),
+                label: 'Base Productivity',
+                description: row.service_name === 'excavation_removal'
+                  ? 'Cubic yards processed per day'
+                  : 'Square feet completed per day',
+                adminEditable: true
+              }
             },
             materialSettings: {
-              baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+              baseMaterialCost: {
+                value: parseFloat(row.base_material_cost),
+                unit: '$/sqft',
+                label: 'Base Material Cost',
+                description: 'Material cost per square foot',
+                adminEditable: true
+              }
             },
             businessSettings: {
-              profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+              profitMarginTarget: {
+                value: parseFloat(row.profit_margin),
+                unit: 'percentage',
+                label: 'Profit Margin Target',
+                description: 'Target profit margin percentage',
+                adminEditable: true
+              }
             }
           },
           variables: row.variables_config || {},
+          variables_config: row.variables_config || {},
           lastModified: new Date(row.updated_at).toISOString().split('T')[0]
         }));
 

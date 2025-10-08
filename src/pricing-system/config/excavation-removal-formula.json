@@ -1,4 +1,15 @@
 {
+  "_comment": "⚠️ TEMPLATE/REFERENCE ONLY - NOT LOADED AT RUNTIME ⚠️",
+  "_notice": "This file serves as a TEMPLATE and DOCUMENTATION for the excavation service structure.",
+  "_usage": [
+    "This JSON file is NO LONGER loaded at runtime.",
+    "Excavation service configuration is stored in Supabase 'service_pricing_configs' table.",
+    "The runtime structure uses variables_config JSONB with calculationSettings category.",
+    "See: src/database/migrations/init-excavation-calculationSettings.sql for initialization.",
+    "This file may be used for seeding new companies or as developer reference only."
+  ],
+  "_deprecated_structure": "The 'variables' structure below is from the old system and is no longer used.",
+
   "service": "Excavation & Debris Removal",
   "serviceId": "excavation_removal",
   "category": "Excavation",
