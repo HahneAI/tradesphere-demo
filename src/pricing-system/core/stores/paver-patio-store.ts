@@ -338,11 +338,37 @@ const calculateLegacyFallback = (
   return calculateExpertPricing(actualConfig, values, sqft);
 };
 
+// Load sqft from localStorage
+const loadStoredSqft = (): number => {
+  try {
+    const stored = localStorage.getItem('paverPatioSqft');
+    if (stored) {
+      const parsedSqft = parseFloat(stored);
+      if (!isNaN(parsedSqft) && parsedSqft > 0) {
+        console.log('🔍 [PAVER PATIO STORE] Loaded sqft from localStorage:', parsedSqft);
+        return parsedSqft;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load stored sqft:', error);
+  }
+  return 100; // Default
+};
+
+// Save sqft to localStorage
+const saveStoredSqft = (sqft: number) => {
+  try {
+    localStorage.setItem('paverPatioSqft', sqft.toString());
+  } catch (error) {
+    console.warn('Failed to save sqft:', error);
+  }
+};
+
 // Custom hook for paver patio store
 export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   const [config, setConfig] = useState<PaverPatioConfig | null>(null);
   const [values, setValues] = useState<PaverPatioValues>({} as PaverPatioValues);
-  const [sqft, setSqft] = useState<number>(100); // Track current square footage
+  const [sqft, setSqft] = useState<number>(loadStoredSqft()); // Load from localStorage
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastCalculation, setLastCalculation] = useState<PaverPatioCalculationResult | null>(null);
@@ -540,6 +566,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
     // Update stored sqft so variable changes use this value
     setSqft(inputSqft);
+    saveStoredSqft(inputSqft); // Persist to localStorage
 
     console.log('🔍 [DEBUG] Calculating price with values:', {
       sqft: inputSqft,
