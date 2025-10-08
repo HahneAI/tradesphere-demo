@@ -345,27 +345,35 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           console.log(`✅ [SERVICES STORE] Loaded ${data.length} services from Supabase`);
 
           // Convert Supabase rows to ServiceConfig format
-          const supabaseServices = data.map(row => ({
-            service: row.service_name,
-            serviceId: row.service_name,
-            category: 'Hardscaping', // Could be stored in DB if needed
-            baseSettings: {
-              laborSettings: {
-                hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
-                optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
-                baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+          const supabaseServices = data.map(row => {
+            console.log(`🔍 [SERVICES STORE] Processing service: ${row.service_name}`, {
+              hasVariablesConfig: !!row.variables_config,
+              variablesConfigKeys: row.variables_config ? Object.keys(row.variables_config) : [],
+              calculationSettings: row.variables_config?.calculationSettings,
+            });
+
+            return {
+              service: row.service_name,
+              serviceId: row.service_name,
+              category: 'Hardscaping', // Could be stored in DB if needed
+              baseSettings: {
+                laborSettings: {
+                  hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
+                  optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
+                  baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+                },
+                materialSettings: {
+                  baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+                },
+                businessSettings: {
+                  profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+                }
               },
-              materialSettings: {
-                baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
-              },
-              businessSettings: {
-                profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
-              }
-            },
-            variables: row.variables_config || {},
-            variables_config: row.variables_config || {},
-            lastModified: new Date(row.updated_at).toISOString().split('T')[0]
-          }));
+              variables: row.variables_config || {},
+              variables_config: row.variables_config || {},
+              lastModified: new Date(row.updated_at).toISOString().split('T')[0]
+            };
+          });
 
           setServices(supabaseServices);
           setError(null);
@@ -687,6 +695,16 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       lastModified: new Date().toISOString().split('T')[0]
     };
 
+    console.log('📦 [UPDATE VARIABLES] Built updated service object:', {
+      serviceId,
+      hasVariables: !!updatedService.variables,
+      hasVariablesConfig: !!updatedService.variables_config,
+      variablesKeys: Object.keys(updatedService.variables || {}),
+      variablesConfigKeys: Object.keys(updatedService.variables_config || {}),
+      calculationSettings: updatedService.variables_config?.calculationSettings,
+      areBothSame: updatedService.variables === updatedService.variables_config,
+    });
+
     // Save to Supabase using ServiceConfigManager
     console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
       serviceId,
@@ -703,7 +721,17 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       console.log('✅ [UPDATE VARIABLES] Save successful');
 
       // Update local state after successful save
-      setServices(prev => prev.map(s => s.serviceId === serviceId ? updatedService : s));
+      setServices(prev => {
+        const updated = prev.map(s => s.serviceId === serviceId ? updatedService : s);
+        const updatedExcavation = updated.find(s => s.serviceId === serviceId);
+        console.log('🔄 [UPDATE VARIABLES] Local state updated:', {
+          found: !!updatedExcavation,
+          hasVariables: !!updatedExcavation?.variables,
+          hasVariablesConfig: !!updatedExcavation?.variables_config,
+          calculationSettings: updatedExcavation?.variables_config?.calculationSettings,
+        });
+        return updated;
+      });
     } catch (error) {
       console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
       alert('Failed to save service variables: ' + (error as Error).message);

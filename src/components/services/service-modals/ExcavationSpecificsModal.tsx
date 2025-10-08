@@ -61,23 +61,40 @@ export const ExcavationSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     console.log('🔍 [EXCAVATION MODAL] Service retrieved:', {
       found: !!svc,
       serviceId,
+      hasVariables: !!svc?.variables,
+      hasVariablesConfig: !!svc?.variables_config,
       hasCalculationSettings: !!svc?.variables_config?.calculationSettings,
+      variablesKeys: svc?.variables ? Object.keys(svc.variables) : [],
+      variablesConfigKeys: svc?.variables_config ? Object.keys(svc.variables_config) : [],
+      calculationSettingsData: svc?.variables_config?.calculationSettings,
     });
     return svc;
   }, [getService, serviceId, services]);
 
   // Load values from variables_config.calculationSettings
   useEffect(() => {
+    console.log('🔄 [EXCAVATION MODAL] Load effect triggered:', {
+      isRefreshing,
+      hasService: !!service,
+      hasVariablesConfig: !!service?.variables_config,
+      hasCalculationSettings: !!service?.variables_config?.calculationSettings,
+    });
+
     if (!isRefreshing && service?.variables_config?.calculationSettings) {
       const settings = service.variables_config.calculationSettings;
-      console.log('📝 [EXCAVATION MODAL] Loading calculationSettings:', settings);
+      console.log('📝 [EXCAVATION MODAL] Loading calculationSettings from service:', settings);
 
-      setCalculationSettings({
+      const newSettings = {
         defaultDepth: settings.defaultDepth?.default ?? 12,
         wasteFactor: settings.wasteFactor?.default ?? 10,
         compactionFactor: settings.compactionFactor?.default ?? 0,
         roundingRule: settings.roundingRule?.default ?? 'up_whole',
-      });
+      };
+
+      console.log('✅ [EXCAVATION MODAL] Setting state to:', newSettings);
+      setCalculationSettings(newSettings);
+    } else {
+      console.log('⚠️ [EXCAVATION MODAL] NOT loading settings - conditions not met');
     }
   }, [service, isRefreshing]);
 
