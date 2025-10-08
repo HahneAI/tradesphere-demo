@@ -19,7 +19,7 @@ SET variables_config = '{
       "type": "number",
       "label": "Default Excavation Depth",
       "description": "Standard excavation depth for most jobs",
-      "default": 12,
+      "default": 11,
       "min": 1,
       "max": 36,
       "unit": "inches",
