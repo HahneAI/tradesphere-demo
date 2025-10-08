@@ -36,14 +36,15 @@ const loadStoredValues = (config: ExcavationConfig | null): ExcavationValues => 
       console.log('🔍 [EXCAVATION STORE] loadStoredValues:', {
         storedValues: parsedValues,
         defaultsFromDB: defaults,
-        willUseStored: !!parsedValues.depth_inches,
+        usingStoredArea: !!parsedValues.area_sqft,
+        usingDBDefaultDepth: true,
         storedDepth: parsedValues.depth_inches,
-        defaultDepth: defaults.depth_inches
+        defaultDepthFromDB: defaults.depth_inches
       });
 
       return {
         area_sqft: parsedValues.area_sqft || defaults.area_sqft,
-        depth_inches: parsedValues.depth_inches || defaults.depth_inches
+        depth_inches: defaults.depth_inches  // Always use DB default, never localStorage
       };
     }
 
