@@ -120,25 +120,13 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
       {/* Background Overlay */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50 animate-overlay-fade-in"
-        onClick={() => {
-          // Reset to defaults when closing via overlay click
-          if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
-            paverPatioStore.resetToDefaults100();
-          }
-          onClose();
-        }}
+        onClick={onClose}
       />
 
       {/* Modal Container */}
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        onClick={() => {
-          // Reset to defaults when closing via background click
-          if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
-            paverPatioStore.resetToDefaults100();
-          }
-          onClose();
-        }}
+        onClick={onClose}
       >
         <div
           className="w-full max-w-6xl h-[90vh] bg-white rounded-lg shadow-xl animate-scale-in flex flex-col"
@@ -171,13 +159,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
               </select>
             </div>
             <button
-              onClick={() => {
-                // Reset to defaults when closing via X button
-                if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
-                  paverPatioStore.resetToDefaults100();
-                }
-                onClose();
-              }}
+              onClick={onClose}
               className="p-1 rounded-lg hover:bg-opacity-20 transition-colors"
               style={{ color: visualConfig.colors.text.secondary }}
             >

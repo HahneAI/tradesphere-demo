@@ -259,7 +259,9 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
   const reloadConfig = useCallback(async () => {
     setIsLoading(true);
     try {
-      const freshConfig = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
+      // CRITICAL: Force fresh config load to bypass cache and get latest database defaults
+      // This ensures edited defaults (like depth) show immediately without hard refresh
+      const freshConfig = await masterPricingEngine.forceReloadFromDatabase('excavation_removal', companyId) as any;
       setConfig(freshConfig);
     } catch (err) {
       console.error('Failed to reload config:', err);
