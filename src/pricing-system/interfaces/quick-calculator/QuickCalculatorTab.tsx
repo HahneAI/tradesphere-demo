@@ -10,6 +10,7 @@ import { usePaverPatioStore } from '../../core/stores/paver-patio-store';
 import { useExcavationStore } from '../../core/stores/excavation-store';
 import { SERVICE_REGISTRY, ServiceId } from '../../config/service-registry';
 import { masterPricingEngine } from '../../core/calculations/master-pricing-engine';
+import { ServiceSelectionScreen } from './ServiceSelectionScreen';
 
 interface QuickCalculatorTabProps {
   isOpen: boolean;
@@ -20,14 +21,35 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
-  const [selectedService, setSelectedService] = useState<ServiceId>('paver_patio_sqft');
+  const [selectedService, setSelectedService] = useState<ServiceId | null>(null);
+  const [showSelectionScreen, setShowSelectionScreen] = useState(true);
   const paverPatioStore = usePaverPatioStore(user?.company_id || '');
   const excavationStore = useExcavationStore(user?.company_id || '');
 
+  // Reset to selection screen when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setShowSelectionScreen(true);
+      setSelectedService(null);
+    }
+  }, [isOpen]);
+
+  // Handle service selection from front menu
+  const handleServiceSelect = (serviceId: ServiceId) => {
+    setSelectedService(serviceId);
+    setShowSelectionScreen(false);
+  };
+
+  // Handle back to selection screen
+  const handleBackToSelection = () => {
+    setShowSelectionScreen(true);
+    setSelectedService(null);
+  };
+
   // REAL-TIME SUBSCRIPTION MANAGEMENT - Lifecycle tied to modal open/close
   useEffect(() => {
-    // Only run when modal is actually open AND user is authenticated
-    if (!isOpen || !user?.company_id) {
+    // Only run when modal is actually open AND user is authenticated AND service is selected
+    if (!isOpen || !user?.company_id || !selectedService) {
       return;
     }
 
@@ -121,26 +143,40 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
           <div className="flex items-center justify-between p-6 border-b flex-shrink-0"
                style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
             <div className="flex items-center gap-4">
+              {/* Back Button (only show when on a specific service) */}
+              {!showSelectionScreen && (
+                <button
+                  onClick={handleBackToSelection}
+                  className="p-1 rounded-lg hover:bg-opacity-20 transition-colors"
+                  style={{ color: visualConfig.colors.text.secondary }}
+                >
+                  <Icons.ArrowLeft className="h-5 w-5" />
+                </button>
+              )}
+
               <h2 className="text-xl font-semibold" style={{ color: visualConfig.colors.text.primary }}>
                 Quick Calculator
               </h2>
-              {/* Service Selector */}
-              <select
-                value={selectedService}
-                onChange={(e) => setSelectedService(e.target.value as ServiceId)}
-                className="px-4 py-2 rounded-lg border transition-colors"
-                style={{
-                  backgroundColor: visualConfig.colors.surface,
-                  color: visualConfig.colors.text.primary,
-                  borderColor: theme === 'light' ? '#e5e7eb' : '#374151'
-                }}
-              >
-                {Object.entries(SERVICE_REGISTRY).map(([key, service]) => (
-                  <option key={key} value={key}>
-                    {service.displayName}
-                  </option>
-                ))}
-              </select>
+
+              {/* Service Selector (only show when NOT on selection screen) */}
+              {!showSelectionScreen && selectedService && (
+                <select
+                  value={selectedService}
+                  onChange={(e) => handleServiceSelect(e.target.value as ServiceId)}
+                  className="px-4 py-2 rounded-lg border transition-colors"
+                  style={{
+                    backgroundColor: visualConfig.colors.surface,
+                    color: visualConfig.colors.text.primary,
+                    borderColor: theme === 'light' ? '#e5e7eb' : '#374151'
+                  }}
+                >
+                  {Object.entries(SERVICE_REGISTRY).map(([key, service]) => (
+                    <option key={key} value={key}>
+                      {service.displayName}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -154,31 +190,42 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
           {/* Modal Body */}
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Main Content Area */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* Render Service-Specific Interface */}
-              {selectedService === 'paver_patio_sqft' && (
-                <PaverPatioManager
+            <div className="flex-1 overflow-y-auto">
+              {/* Show Selection Screen OR Service-Specific Interface */}
+              {showSelectionScreen ? (
+                <ServiceSelectionScreen
+                  onSelectService={handleServiceSelect}
                   visualConfig={visualConfig}
                   theme={theme}
-                  store={paverPatioStore}
                 />
-              )}
-              {selectedService === 'excavation_removal' && (
-                <ExcavationManager
-                  visualConfig={visualConfig}
-                  theme={theme}
-                  store={excavationStore}
-                />
-              )}
-              {selectedService !== 'paver_patio_sqft' && selectedService !== 'excavation_removal' && (
-                <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <Icons.Construction className="h-16 w-16" style={{ color: visualConfig.colors.text.secondary }} />
-                  <p className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                    {SERVICE_REGISTRY[selectedService].displayName}
-                  </p>
-                  <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-                    Calculator interface coming soon
-                  </p>
+              ) : (
+                <div className="p-6">
+                  {/* Render Service-Specific Interface */}
+                  {selectedService === 'paver_patio_sqft' && (
+                    <PaverPatioManager
+                      visualConfig={visualConfig}
+                      theme={theme}
+                      store={paverPatioStore}
+                    />
+                  )}
+                  {selectedService === 'excavation_removal' && (
+                    <ExcavationManager
+                      visualConfig={visualConfig}
+                      theme={theme}
+                      store={excavationStore}
+                    />
+                  )}
+                  {selectedService !== 'paver_patio_sqft' && selectedService !== 'excavation_removal' && selectedService && (
+                    <div className="flex flex-col items-center justify-center h-full gap-4">
+                      <Icons.Construction className="h-16 w-16" style={{ color: visualConfig.colors.text.secondary }} />
+                      <p className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                        {SERVICE_REGISTRY[selectedService].displayName}
+                      </p>
+                      <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                        Calculator interface coming soon
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
