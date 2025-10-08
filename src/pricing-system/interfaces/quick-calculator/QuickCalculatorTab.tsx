@@ -23,22 +23,6 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
   const [selectedService, setSelectedService] = useState<ServiceId>('paver_patio_sqft');
   const paverPatioStore = usePaverPatioStore(user?.company_id || '');
   const excavationStore = useExcavationStore(user?.company_id || '');
-  const hasReset = useRef(false);
-
-  // Reset to defaults when opening (prevent infinite loop by using useRef)
-  useEffect(() => {
-    if (isOpen && !hasReset.current) {
-      // Reset paver patio if selected
-      if (selectedService === 'paver_patio_sqft' && paverPatioStore.resetToDefaults100) {
-        paverPatioStore.resetToDefaults100();
-      }
-      hasReset.current = true;
-    }
-
-    if (!isOpen) {
-      hasReset.current = false; // Reset flag when closing
-    }
-  }, [isOpen, selectedService]); // Remove stores from deps to prevent loop
 
   // REAL-TIME SUBSCRIPTION MANAGEMENT - Lifecycle tied to modal open/close
   useEffect(() => {

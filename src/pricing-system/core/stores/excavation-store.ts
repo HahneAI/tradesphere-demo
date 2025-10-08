@@ -204,6 +204,14 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
 
     const recalculate = async () => {
       try {
+        // CRITICAL: When config changes, reload depth from new config defaults
+        // This ensures edited defaults (like depth) show immediately via real-time subscription
+        const newDefaults = getDefaultValues(config);
+        setValues(prev => ({
+          ...prev,
+          depth_inches: newDefaults.depth_inches // Update depth from new config, preserve area_sqft
+        }));
+
         const calculation = await calculatePrice(config, values, companyId);
         setLastCalculation(calculation);
       } catch (error) {
