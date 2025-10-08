@@ -483,22 +483,22 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     }
   }, [config, values, sqft]);
 
-  // Reset all values to defaults
+  // Reset all values to defaults (keeps current sqft)
   const resetToDefaults = useCallback(async () => {
     if (!config) return;
 
     const defaultValues = getDefaultValues(config);
     setValues(defaultValues);
     saveStoredValues(defaultValues);
-    setSqft(100); // Reset sqft to 100 when resetting to defaults
+    // Keep current sqft - only reset variables
 
     try {
-      const calculation = await calculatePrice(config, defaultValues, 100, companyId);
+      const calculation = await calculatePrice(config, defaultValues, sqft, companyId);
       setLastCalculation(calculation);
     } catch (error) {
       console.error('Failed to calculate price after reset:', error);
     }
-  }, [config]);
+  }, [config, sqft, companyId]);
 
   // Reset to defaults and set square footage to 100 (for Quick Calculator)
   const resetToDefaults100 = useCallback(async () => {
