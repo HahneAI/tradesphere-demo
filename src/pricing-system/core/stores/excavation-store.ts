@@ -123,16 +123,18 @@ const calculateLocalFallback = (
     cy_final = Math.ceil(cy_adjusted * 2) / 2;
   }
 
-  // Calculate labor hours (progressive formula)
-  let total_hours = 0;
-  if (area_sqft <= 1000) {
-    total_hours = Math.ceil(area_sqft / 100) * 12;
-  } else {
-    total_hours = (10 * 12) + Math.ceil((area_sqft - 1000) / 100) * 24;
-  }
+  // Calculate project duration using base_productivity (PRODUCTIVITY-BASED FORMULA)
+  const baseProductivity = config?.base_productivity ?? 25;  // yd³/day from database
+  const projectDays = cy_final / baseProductivity;
 
-  const crew_hours = total_hours / teamSize;
-  const project_days = Math.ceil(crew_hours / 8);
+  // Calculate calendar hours and crew-hours
+  const calendarHours = projectDays * 8;  // 8-hour workday
+  const totalCrewHours = calendarHours * teamSize;
+
+  // For display and backwards compatibility
+  const total_hours = totalCrewHours;  // Total man-hours
+  const crew_hours = calendarHours;    // Hours per person
+  const project_days = Math.ceil(projectDays);  // Business days (rounded up)
 
   // Calculate costs
   const base_cost = cy_final * baseRate;

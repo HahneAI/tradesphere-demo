@@ -76,6 +76,11 @@ export const AdminEditableField: React.FC<AdminEditableFieldProps> = ({
   };
 
   const formatDisplayValue = (val: number) => {
+    // Handle zero material cost - show em dash instead of $0.00
+    if (val === 0 && unit === '$/sqft') {
+      return '—';  // Em dash
+    }
+
     if (unit === 'percentage') {
       return `${(val * 100).toFixed(0)}%`;
     }
@@ -90,6 +95,13 @@ export const AdminEditableField: React.FC<AdminEditableFieldProps> = ({
     }
     if (unit === '$/hour/person') {
       return `$${val.toFixed(0)}/hr/person`;
+    }
+    // Excavation-specific units
+    if (unit === '$ per cubic yard') {
+      return `$${val.toFixed(0)} per yd³`;
+    }
+    if (unit === 'cubic yards/day') {
+      return `${val.toFixed(0)} yd³/day`;
     }
     if (unit === 'people') {
       return `${val.toFixed(0)} ${unit}`;

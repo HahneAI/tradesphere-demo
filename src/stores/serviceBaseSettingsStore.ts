@@ -306,6 +306,18 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         }
 
         if (data && data.length > 0) {
+          // Helper function to get service-specific units
+          const getServiceSpecificUnit = (serviceName: string, settingType: string): string => {
+            if (serviceName === 'excavation_removal') {
+              if (settingType === 'hourlyLaborRate') return '$ per cubic yard';
+              if (settingType === 'baseProductivity') return 'cubic yards/day';
+            }
+            // Default units for other services
+            if (settingType === 'hourlyLaborRate') return '$/hour/person';
+            if (settingType === 'baseProductivity') return 'sqft/day';
+            return '$/sqft';  // Material cost default
+          };
+
           // Convert Supabase rows to ServiceConfig format
           const supabaseServices = data.map(row => ({
             service: row.service_name,
@@ -313,15 +325,49 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
             category: 'Hardscaping', // Could be stored in DB if needed
             baseSettings: {
               laborSettings: {
-                hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
-                optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
-                baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+                hourlyLaborRate: {
+                  value: parseFloat(row.hourly_labor_rate),
+                  unit: getServiceSpecificUnit(row.service_name, 'hourlyLaborRate'),
+                  label: 'Base Rate',
+                  description: row.service_name === 'excavation_removal'
+                    ? 'Price per cubic yard of material'
+                    : 'Hourly labor rate per person',
+                  adminEditable: true
+                },
+                optimalTeamSize: {
+                  value: row.optimal_team_size,
+                  unit: 'people',
+                  label: 'Optimal Team Size',
+                  description: 'Recommended crew size for this service',
+                  adminEditable: true
+                },
+                baseProductivity: {
+                  value: parseFloat(row.base_productivity),
+                  unit: getServiceSpecificUnit(row.service_name, 'baseProductivity'),
+                  label: 'Base Productivity',
+                  description: row.service_name === 'excavation_removal'
+                    ? 'Cubic yards processed per day'
+                    : 'Square feet completed per day',
+                  adminEditable: true
+                }
               },
               materialSettings: {
-                baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+                baseMaterialCost: {
+                  value: parseFloat(row.base_material_cost),
+                  unit: '$/sqft',
+                  label: 'Base Material Cost',
+                  description: 'Material cost per square foot',
+                  adminEditable: true
+                }
               },
               businessSettings: {
-                profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+                profitMarginTarget: {
+                  value: parseFloat(row.profit_margin),
+                  unit: 'percentage',
+                  label: 'Profit Margin Target',
+                  description: 'Target profit margin percentage',
+                  adminEditable: true
+                }
               }
             },
             variables: row.variables_config || {},
@@ -654,6 +700,16 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       }
 
       if (data && data.length > 0) {
+        // Helper function to get service-specific units (same as above)
+        const getServiceSpecificUnit = (serviceName: string, settingType: string): string => {
+          if (serviceName === 'excavation_removal') {
+            if (settingType === 'hourlyLaborRate') return '$ per cubic yard';
+            if (settingType === 'baseProductivity') return 'cubic yards/day';
+          }
+          if (settingType === 'hourlyLaborRate') return '$/hour/person';
+          if (settingType === 'baseProductivity') return 'sqft/day';
+          return '$/sqft';
+        };
 
         // Convert Supabase rows to ServiceConfig format
         const supabaseServices = data.map(row => ({
@@ -662,15 +718,49 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           category: 'Hardscaping',
           baseSettings: {
             laborSettings: {
-              hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
-              optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
-              baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
+              hourlyLaborRate: {
+                value: parseFloat(row.hourly_labor_rate),
+                unit: getServiceSpecificUnit(row.service_name, 'hourlyLaborRate'),
+                label: 'Base Rate',
+                description: row.service_name === 'excavation_removal'
+                  ? 'Price per cubic yard of material'
+                  : 'Hourly labor rate per person',
+                adminEditable: true
+              },
+              optimalTeamSize: {
+                value: row.optimal_team_size,
+                unit: 'people',
+                label: 'Optimal Team Size',
+                description: 'Recommended crew size for this service',
+                adminEditable: true
+              },
+              baseProductivity: {
+                value: parseFloat(row.base_productivity),
+                unit: getServiceSpecificUnit(row.service_name, 'baseProductivity'),
+                label: 'Base Productivity',
+                description: row.service_name === 'excavation_removal'
+                  ? 'Cubic yards processed per day'
+                  : 'Square feet completed per day',
+                adminEditable: true
+              }
             },
             materialSettings: {
-              baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+              baseMaterialCost: {
+                value: parseFloat(row.base_material_cost),
+                unit: '$/sqft',
+                label: 'Base Material Cost',
+                description: 'Material cost per square foot',
+                adminEditable: true
+              }
             },
             businessSettings: {
-              profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+              profitMarginTarget: {
+                value: parseFloat(row.profit_margin),
+                unit: 'percentage',
+                label: 'Profit Margin Target',
+                description: 'Target profit margin percentage',
+                adminEditable: true
+              }
             }
           },
           variables: row.variables_config || {},

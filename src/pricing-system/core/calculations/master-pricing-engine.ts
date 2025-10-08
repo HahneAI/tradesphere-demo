@@ -669,21 +669,18 @@ export class MasterPricingEngine {
     }
     // 'exact' means no rounding
 
-    // STEP 4: Calculate labor hours (progressive formula)
-    let total_hours = 0;
-    if (area_sqft <= 1000) {
-      // Zone 1: 12 hours per 100 sq ft
-      total_hours = Math.ceil(area_sqft / 100) * 12;
-    } else {
-      // Zone 1: First 1000 sq ft at 12 hrs/100 sq ft
-      total_hours = 10 * 12;  // 120 hours
-      // Zone 2: Everything past 1000 sq ft at 24 hrs/100 sq ft
-      const remaining_sq_ft = area_sqft - 1000;
-      total_hours += Math.ceil(remaining_sq_ft / 100) * 24;
-    }
+    // STEP 4: Calculate project duration using base_productivity (PRODUCTIVITY-BASED FORMULA)
+    const baseProductivity = config?.base_productivity ?? 25;  // yd³/day from database
+    const projectDays = cy_final / baseProductivity;
 
-    const crew_hours = total_hours / teamSize;
-    const project_days = Math.ceil(crew_hours / 8);
+    // STEP 5: Calculate calendar hours and crew-hours
+    const calendarHours = projectDays * 8;  // 8-hour workday
+    const totalCrewHours = calendarHours * teamSize;
+
+    // For display and backwards compatibility
+    const total_hours = totalCrewHours;  // Total man-hours
+    const crew_hours = calendarHours;    // Hours per person
+    const project_days = Math.ceil(projectDays);  // Business days (rounded up)
 
     // STEP 5: Calculate costs (simple formula - NO multipliers)
     const base_cost = cy_final * baseRate;
