@@ -43,58 +43,32 @@ export const ExcavationSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
     roundingRule: 'up_whole',
   });
 
-  // CRITICAL FIX: Refresh services from Supabase when modal opens with loading state
+  // Refresh services from Supabase when modal opens
   useEffect(() => {
     if (isOpen) {
-      console.log('🔄 [EXCAVATION MODAL] Modal opened, forcing fresh load from database');
       setIsRefreshing(true);
       refreshServices().then(() => {
-        console.log('✅ [EXCAVATION MODAL] Fresh data loaded from database');
         setIsRefreshing(false);
       });
     }
   }, [isOpen, refreshServices]);
 
-  // Use useMemo to ensure proper reactivity when services state updates
+  // Get service config
   const service = useMemo(() => {
-    const svc = getService(serviceId);
-    console.log('🔍 [EXCAVATION MODAL] Service retrieved:', {
-      found: !!svc,
-      serviceId,
-      hasVariables: !!svc?.variables,
-      hasVariablesConfig: !!svc?.variables_config,
-      hasCalculationSettings: !!svc?.variables_config?.calculationSettings,
-      variablesKeys: svc?.variables ? Object.keys(svc.variables) : [],
-      variablesConfigKeys: svc?.variables_config ? Object.keys(svc.variables_config) : [],
-      calculationSettingsData: svc?.variables_config?.calculationSettings,
-    });
-    return svc;
+    return getService(serviceId);
   }, [getService, serviceId, services]);
 
   // Load values from variables_config.calculationSettings
   useEffect(() => {
-    console.log('🔄 [EXCAVATION MODAL] Load effect triggered:', {
-      isRefreshing,
-      hasService: !!service,
-      hasVariablesConfig: !!service?.variables_config,
-      hasCalculationSettings: !!service?.variables_config?.calculationSettings,
-    });
-
     if (!isRefreshing && service?.variables_config?.calculationSettings) {
       const settings = service.variables_config.calculationSettings;
-      console.log('📝 [EXCAVATION MODAL] Loading calculationSettings from service:', settings);
 
-      const newSettings = {
+      setCalculationSettings({
         defaultDepth: settings.defaultDepth?.default ?? 12,
         wasteFactor: settings.wasteFactor?.default ?? 10,
         compactionFactor: settings.compactionFactor?.default ?? 0,
         roundingRule: settings.roundingRule?.default ?? 'up_whole',
-      };
-
-      console.log('✅ [EXCAVATION MODAL] Setting state to:', newSettings);
-      setCalculationSettings(newSettings);
-    } else {
-      console.log('⚠️ [EXCAVATION MODAL] NOT loading settings - conditions not met');
+      });
     }
   }, [service, isRefreshing]);
 
@@ -111,8 +85,6 @@ export const ExcavationSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
 
   const handleSave = () => {
     try {
-      console.log('💾 [EXCAVATION MODAL] Saving calculationSettings:', calculationSettings);
-
       // Update the variables_config with new calculationSettings values
       updateServiceVariables(serviceId, {
         calculationSettings: {
@@ -135,11 +107,10 @@ export const ExcavationSpecificsModal: React.FC<ServiceSpecificsModalProps> = ({
         },
       });
 
-      console.log('✅ [EXCAVATION MODAL] Calculation settings saved successfully');
       setHasUnsavedChanges(false);
       onClose();
     } catch (error) {
-      console.error('❌ [EXCAVATION MODAL] Failed to save:', error);
+      console.error('Failed to save configuration:', error);
       alert('Failed to save configuration. Please try again.');
     }
   };

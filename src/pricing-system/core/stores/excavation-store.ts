@@ -52,8 +52,6 @@ const calculatePrice = async (
   values: ExcavationValues,
   companyId?: string
 ): Promise<ExcavationCalculationResult> => {
-  console.log('🚀 [EXCAVATION STORE] Calculating excavation pricing');
-
   try {
     // Use master pricing engine for excavation calculation
     const result = await masterPricingEngine.calculateExcavationPricing(
@@ -64,16 +62,9 @@ const calculatePrice = async (
       companyId
     );
 
-    console.log('✅ [EXCAVATION STORE] Calculation complete:', {
-      total: result.total_cost,
-      cubic_yards: result.cubic_yards_final,
-      source: 'Master Pricing Engine + Live Supabase'
-    });
-
     return result;
   } catch (error) {
-    console.error('❌ [EXCAVATION STORE] Calculation failed:', error);
-
+    console.error('Excavation calculation failed:', error);
     // Fallback to local calculation
     return calculateLocalFallback(config, values);
   }
@@ -84,7 +75,6 @@ const calculateLocalFallback = (
   config: ExcavationConfig | null,
   values: ExcavationValues
 ): ExcavationCalculationResult => {
-  console.warn('🔄 [FALLBACK] Using local excavation calculation');
 
   const { area_sqft, depth_inches } = values;
 
@@ -158,7 +148,6 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
   // Load configuration from Supabase
   const loadConfig = useCallback(async () => {
     if (!companyId || companyId.trim() === '') {
-      console.error('❌ [EXCAVATION STORE] Cannot load config without company_id');
       setError('User company data not available');
       setIsLoading(false);
       return;
@@ -167,8 +156,6 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
     try {
       setIsLoading(true);
       setError(null);
-
-      console.log('🚀 [EXCAVATION STORE] Loading configuration from Supabase', { companyId });
 
       // Load live configuration from master pricing engine
       const configData = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
@@ -181,8 +168,6 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
       // Calculate initial price
       const calculation = await calculatePrice(configData, initialValues, companyId);
       setLastCalculation(calculation);
-
-      console.log('✅ [EXCAVATION STORE] Configuration loaded from Supabase');
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load configuration';
@@ -197,15 +182,12 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
   useEffect(() => {
     if (!config || !companyId) return;
 
-    console.log('🔄 [EXCAVATION STORE] Config changed, recalculating');
-
     const recalculate = async () => {
       try {
         const calculation = await calculatePrice(config, values, companyId);
         setLastCalculation(calculation);
-        console.log('✅ [EXCAVATION STORE] Recalculation complete');
       } catch (error) {
-        console.error('❌ [EXCAVATION STORE] Failed to recalculate:', error);
+        console.error('Failed to recalculate:', error);
       }
     };
 
@@ -255,14 +237,12 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
 
   // Manual reload for when modal opens
   const reloadConfig = useCallback(async () => {
-    console.log('🔄 [EXCAVATION STORE] Manually reloading config from Supabase');
     setIsLoading(true);
     try {
       const freshConfig = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
       setConfig(freshConfig);
-      console.log('✅ [EXCAVATION STORE] Config reloaded successfully');
     } catch (err) {
-      console.error('❌ [EXCAVATION STORE] Failed to reload config:', err);
+      console.error('Failed to reload config:', err);
       setError('Failed to reload configuration');
     } finally {
       setIsLoading(false);
@@ -272,7 +252,6 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
   // Load config on mount
   useEffect(() => {
     if (companyId && companyId.trim() !== '') {
-      console.log('🔍 [EXCAVATION STORE] Loading initial config on mount');
       loadConfig();
     }
   }, [companyId, loadConfig]);

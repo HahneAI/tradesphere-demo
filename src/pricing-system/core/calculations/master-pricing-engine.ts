@@ -650,18 +650,7 @@ export class MasterPricingEngine {
     const profitMargin = config?.profit_margin ?? 0.05;
     const teamSize = config?.optimal_team_size ?? 3;
 
-    console.log('🚀 [MASTER ENGINE] Excavation calculation:', {
-      area_sqft,
-      depth_inches,
-      wasteFactor,
-      compactionFactor,
-      roundingRule,
-      baseRate,
-      profitMargin,
-      teamSize
-    });
-
-    // STEP 1: Calculate cubic yards
+    // Calculate cubic yards
     const depth_ft = depth_inches / 12;
     const cubic_feet = area_sqft * depth_ft;
     const cy_raw = cubic_feet / 27;

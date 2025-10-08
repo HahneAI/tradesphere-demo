@@ -1,21 +1,43 @@
 /**
  * ============================================================================
- * SERVICE MODAL TEMPLATE
+ * SERVICE MODAL TEMPLATE - UPDATED FOR STANDARDIZED JSONB
  * ============================================================================
  *
- * COPY THIS FILE when creating a new custom service modal.
- * Replace [SERVICE_NAME] with your actual service name (e.g., "LawnMowing").
- * Update variables_config reading logic to match your JSONB structure.
+ * ⚠️ IMPORTANT: Most services should use DynamicServiceModal instead!
  *
- * WHEN TO USE THIS TEMPLATE:
- * - You want a highly optimized, service-specific modal UI
- * - You need custom layouts beyond what GenericVariableRenderer provides
- * - Your service has complex variable interactions or validations
+ * DynamicServiceModal automatically:
+ * - Reads standardized JSONB variables_config structure
+ * - Creates tabs for multi-category services (labor, materials, etc.)
+ * - Renders all variable types (number, select, slider, toggle)
+ * - Handles save/cancel with proper change tracking
  *
- * WHEN TO USE GenericServiceModal INSTEAD:
- * - Your service follows standard JSONB structure
- * - You want quick setup without custom code
- * - Generic input rendering is sufficient for your needs
+ * ONLY USE THIS TEMPLATE IF:
+ * - You need HIGHLY custom UI that DynamicServiceModal cannot provide
+ * - You have complex variable interactions requiring custom logic
+ * - You need specialized validation or conditional rendering
+ *
+ * FOR STANDARD SERVICES:
+ * 1. Define your JSONB structure in Supabase with standardized format
+ * 2. Add service_id to DynamicServiceModal router in ServiceSpecificsModal.tsx
+ * 3. Done! No custom modal needed.
+ *
+ * Standardized JSONB Structure:
+ * {
+ *   "formulaType": "volume_based",
+ *   "formulaDescription": "Description here",
+ *   "categoryName": {
+ *     "label": "Category Label",
+ *     "description": "Category description",
+ *     "variableName": {
+ *       "type": "number|select|slider|toggle",
+ *       "label": "Variable Label",
+ *       "default": value,
+ *       "min": 0,
+ *       "max": 100,
+ *       ...
+ *     }
+ *   }
+ * }
  *
  * ============================================================================
  */
@@ -376,10 +398,18 @@ export const [SERVICE_NAME]SpecificsModal: React.FC<ServiceSpecificsModalProps> 
  * 1. Import your modal:
  *    import { [SERVICE_NAME]SpecificsModal } from './service-modals/[SERVICE_NAME]SpecificsModal';
  *
- * 2. Add routing condition:
+ * 2. Add routing condition BEFORE the DynamicServiceModal check:
  *    if (serviceId === 'your_service_id') {
  *      return <[SERVICE_NAME]SpecificsModal {...props} />;
  *    }
+ *
+ * Current router logic:
+ * - Custom modals route first (if you need highly custom UI)
+ * - DynamicServiceModal handles paver_patio_sqft and excavation_removal
+ * - GenericServiceModal is final fallback
+ *
+ * REMINDER: Most services work perfectly with DynamicServiceModal!
+ * Only create custom modals when absolutely necessary.
  *
  * ============================================================================
  */

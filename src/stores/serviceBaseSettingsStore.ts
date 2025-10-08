@@ -118,23 +118,8 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       return;
     }
 
-    console.log('🚀 [SERVICES] Saving configuration to Supabase:', {
-      serviceId,
-      companyId,
-      userId,
-      hasBaseSettings: !!updatedService.baseSettings
-    });
-
-    // STEP 1: Get authenticated Supabase client (FIXED: was creating new unauthenticated client)
+    // Get authenticated Supabase client
     const supabase = getSupabase();
-
-    // 🔍 DEBUG: Check auth session before save
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🔍 [SAVE DEBUG] Auth session status:', {
-      hasSession: !!session,
-      authUid: session?.user?.id,
-      userEmail: session?.user?.email
-    });
 
     const supabaseData = {
       company_id: companyId,
@@ -152,16 +137,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       updated_by: userId || null  // FIXED: Use userId instead of companyId
     };
 
-    console.log('🔍 [SAVE DEBUG] Upsert data:', {
-      company_id: supabaseData.company_id,
-      service_name: supabaseData.service_name,
-      updated_by: supabaseData.updated_by,
-      hasVariables: !!supabaseData.variables_config,
-      variablesConfigKeys: Object.keys(supabaseData.variables_config || {}),
-      calculationSettings: supabaseData.variables_config?.calculationSettings,
-    });
-
-    // STEP 2: Upsert to Supabase (update if exists, insert if not)
+    // Upsert to Supabase (update if exists, insert if not)
     const { error } = await supabase
       .from('service_pricing_configs')
       .upsert(supabaseData, {
@@ -179,13 +155,10 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       throw error;
     }
 
-    console.log('✅ [SERVICES] Configuration saved to Supabase successfully');
-
-    // CRITICAL: Clear master engine cache so Quick Calculator sees fresh data
+    // Clear master engine cache so Quick Calculator sees fresh data
     masterPricingEngine.clearCache(serviceId, companyId);
-    console.log('🧹 [SERVICES] Cleared master engine cache');
 
-    // STEP 3: Also store in localStorage for immediate local access
+    // Also store in localStorage for immediate local access
     const storageKey = `service_config_${serviceId}`;
     localStorage.setItem(storageKey, JSON.stringify(updatedService));
 
@@ -201,11 +174,9 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
       detail: { serviceId, updatedService }
     }));
 
-    console.log(`✅ [SERVICES] Service ${serviceId} configuration updated (Supabase + localStorage)`);
   } catch (error) {
-    console.error('❌ [SERVICES] Error saving service configuration:', error);
+    console.error('Error saving service configuration:', error);
     // Fallback to legacy localStorage method if Supabase fails
-    console.warn('🔄 [SERVICES] Falling back to localStorage method');
     await saveServiceConfigLegacy(serviceId, updatedService);
   }
 };
@@ -244,7 +215,6 @@ const saveServiceConfigLegacy = async (serviceId: string, updatedService: Servic
       detail: { serviceId, updatedService }
     }));
 
-    console.log(`✅ [LEGACY] Service ${serviceId} configuration updated (localStorage + JSON file sync)`);
   } catch (error) {
     console.error('Error saving service configuration:', error);
     throw error;
@@ -269,7 +239,6 @@ const writeConfigToJsonFile = async (updatedService: ServiceConfig) => {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    console.log('✅ JSON file updated successfully');
   } catch (error) {
     console.error('❌ Failed to update JSON file:', error);
     throw error;
@@ -307,16 +276,6 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // DEBUG: Log whenever services state changes
-  useEffect(() => {
-    console.log('🔄 [SERVICES STATE] Services state updated:', {
-      count: services.length,
-      serviceIds: services.map(s => s.serviceId),
-      excavation: services.find(s => s.serviceId === 'excavation_removal'),
-      excavationHasVariablesConfig: !!services.find(s => s.serviceId === 'excavation_removal')?.variables_config,
-      excavationCalculationSettings: services.find(s => s.serviceId === 'excavation_removal')?.variables_config?.calculationSettings,
-    });
-  }, [services]);
 
   // CRITICAL FIX: Load services from Supabase instead of JSON files
   useEffect(() => {
@@ -334,8 +293,6 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
           return;
         }
 
-        console.log('🚀 [SERVICES STORE] Loading services from Supabase for company:', companyId);
-
         const supabase = getSupabase();
         const { data, error: fetchError } = await supabase
           .from('service_pricing_configs')
@@ -349,54 +306,28 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         }
 
         if (data && data.length > 0) {
-          console.log(`✅ [SERVICES STORE] Loaded ${data.length} services from Supabase`);
-
           // Convert Supabase rows to ServiceConfig format
-          const supabaseServices = data.map(row => {
-            console.log(`🔍 [SERVICES STORE] Processing service: ${row.service_name}`, {
-              hasVariablesConfig: !!row.variables_config,
-              variablesConfigKeys: row.variables_config ? Object.keys(row.variables_config) : [],
-              calculationSettings: row.variables_config?.calculationSettings,
-              RAW_VARIABLES_CONFIG: row.variables_config,
-            });
-
-            const serviceObj = {
-              service: row.service_name,
-              serviceId: row.service_name,
-              category: 'Hardscaping', // Could be stored in DB if needed
-              baseSettings: {
-                laborSettings: {
-                  hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
-                  optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
-                  baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
-                },
-                materialSettings: {
-                  baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
-                },
-                businessSettings: {
-                  profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
-                }
+          const supabaseServices = data.map(row => ({
+            service: row.service_name,
+            serviceId: row.service_name,
+            category: 'Hardscaping', // Could be stored in DB if needed
+            baseSettings: {
+              laborSettings: {
+                hourlyLaborRate: { value: parseFloat(row.hourly_labor_rate), unit: '$/hour/person', label: 'Labor Price Per Hour' },
+                optimalTeamSize: { value: row.optimal_team_size, unit: 'people', label: 'Optimal Team Size' },
+                baseProductivity: { value: parseFloat(row.base_productivity), unit: 'sqft/day', label: 'Base Productivity Rate' }
               },
-              variables: row.variables_config || {},
-              variables_config: row.variables_config || {},
-              lastModified: new Date(row.updated_at).toISOString().split('T')[0]
-            };
-
-            console.log(`✅ [SERVICES STORE] Built service object for ${row.service_name}:`, {
-              hasVariables: !!serviceObj.variables,
-              hasVariablesConfig: !!serviceObj.variables_config,
-              variablesConfigKeys: serviceObj.variables_config ? Object.keys(serviceObj.variables_config) : [],
-              hasCalculationSettings: !!serviceObj.variables_config?.calculationSettings,
-            });
-
-            return serviceObj;
-          });
-
-          console.log('📋 [SERVICES STORE] About to setServices with:', {
-            count: supabaseServices.length,
-            serviceIds: supabaseServices.map(s => s.serviceId),
-            excavationHasVariablesConfig: supabaseServices.find(s => s.serviceId === 'excavation_removal')?.variables_config ? true : false,
-          });
+              materialSettings: {
+                baseMaterialCost: { value: parseFloat(row.base_material_cost), unit: '$/sqft', label: 'Base Material Cost' }
+              },
+              businessSettings: {
+                profitMarginTarget: { value: parseFloat(row.profit_margin), unit: 'percentage', label: 'Profit Margin Target' }
+              }
+            },
+            variables: row.variables_config || {},
+            variables_config: row.variables_config || {},
+            lastModified: new Date(row.updated_at).toISOString().split('T')[0]
+          }));
 
           setServices(supabaseServices);
           setError(null);
@@ -497,44 +428,19 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
 
     // Update equipment costs
     if (updates.equipmentCosts && updatedVariables.excavation?.equipmentRequired?.options) {
-      console.log('🔧 [UPDATE EQUIPMENT] Starting equipment cost updates:', {
-        updates: updates.equipmentCosts,
-        currentValues: {
-          handTools: updatedVariables.excavation.equipmentRequired.options.handTools?.value,
-          attachments: updatedVariables.excavation.equipmentRequired.options.attachments?.value,
-          lightMachinery: updatedVariables.excavation.equipmentRequired.options.lightMachinery?.value,
-          heavyMachinery: updatedVariables.excavation.equipmentRequired.options.heavyMachinery?.value,
-        }
-      });
-
       const equipmentOptions = updatedVariables.excavation.equipmentRequired.options;
       if (updates.equipmentCosts.handTools !== undefined) {
-        const oldValue = equipmentOptions.handTools.value;
         equipmentOptions.handTools.value = updates.equipmentCosts.handTools;
-        console.log('🔧 [UPDATE EQUIPMENT] handTools:', oldValue, '→', updates.equipmentCosts.handTools);
       }
       if (updates.equipmentCosts.attachments !== undefined) {
-        const oldValue = equipmentOptions.attachments.value;
         equipmentOptions.attachments.value = updates.equipmentCosts.attachments;
-        console.log('🔧 [UPDATE EQUIPMENT] attachments:', oldValue, '→', updates.equipmentCosts.attachments);
       }
       if (updates.equipmentCosts.lightMachinery !== undefined) {
-        const oldValue = equipmentOptions.lightMachinery.value;
         equipmentOptions.lightMachinery.value = updates.equipmentCosts.lightMachinery;
-        console.log('🔧 [UPDATE EQUIPMENT] lightMachinery:', oldValue, '→', updates.equipmentCosts.lightMachinery);
       }
       if (updates.equipmentCosts.heavyMachinery !== undefined) {
-        const oldValue = equipmentOptions.heavyMachinery.value;
         equipmentOptions.heavyMachinery.value = updates.equipmentCosts.heavyMachinery;
-        console.log('🔧 [UPDATE EQUIPMENT] heavyMachinery:', oldValue, '→', updates.equipmentCosts.heavyMachinery);
       }
-
-      console.log('🔧 [UPDATE EQUIPMENT] Updated values:', {
-        handTools: equipmentOptions.handTools?.value,
-        attachments: equipmentOptions.attachments?.value,
-        lightMachinery: equipmentOptions.lightMachinery?.value,
-        heavyMachinery: equipmentOptions.heavyMachinery?.value,
-      });
     }
 
     // Update cutting complexity
@@ -672,11 +578,8 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       const updateValue = updates[updateKey];
       if (!updateValue || typeof updateValue !== 'object') return;
 
-      console.log(`🔧 [GENERIC UPDATE] Processing category: ${updateKey}`, updateValue);
-
       // Check if this category exists in the service's variables_config
       if (!updatedVariables[updateKey]) {
-        console.warn(`⚠️ [GENERIC UPDATE] Category '${updateKey}' not found in variables_config, creating it`);
         updatedVariables[updateKey] = updateValue;
         return;
       }
@@ -694,18 +597,15 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
               ...updatedVariables[updateKey][varKey],
               ...varValue
             };
-            console.log(`  ✓ Updated ${updateKey}.${varKey}.default =`, varValue.default);
           } else {
             // Format: direct value (simple updates)
             updatedVariables[updateKey][varKey] = {
               ...updatedVariables[updateKey][varKey],
               default: varValue
             };
-            console.log(`  ✓ Updated ${updateKey}.${varKey}.default =`, varValue);
           }
         } else {
           // New variable, add it
-          console.log(`  + Adding new variable ${updateKey}.${varKey}`);
           updatedVariables[updateKey][varKey] = varValue;
         }
       });
@@ -718,72 +618,27 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
       lastModified: new Date().toISOString().split('T')[0]
     };
 
-    console.log('📦 [UPDATE VARIABLES] Built updated service object:', {
-      serviceId,
-      hasVariables: !!updatedService.variables,
-      hasVariablesConfig: !!updatedService.variables_config,
-      variablesKeys: Object.keys(updatedService.variables || {}),
-      variablesConfigKeys: Object.keys(updatedService.variables_config || {}),
-      calculationSettings: updatedService.variables_config?.calculationSettings,
-      areBothSame: updatedService.variables === updatedService.variables_config,
-    });
-
-    // Save to Supabase using ServiceConfigManager
-    console.log('🎯 [UPDATE VARIABLES] Attempting save:', {
-      serviceId,
-      hasCompanyId: !!companyId,
-      companyId,
-      hasUserId: !!userId,
-      userId,
-      hasVariables: !!updatedService.variables,
-      variableKeys: Object.keys(updatedService.variables || {})
-    });
-
     try {
       await serviceConfigManager.saveServiceConfig(serviceId, updatedService, companyId, userId);
-      console.log('✅ [UPDATE VARIABLES] Save successful');
 
       // Update local state after successful save
-      setServices(prev => {
-        const updated = prev.map(s => s.serviceId === serviceId ? updatedService : s);
-        const updatedExcavation = updated.find(s => s.serviceId === serviceId);
-        console.log('🔄 [UPDATE VARIABLES] Local state updated:', {
-          found: !!updatedExcavation,
-          hasVariables: !!updatedExcavation?.variables,
-          hasVariablesConfig: !!updatedExcavation?.variables_config,
-          calculationSettings: updatedExcavation?.variables_config?.calculationSettings,
-        });
-        return updated;
-      });
+      setServices(prev => prev.map(s => s.serviceId === serviceId ? updatedService : s));
     } catch (error) {
-      console.error('❌ [UPDATE VARIABLES] Save FAILED:', error);
+      console.error('Failed to save service variables:', error);
       alert('Failed to save service variables: ' + (error as Error).message);
       throw error;
     }
   }, [services, companyId, userId]);
 
   const getService = useCallback((serviceId: string): ServiceConfig | undefined => {
-    console.log('🔍 [GET SERVICE] Looking for:', serviceId, {
-      totalServices: services.length,
-      availableServiceIds: services.map(s => s.serviceId),
-    });
-    const found = services.find(service => service.serviceId === serviceId);
-    console.log('🔍 [GET SERVICE] Result:', {
-      found: !!found,
-      serviceId: found?.serviceId,
-      hasVariablesConfig: !!found?.variables_config,
-    });
-    return found;
+    return services.find(service => service.serviceId === serviceId);
   }, [services]);
 
-  // NEW: Refresh services from Supabase (called when modal opens)
+  // Refresh services from Supabase (called when modal opens)
   const refreshServices = useCallback(async () => {
     if (!companyId) {
-      console.warn('⚠️ Cannot refresh without company_id');
       return;
     }
-
-    console.log('🔄 [SERVICES STORE] Refreshing services from Supabase');
 
     try {
       const supabase = getSupabase();
@@ -794,12 +649,11 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
         .eq('is_active', true);
 
       if (fetchError) {
-        console.error('❌ [SERVICES STORE] Error refreshing from Supabase:', fetchError);
+        console.error('Error refreshing from Supabase:', fetchError);
         return;
       }
 
       if (data && data.length > 0) {
-        console.log(`✅ [SERVICES STORE] Refreshed ${data.length} services from Supabase`);
 
         // Convert Supabase rows to ServiceConfig format
         const supabaseServices = data.map(row => ({
