@@ -85,7 +85,7 @@ export class ServiceConfigManager {
         base_productivity: configData.baseSettings?.laborSettings?.baseProductivity?.value || 50,
         base_material_cost: configData.baseSettings?.materialSettings?.baseMaterialCost?.value || 5.84,
         profit_margin: configData.baseSettings?.businessSettings?.profitMarginTarget?.value || 0.20,
-        variables_config: configData.variables || {},
+        variables_config: configData.variables_config || configData.variables || {},
         default_variables: {},
         is_active: true,
         version: '2.0.0',
