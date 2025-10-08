@@ -42,17 +42,30 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
 
   // Get service config
   const service = useMemo(() => {
-    return getService(serviceId);
+    const svc = getService(serviceId);
+    console.log('🔍 [DYNAMIC MODAL] Service loaded:', {
+      serviceId,
+      found: !!svc,
+      hasVariables: !!svc?.variables,
+      hasVariablesConfig: !!svc?.variables_config,
+      variablesKeys: svc?.variables ? Object.keys(svc.variables) : [],
+      variablesConfigKeys: svc?.variables_config ? Object.keys(svc.variables_config) : [],
+      fullService: svc
+    });
+    return svc;
   }, [getService, serviceId, services]);
 
   // Extract categories from variables_config
   // Skip metadata fields: formulaType, formulaDescription, serviceIntegrations (handled separately)
   const categories = useMemo(() => {
-    if (!service?.variables_config) return [];
+    if (!service?.variables_config) {
+      console.log('⚠️ [DYNAMIC MODAL] No variables_config found');
+      return [];
+    }
 
-    const skipFields = ['formulaType', 'formulaDescription'];
+    const skipFields = ['formulaType', 'formulaDescription', 'serviceIntegrations'];
 
-    return Object.entries(service.variables_config)
+    const cats = Object.entries(service.variables_config)
       .filter(([key]) => !skipFields.includes(key))
       .map(([key, value]: [string, any]) => ({
         id: key,
@@ -60,6 +73,9 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
         description: value.description || '',
         variables: value,
       }));
+
+    console.log('📊 [DYNAMIC MODAL] Categories extracted:', cats);
+    return cats;
   }, [service]);
 
   // Reset active tab when categories change
