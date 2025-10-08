@@ -740,7 +740,17 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   }, [services, companyId, userId]);
 
   const getService = useCallback((serviceId: string): ServiceConfig | undefined => {
-    return services.find(service => service.serviceId === serviceId);
+    console.log('🔍 [GET SERVICE] Looking for:', serviceId, {
+      totalServices: services.length,
+      availableServiceIds: services.map(s => s.serviceId),
+    });
+    const found = services.find(service => service.serviceId === serviceId);
+    console.log('🔍 [GET SERVICE] Result:', {
+      found: !!found,
+      serviceId: found?.serviceId,
+      hasVariablesConfig: !!found?.variables_config,
+    });
+    return found;
   }, [services]);
 
   // NEW: Refresh services from Supabase (called when modal opens)
