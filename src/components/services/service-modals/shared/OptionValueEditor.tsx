@@ -129,13 +129,7 @@ export const OptionValueEditor: React.FC<OptionValueEditorProps> = ({
                 />
               )}
 
-              {/* Show multiplier as readonly if it exists and differs from calculated */}
-              {hasMultiplier && option.multiplier !== undefined && (
-                <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
-                  <span>Multiplier: </span>
-                  <span className="font-mono">{option.multiplier.toFixed(2)}x</span>
-                </div>
-              )}
+              {/* Multiplier is calculated automatically and used in formulas - don't display to user */}
             </div>
           </div>
         ))}

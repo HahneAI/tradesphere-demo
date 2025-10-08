@@ -159,8 +159,14 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
 
     if (category) {
       Object.entries(category).forEach(([key, value]: [string, any]) => {
-        if (!['label', 'description'].includes(key) && typeof value === 'object' && 'default' in value) {
-          savedValues[key] = value.default;
+        if (!['label', 'description'].includes(key) && typeof value === 'object') {
+          // Handle both cases: 'default' field (most variables) OR 'value' field (some options)
+          // Variables can use either depending on their structure in the JSONB
+          if ('default' in value) {
+            savedValues[key] = value.default;
+          } else if ('value' in value) {
+            savedValues[key] = value.value;
+          }
         }
       });
     }
