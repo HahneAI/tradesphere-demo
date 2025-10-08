@@ -44,37 +44,37 @@ export const OptionValueEditor: React.FC<OptionValueEditorProps> = ({
   const hasMultiplier = 'multiplier' in firstOption;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Header */}
-      <div>
-        <h4 className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
+      <div className="mb-4">
+        <h4 className="text-base font-semibold" style={{ color: visualConfig.colors.text.primary }}>
           {label}
         </h4>
         {description && (
-          <p className="text-xs mt-0.5" style={{ color: visualConfig.colors.text.secondary }}>
+          <p className="text-xs mt-1" style={{ color: visualConfig.colors.text.secondary }}>
             {description}
           </p>
         )}
       </div>
 
       {/* Option Value Editors */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {Object.entries(options).map(([optionKey, option]) => (
           <div
             key={optionKey}
-            className="p-4 rounded-lg border"
+            className="p-5 rounded-xl border-2 hover:border-opacity-60 transition-all"
             style={{
-              borderColor: visualConfig.colors.text.secondary + '40',
-              backgroundColor: visualConfig.colors.background,
+              borderColor: visualConfig.colors.text.secondary + '20',
+              backgroundColor: visualConfig.colors.surface,
             }}
           >
             {/* Option Label */}
-            <h5 className="text-sm font-medium mb-3" style={{ color: visualConfig.colors.text.primary }}>
+            <h5 className="text-sm font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
               {option.label || optionKey}
             </h5>
 
             {/* Dynamic Fields Based on Option Structure */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               {/* Complex option: Cutting complexity with labor + waste */}
               {hasLaborPercentage && (
                 <NumberInput

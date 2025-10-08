@@ -179,20 +179,20 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
     <>
       {/* Background Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-50"
+        className="fixed inset-0 bg-black bg-opacity-60 z-50 backdrop-blur-sm"
         onClick={handleClose}
       />
 
       {/* Modal Container */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3">
         <div
-          className="w-full max-w-4xl max-h-[90vh] rounded-lg shadow-xl flex flex-col"
+          className="w-full max-w-6xl max-h-[95vh] rounded-xl shadow-2xl flex flex-col"
           style={{ backgroundColor: visualConfig.colors.surface }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header */}
           <div
-            className="flex items-center justify-between p-6 border-b flex-shrink-0"
+            className="flex items-center justify-between px-8 py-5 border-b flex-shrink-0"
             style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}
           >
             <div>
@@ -224,7 +224,7 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
           {/* Tabs (if multiple categories) */}
           {useTabs && (
             <div
-              className="flex gap-1 px-6 pt-4 border-b flex-shrink-0"
+              className="flex gap-2 px-8 pt-4 pb-0 border-b flex-shrink-0 overflow-x-auto"
               style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}
             >
               {categories.map((category, index) => (
@@ -232,11 +232,11 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
                   key={category.id}
                   onClick={() => setActiveTab(index)}
                   className={`
-                    px-4 py-2 text-sm font-medium rounded-t-lg transition-colors
-                    ${activeTab === index ? 'border-b-2' : 'opacity-60 hover:opacity-100'}
+                    px-5 py-3 text-sm font-medium rounded-t-lg transition-all whitespace-nowrap
+                    ${activeTab === index ? 'border-b-2 -mb-px' : 'opacity-60 hover:opacity-100 hover:bg-opacity-5'}
                   `}
                   style={{
-                    color: visualConfig.colors.text.primary,
+                    color: activeTab === index ? visualConfig.colors.primary : visualConfig.colors.text.primary,
                     borderBottomColor: activeTab === index ? visualConfig.colors.primary : 'transparent',
                     backgroundColor: activeTab === index ? visualConfig.colors.background : 'transparent',
                   }}
@@ -248,7 +248,7 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
           )}
 
           {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-8">
             {isRefreshing ? (
               <div className="flex items-center justify-center h-32">
                 <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
@@ -298,7 +298,7 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
 
           {/* Modal Footer */}
           <div
-            className="flex items-center justify-between p-6 border-t flex-shrink-0"
+            className="flex items-center justify-between px-8 py-5 border-t flex-shrink-0"
             style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}
           >
             <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
@@ -309,7 +309,7 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
             <div className="flex items-center gap-3">
               <button
                 onClick={handleClose}
-                className="px-4 py-2 border rounded-lg font-medium transition-colors"
+                className="px-5 py-2.5 border rounded-lg font-medium transition-colors hover:bg-opacity-5"
                 style={{
                   borderColor: visualConfig.colors.text.secondary + '40',
                   color: visualConfig.colors.text.secondary,
@@ -321,7 +321,7 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
                 <button
                   onClick={handleSave}
                   disabled={!hasUnsavedChanges}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-6 py-2.5 rounded-lg font-medium transition-all shadow-sm ${
                     !hasUnsavedChanges ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                   style={{
