@@ -5,7 +5,7 @@ interface OptionValueEditorProps {
   label: string;
   description?: string;
   options: Record<string, any>;
-  onChange: (optionKey: string, field: string, value: any) => void;
+  onChange: (optionKey: string, updates: Record<string, any>) => void;
   isAdmin: boolean;
   visualConfig: any;
 }
@@ -80,7 +80,7 @@ export const OptionValueEditor: React.FC<OptionValueEditorProps> = ({
                 <NumberInput
                   label="Labor Hours"
                   value={option.laborPercentage ?? 0}
-                  onChange={(value) => onChange(optionKey, 'laborPercentage', value)}
+                  onChange={(value) => onChange(optionKey, { laborPercentage: value })}
                   unit="%"
                   min={0}
                   max={100}
@@ -95,7 +95,7 @@ export const OptionValueEditor: React.FC<OptionValueEditorProps> = ({
                 <NumberInput
                   label="Material Waste"
                   value={option.materialWaste ?? 0}
-                  onChange={(value) => onChange(optionKey, 'materialWaste', value)}
+                  onChange={(value) => onChange(optionKey, { materialWaste: value })}
                   unit="%"
                   min={0}
                   max={50}
@@ -112,12 +112,12 @@ export const OptionValueEditor: React.FC<OptionValueEditorProps> = ({
                   label="Cost/Value"
                   value={option.value ?? 0}
                   onChange={(value) => {
-                    onChange(optionKey, 'value', value);
-                    // Also update multiplier if it exists
+                    // Batch both value and multiplier updates into a single onChange call
+                    const updates: any = { value };
                     if (hasMultiplier && value > 0) {
-                      const multiplier = 1 + (value / 100);
-                      onChange(optionKey, 'multiplier', multiplier);
+                      updates.multiplier = 1 + (value / 100);
                     }
+                    onChange(optionKey, updates);
                   }}
                   unit={option.value >= 50 ? '$' : '%'}
                   min={0}

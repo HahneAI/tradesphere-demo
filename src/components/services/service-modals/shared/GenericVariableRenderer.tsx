@@ -78,15 +78,15 @@ export const GenericVariableRenderer: React.FC<GenericVariableRendererProps> = (
                   label={varConfig.label || varKey}
                   description={varConfig.description}
                   options={varConfig.options}
-                  onChange={(optionKey, field, value) => {
-                    // Update specific field in specific option
+                  onChange={(optionKey, updates) => {
+                    // Batch update all fields in specific option at once
                     onChange(varKey, {
                       ...varConfig,
                       options: {
                         ...varConfig.options,
                         [optionKey]: {
                           ...varConfig.options[optionKey],
-                          [field]: value
+                          ...updates
                         }
                       }
                     });
@@ -123,14 +123,15 @@ export const GenericVariableRenderer: React.FC<GenericVariableRendererProps> = (
                   label={varConfig.label || varKey}
                   description={varConfig.description}
                   options={varConfig.options}
-                  onChange={(optionKey, field, value) => {
+                  onChange={(optionKey, updates) => {
+                    // Batch update all fields in specific option at once
                     onChange(varKey, {
                       ...varConfig,
                       options: {
                         ...varConfig.options,
                         [optionKey]: {
                           ...varConfig.options[optionKey],
-                          [field]: value
+                          ...updates
                         }
                       }
                     });

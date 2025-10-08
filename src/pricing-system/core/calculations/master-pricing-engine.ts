@@ -446,17 +446,17 @@ export class MasterPricingEngine {
     let adjustedHours = baseHours;
 
     // CRITICAL FIX: Read tearout percentage from DATABASE, not hardcoded helper
-    const tearoutVar = config?.variables?.excavation?.tearoutComplexity;
+    const tearoutVar = config?.variables_config?.excavation?.tearoutComplexity;
     const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
     const tearoutPercentage = tearoutOption?.value ?? 0;
 
     // CRITICAL FIX: Read access percentage from DATABASE, not hardcoded helper
-    const accessVar = config?.variables?.siteAccess?.accessDifficulty;
+    const accessVar = config?.variables_config?.siteAccess?.accessDifficulty;
     const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'easy'];
     const accessPercentage = accessOption?.value ?? 0;
 
     // CRITICAL FIX: Read team size percentage from DATABASE, not hardcoded helper
-    const teamVar = config?.variables?.labor?.teamSize;
+    const teamVar = config?.variables_config?.labor?.teamSize;
     const teamOption = teamVar?.options?.[values?.labor?.teamSize ?? 'threePlus'];
     const teamSizePercentage = teamOption?.value ?? 0;
 
@@ -472,7 +472,7 @@ export class MasterPricingEngine {
     }
 
     // Add cutting complexity labor percentage (calculated from BASE hours)
-    const cuttingVar = config?.variables?.materials?.cuttingComplexity;
+    const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
     const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
     if (cuttingLaborPercentage > 0) {
@@ -508,8 +508,8 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste
-    // CRITICAL FIX: Read multiplier from config.variables instead of hardcoded helper
-    const paverVar = config?.variables?.materials?.paverStyle;
+    // CRITICAL FIX: Read multiplier from config.variables_config instead of hardcoded helper
+    const paverVar = config?.variables_config?.materials?.paverStyle;
     const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
     const paverOption = paverVar?.options?.[paverStyleValue];
     const materialMultiplier = paverOption?.multiplier ?? 1.0;
@@ -527,7 +527,7 @@ export class MasterPricingEngine {
 
     const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
-    const cuttingVar = config?.variables?.materials?.cuttingComplexity;
+    const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
     const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
     const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
@@ -535,7 +535,7 @@ export class MasterPricingEngine {
 
     // 3. Equipment costs
     const projectDays = tier1Results.totalManHours / (optimalTeamSize * 8);
-    const equipmentVar = config?.variables?.excavation?.equipmentRequired;
+    const equipmentVar = config?.variables_config?.excavation?.equipmentRequired;
     const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
     console.log('💰 [MASTER ENGINE] Equipment calculation:', {
       selectedEquipment: values?.excavation?.equipmentRequired ?? 'handTools',
@@ -547,14 +547,14 @@ export class MasterPricingEngine {
     console.log('💰 [MASTER ENGINE] Equipment cost result:', equipmentCost);
 
     // 4. Obstacle costs
-    const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval;
+    const obstacleVar = config?.variables_config?.siteAccess?.obstacleRemoval;
     const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
     const obstacleCost = obstacleOption?.value ?? 0;
 
     // 5. CRITICAL: Apply complexity multiplier ONLY to labor and materials
     // Equipment rental rates and obstacle removal fees are fixed costs that don't scale with complexity
     // (Complexity already affects equipment costs indirectly via increased projectDays from tier1 labor calculations)
-    const complexityVar = config?.variables?.complexity?.overallComplexity;
+    const complexityVar = config?.variables_config?.complexity?.overallComplexity;
     const complexityValue = values?.complexity?.overallComplexity;
 
     let complexityMultiplier = 1.0;
