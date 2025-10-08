@@ -388,8 +388,9 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
 
       console.log('🚀 [QUICK CALCULATOR] Loading configuration from master pricing engine', { companyId });
 
-      // Load live configuration from master pricing engine with company_id
-      const configData = await masterPricingEngine.loadPricingConfig('paver_patio_sqft', companyId);
+      // CRITICAL: Force fresh config load to ensure database defaults are current
+      // This ensures edited defaults (like depth) show immediately without hard refresh
+      const configData = await masterPricingEngine.forceReloadFromDatabase('paver_patio_sqft', companyId);
       setConfig(configData);
 
       // Load or initialize values - clear old format if incompatible
@@ -409,8 +410,9 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       }
       setValues(initialValues);
 
-      // Calculate initial price using master pricing engine
-      const calculation = await calculatePrice(configData, initialValues, 100, companyId);
+      // Calculate initial price using master pricing engine with loaded sqft
+      const loadedSqft = loadStoredSqft(); // Use persisted sqft from localStorage
+      const calculation = await calculatePrice(configData, initialValues, loadedSqft, companyId);
       setLastCalculation(calculation);
 
       console.log('✅ [QUICK CALCULATOR] Configuration loaded from master pricing engine');

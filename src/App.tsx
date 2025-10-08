@@ -56,13 +56,10 @@ function App() {
       console.log('🧹 [APP.TSX] Clearing all pricing caches on startup...');
       masterPricingEngine.clearAllCaches();
 
-      // CRITICAL: Clear Quick Calculator localStorage to ensure fresh session
-      // This ensures users start with database defaults each time they log in
-      // sqft inputs will be remembered during the session but cleared between sessions
-      console.log('🧹 [APP.TSX] Clearing Quick Calculator localStorage for fresh session...');
-      localStorage.removeItem('paverPatioValues'); // Variable selections
-      localStorage.removeItem('paverPatioSqft'); // Square footage input
-      localStorage.removeItem('excavationValues'); // Area and depth inputs
+      // Note: localStorage is NOT cleared here - let stores manage their own persistence
+      // - Sqft values persist across sessions (user convenience)
+      // - Stores force fresh DB config loads when they mount
+      // - This gives users persistent inputs while ensuring fresh defaults
 
       setIsExitingLoading(true);
 

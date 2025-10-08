@@ -176,8 +176,9 @@ export const useExcavationStore = (companyId?: string): ExcavationStore => {
       setIsLoading(true);
       setError(null);
 
-      // Load live configuration from master pricing engine
-      const configData = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
+      // CRITICAL: Force fresh config load to ensure database defaults are current
+      // This ensures edited defaults (like depth) show immediately without hard refresh
+      const configData = await masterPricingEngine.forceReloadFromDatabase('excavation_removal', companyId) as any;
       setConfig(configData);
 
       // Load or initialize values
