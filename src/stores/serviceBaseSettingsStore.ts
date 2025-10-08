@@ -350,6 +350,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
               hasVariablesConfig: !!row.variables_config,
               variablesConfigKeys: row.variables_config ? Object.keys(row.variables_config) : [],
               calculationSettings: row.variables_config?.calculationSettings,
+              RAW_VARIABLES_CONFIG: row.variables_config,
             });
 
             return {
