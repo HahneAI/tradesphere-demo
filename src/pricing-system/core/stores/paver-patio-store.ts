@@ -393,21 +393,9 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       const configData = await masterPricingEngine.forceReloadFromDatabase('paver_patio_sqft', companyId);
       setConfig(configData);
 
-      // Load or initialize values - clear old format if incompatible
-      let initialValues: PaverPatioValues;
-      try {
-        initialValues = loadStoredValues(configData);
-        // Validate that the values match the new structure
-        if (!initialValues.excavation?.tearoutComplexity || !initialValues.materials?.cuttingComplexity) {
-          console.log('🔄 Clearing incompatible stored values, using defaults');
-          localStorage.removeItem('paverPatioValues');
-          initialValues = getDefaultValues(configData);
-        }
-      } catch (error) {
-        console.warn('Error loading stored values, using defaults:', error);
-        localStorage.removeItem('paverPatioValues');
-        initialValues = getDefaultValues(configData);
-      }
+      // ALWAYS start with baseline defaults (ignore localStorage for fresh start every time)
+      console.log('🔄 Starting Quick Calculator with fresh baseline defaults');
+      const initialValues = getDefaultValues(configData);
       setValues(initialValues);
 
       // Calculate initial price using master pricing engine with loaded sqft
