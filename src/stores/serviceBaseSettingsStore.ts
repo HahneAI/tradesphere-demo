@@ -4,9 +4,9 @@ import { masterPricingEngine } from '../pricing-system/core/calculations/master-
 import { serviceConfigManager } from '../services/ServiceConfigManager';
 import { calculateMultiplierFromPercentage } from '../pricing-system/utils/variable-helpers';
 
-// Import the JSON configurations
+// Import the JSON configurations (used as fallback only)
 import paverPatioConfigJson from '../pricing-system/config/paver-patio-formula.json';
-import excavationConfigJson from '../pricing-system/config/excavation-removal-formula.json';
+// Excavation service now uses JSONB from database only - no JSON fallback
 
 interface BaseSetting {
   value: number;
@@ -85,11 +85,11 @@ interface ServiceBaseSettingsStore {
   refreshServices: () => Promise<void>; // NEW: Refresh from Supabase
 }
 
-// Load services from JSON configurations
+// Load services from JSON configurations (FALLBACK ONLY - Database is primary source)
+// NOTE: Excavation service removed - it MUST exist in database with JSONB structure
 const loadServices = (): ServiceConfig[] => {
   try {
     const paverPatioConfig = paverPatioConfigJson as any;
-    const excavationConfig = excavationConfigJson as any;
 
     return [
       {
@@ -99,15 +99,9 @@ const loadServices = (): ServiceConfig[] => {
         baseSettings: paverPatioConfig.baseSettings,
         variables: paverPatioConfig.variables,
         lastModified: paverPatioConfig.lastModified
-      },
-      {
-        service: excavationConfig.service,
-        serviceId: excavationConfig.serviceId,
-        category: excavationConfig.category || 'Excavation',
-        baseSettings: excavationConfig.baseSettings,
-        variables: excavationConfig.variables,
-        lastModified: excavationConfig.lastModified
       }
+      // Excavation service REMOVED - must be initialized in database with proper
+      // variables_config JSONB structure. See: src/database/migrations/init-excavation-calculationSettings.sql
     ];
   } catch (error) {
     console.error('Error loading services configuration:', error);
