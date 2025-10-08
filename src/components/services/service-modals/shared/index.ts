@@ -8,4 +8,5 @@ export { NumberInput } from './NumberInput';
 export { SelectInput } from './SelectInput';
 export { SliderInput } from './SliderInput';
 export { ToggleInput } from './ToggleInput';
+export { OptionValueEditor } from './OptionValueEditor';
 export { GenericVariableRenderer } from './GenericVariableRenderer';

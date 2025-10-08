@@ -114,10 +114,18 @@ export const DynamicServiceModal: React.FC<DynamicServiceModalProps> = ({
           const originalVar = service?.variables_config?.[categoryId]?.[varKey];
 
           if (originalVar) {
-            updates[categoryId][varKey] = {
-              ...originalVar,
-              default: varValue,
-            };
+            // Check if varValue is a full variable config object (when editing options)
+            // or a simple value (when editing defaults)
+            if (typeof varValue === 'object' && varValue.options) {
+              // Full variable config with updated options - use it directly
+              updates[categoryId][varKey] = varValue;
+            } else {
+              // Simple value - update the default field
+              updates[categoryId][varKey] = {
+                ...originalVar,
+                default: varValue,
+              };
+            }
           }
         });
       });
