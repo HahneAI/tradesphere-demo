@@ -76,9 +76,20 @@ export const AdminEditableField: React.FC<AdminEditableFieldProps> = ({
   };
 
   const formatDisplayValue = (val: number) => {
-    // UNIVERSAL ZERO HANDLING: Show em dash for ANY zero/null/undefined value
+    // UNIVERSAL ZERO HANDLING: Show em dash for ANY zero/null/undefined/NaN value
     // This indicates "this variable is not used in this service's calculation"
-    if (val === 0 || val === null || val === undefined || Number(val) === 0) {
+    if (val === 0 || val === null || val === undefined || isNaN(val) || Number(val) === 0) {
+      console.log('🔍 [AdminEditableField] Displaying as em dash:', {
+        label,
+        val,
+        type: typeof val,
+        isZero: val === 0,
+        isNull: val === null,
+        isUndefined: val === undefined,
+        isNaN: isNaN(val),
+        numberVal: Number(val),
+        numberIsZero: Number(val) === 0
+      });
       return '—';  // Em dash (N/A)
     }
 
