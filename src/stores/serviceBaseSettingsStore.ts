@@ -674,6 +674,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
             }
           },
           variables: row.variables_config || {},
+          variables_config: row.variables_config || {},
           lastModified: new Date(row.updated_at).toISOString().split('T')[0]
         }));
 
