@@ -311,6 +311,17 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // DEBUG: Log whenever services state changes
+  useEffect(() => {
+    console.log('🔄 [SERVICES STATE] Services state updated:', {
+      count: services.length,
+      serviceIds: services.map(s => s.serviceId),
+      excavation: services.find(s => s.serviceId === 'excavation_removal'),
+      excavationHasVariablesConfig: !!services.find(s => s.serviceId === 'excavation_removal')?.variables_config,
+      excavationCalculationSettings: services.find(s => s.serviceId === 'excavation_removal')?.variables_config?.calculationSettings,
+    });
+  }, [services]);
+
   // CRITICAL FIX: Load services from Supabase instead of JSON files
   useEffect(() => {
     const loadServicesFromSupabase = async () => {
@@ -353,7 +364,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
               RAW_VARIABLES_CONFIG: row.variables_config,
             });
 
-            return {
+            const serviceObj = {
               service: row.service_name,
               serviceId: row.service_name,
               category: 'Hardscaping', // Could be stored in DB if needed
@@ -374,6 +385,21 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
               variables_config: row.variables_config || {},
               lastModified: new Date(row.updated_at).toISOString().split('T')[0]
             };
+
+            console.log(`✅ [SERVICES STORE] Built service object for ${row.service_name}:`, {
+              hasVariables: !!serviceObj.variables,
+              hasVariablesConfig: !!serviceObj.variables_config,
+              variablesConfigKeys: serviceObj.variables_config ? Object.keys(serviceObj.variables_config) : [],
+              hasCalculationSettings: !!serviceObj.variables_config?.calculationSettings,
+            });
+
+            return serviceObj;
+          });
+
+          console.log('📋 [SERVICES STORE] About to setServices with:', {
+            count: supabaseServices.length,
+            serviceIds: supabaseServices.map(s => s.serviceId),
+            excavationHasVariablesConfig: supabaseServices.find(s => s.serviceId === 'excavation_removal')?.variables_config ? true : false,
           });
 
           setServices(supabaseServices);
