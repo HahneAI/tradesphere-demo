@@ -11,7 +11,7 @@ import type {
 import { masterPricingEngine } from '../calculations/master-pricing-engine';
 
 // Import excavation integration for bundled service calculations
-import { calculateExcavationHours, calculateExcavationCost, isExcavationEnabled } from '../calculations/excavation-integration';
+import { calculateExcavationHours, calculateExcavationCost } from '../calculations/excavation-integration';
 
 // Import the JSON configuration (fallback only)
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
@@ -153,19 +153,17 @@ const calculateExpertPricing = (
   // This keeps each variable's effect independent and predictable
 
   // NEW: Add excavation hours if service integration is enabled
+  // ONLY check toggle value - respects user's choice to enable/disable
   let excavationHours = 0;
-  const excavationEnabledInConfig = isExcavationEnabled(config);
-  const excavationEnabledInValues = values?.serviceIntegrations?.includeExcavation === true;
+  const excavationEnabled = values?.serviceIntegrations?.includeExcavation === true;
 
   console.log('🔍 [PAVER PATIO] Checking excavation integration:', {
-    excavationEnabledInConfig,
-    excavationEnabledInValues,
-    configCheck: config?.variables_config?.serviceIntegrations,
-    valuesCheck: values?.serviceIntegrations,
-    willCalculateExcavation: excavationEnabledInConfig || excavationEnabledInValues
+    toggleValue: values?.serviceIntegrations?.includeExcavation,
+    excavationEnabled,
+    willCalculateExcavation: excavationEnabled
   });
 
-  if (excavationEnabledInConfig || excavationEnabledInValues) {
+  if (excavationEnabled) {
     excavationHours = calculateExcavationHours(sqft);
     adjustedHours += excavationHours;
     breakdownSteps.push(`+Excavation (bundled service): +${excavationHours.toFixed(1)} hours`);
@@ -372,7 +370,8 @@ const calculateLegacyFallback = async (
   const baseResult = calculateExpertPricing(actualConfig, values, sqft);
 
   // Add excavation cost if enabled (async operation)
-  if (isExcavationEnabled(actualConfig) || values?.serviceIntegrations?.includeExcavation === true) {
+  // ONLY check toggle value - respects user's choice to enable/disable
+  if (values?.serviceIntegrations?.includeExcavation === true) {
     try {
       const excavationDetails = await calculateExcavationCost(sqft, companyId);
 
