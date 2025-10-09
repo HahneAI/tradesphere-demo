@@ -12,6 +12,8 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formula-types';
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
+// Import excavation integration for bundled service calculations
+import { calculateExcavationHours, calculateExcavationCost } from './excavation-integration';
 // REMOVED: Hardcoded helpers that bypass database
 // All values now read directly from config.variables
 
@@ -36,6 +38,8 @@ export interface PricingConfigRow {
 export interface Tier1Results {
   baseHours: number;
   adjustedHours: number;
+  paverPatioHours?: number;      // Paver-specific hours (without excavation)
+  excavationHours?: number;      // Excavation hours from bundled service
   totalManHours: number;
   totalDays: number;
   breakdown?: string[];
@@ -46,6 +50,14 @@ export interface Tier2Results {
   materialCostBase: number;
   materialWasteCost: number;
   totalMaterialCost: number;
+  excavationCost?: number;       // Excavation cost from bundled service
+  excavationDetails?: {          // Excavation cost breakdown
+    cubicYards: number;
+    depth: number;
+    wasteFactor: number;
+    baseRate: number;
+    profit: number;
+  };
   equipmentCost: number;
   obstacleCost: number;
   subtotal: number;
@@ -265,11 +277,9 @@ export class MasterPricingEngine {
           if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
             console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
 
-            // Clear cache
-            this.configCache.delete(subscriptionKey);
-
-            // Load fresh config
-            const newConfig = await this.loadPricingConfig(serviceName, companyId);
+            // CRITICAL: Force reload from database to bypass cache entirely
+            // Using loadPricingConfig() could still use cached data even after delete
+            const newConfig = await this.forceReloadFromDatabase(serviceName, companyId);
 
             // CRITICAL FIX: Add timestamp to force React to detect change
             // Without this, setConfig(newConfig) won't trigger useEffect because
@@ -391,18 +401,37 @@ export class MasterPricingEngine {
     serviceName: string = 'paver_patio_sqft',
     companyId?: string
   ): Promise<PaverPatioConfig> {
+    const cacheKey = companyId ? `${companyId}:${serviceName}` : serviceName;
+
     // Clear cache first
     if (companyId) {
+      const hadCache = this.configCache.has(cacheKey);
       this.clearCache(serviceName, companyId);
+      console.log('🧹 [MASTER ENGINE] Force reload - cache cleared:', {
+        serviceName,
+        companyId,
+        cacheKey,
+        hadCachedData: hadCache
+      });
     }
 
     console.log('🔄 [MASTER ENGINE] Force reloading from database (bypassing cache):', {
       serviceName,
-      companyId
+      companyId,
+      willQuerySupabase: true
     });
 
     // Load fresh from database
-    return this.loadPricingConfig(serviceName, companyId);
+    const config = await this.loadPricingConfig(serviceName, companyId);
+
+    console.log('✅ [MASTER ENGINE] Force reload complete - fresh config loaded:', {
+      serviceName,
+      hourlyLaborRate: (config as any)?.hourly_labor_rate,
+      profitMargin: (config as any)?.profit_margin,
+      configKeys: config ? Object.keys(config).slice(0, 10) : []
+    });
+
+    return config;
   }
 
   /**
@@ -420,8 +449,8 @@ export class MasterPricingEngine {
     // Calculate Tier 1 (labor hours)
     const tier1Results = this.calculateTier1(config, values, sqft);
 
-    // Calculate Tier 2 (costs)
-    const tier2Results = this.calculateTier2(config, values, tier1Results, sqft);
+    // Calculate Tier 2 (costs) - now async to support excavation cost calculation
+    const tier2Results = await this.calculateTier2(config, values, tier1Results, sqft, companyId);
 
     return {
       tier1Results,
@@ -444,11 +473,26 @@ export class MasterPricingEngine {
     // Base labor calculation
     const baseHours = (sqft / baseProductivity) * optimalTeamSize * 8;
     let adjustedHours = baseHours;
+    const breakdownSteps: string[] = [`Base: ${sqft} sqft ÷ ${baseProductivity} sqft/day × ${optimalTeamSize} people × 8 hours = ${baseHours.toFixed(1)} hours`];
 
-    // CRITICAL FIX: Read tearout percentage from DATABASE, not hardcoded helper
-    const tearoutVar = config?.variables_config?.excavation?.tearoutComplexity;
-    const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
-    const tearoutPercentage = tearoutOption?.value ?? 0;
+    // NEW: Add excavation hours if service integration toggle is enabled
+    // ONLY check toggle value - respects user's choice to enable/disable
+    let excavationHours = 0;
+    const excavationEnabled = values?.serviceIntegrations?.includeExcavation === true;
+
+    console.log('🔍 [MASTER ENGINE] Checking excavation integration:', {
+      toggleValue: values?.serviceIntegrations?.includeExcavation,
+      excavationEnabled,
+      willCalculateExcavation: excavationEnabled
+    });
+
+    if (excavationEnabled) {
+      excavationHours = calculateExcavationHours(sqft);
+      adjustedHours += excavationHours;
+      breakdownSteps.push(`+Excavation (bundled service): +${excavationHours.toFixed(1)} hours`);
+    }
+
+    // REMOVED: tearoutComplexity (now handled by excavation service integration)
 
     // CRITICAL FIX: Read access percentage from DATABASE, not hardcoded helper
     const accessVar = config?.variables_config?.siteAccess?.accessDifficulty;
@@ -461,14 +505,15 @@ export class MasterPricingEngine {
     const teamSizePercentage = teamOption?.value ?? 0;
 
     // Apply each variable as independent percentage of base hours
-    if (tearoutPercentage > 0) {
-      adjustedHours += baseHours * (tearoutPercentage / 100);
-    }
     if (accessPercentage > 0) {
-      adjustedHours += baseHours * (accessPercentage / 100);
+      const accessHours = baseHours * (accessPercentage / 100);
+      adjustedHours += accessHours;
+      breakdownSteps.push(`+Access difficulty (+${accessPercentage}% of base): +${accessHours.toFixed(1)} hours`);
     }
     if (teamSizePercentage > 0) {
-      adjustedHours += baseHours * (teamSizePercentage / 100);
+      const teamHours = baseHours * (teamSizePercentage / 100);
+      adjustedHours += teamHours;
+      breakdownSteps.push(`+Team size adjustment (+${teamSizePercentage}% of base): +${teamHours.toFixed(1)} hours`);
     }
 
     // Add cutting complexity labor percentage (calculated from BASE hours)
@@ -476,7 +521,9 @@ export class MasterPricingEngine {
     const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
     const cuttingLaborPercentage = cuttingOption?.laborPercentage ?? 0;
     if (cuttingLaborPercentage > 0) {
-      adjustedHours += baseHours * (cuttingLaborPercentage / 100);
+      const cuttingHours = baseHours * (cuttingLaborPercentage / 100);
+      adjustedHours += cuttingHours;
+      breakdownSteps.push(`+Cutting complexity (+${cuttingLaborPercentage}% of base): +${cuttingHours.toFixed(1)} hours`);
     }
 
     const totalManHours = adjustedHours;
@@ -485,20 +532,25 @@ export class MasterPricingEngine {
     return {
       baseHours: Math.round(baseHours * 10) / 10,
       adjustedHours: Math.round(adjustedHours * 10) / 10,
+      paverPatioHours: Math.round(baseHours * 10) / 10,  // Paver-specific hours (without excavation)
+      excavationHours: Math.round(excavationHours * 10) / 10,  // Excavation hours from bundled service
       totalManHours: Math.round(totalManHours * 10) / 10,
-      totalDays: Math.round(totalDays * 10) / 10
+      totalDays: Math.round(totalDays * 10) / 10,
+      breakdown: breakdownSteps
     };
   }
 
   /**
-   * TIER 2: Calculate complete cost breakdown with all 6 components
+   * TIER 2: Calculate complete cost breakdown with all components
+   * Now async to support excavation cost calculation
    */
-  private calculateTier2(
+  private async calculateTier2(
     config: PaverPatioConfig,
     values: PaverPatioValues,
     tier1Results: Tier1Results,
-    sqft: number
-  ): Tier2Results {
+    sqft: number,
+    companyId?: string
+  ): Promise<Tier2Results> {
     const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
     const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
     const profitMargin = config?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.20;
@@ -533,20 +585,38 @@ export class MasterPricingEngine {
     const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
     const totalMaterialCost = materialCostBase + materialWasteCost;
 
-    // 3. Equipment costs
-    const projectDays = tier1Results.totalManHours / (optimalTeamSize * 8);
-    const equipmentVar = config?.variables_config?.excavation?.equipmentRequired;
-    const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
-    console.log('💰 [MASTER ENGINE] Equipment calculation:', {
-      selectedEquipment: values?.excavation?.equipmentRequired ?? 'handTools',
-      equipmentValue: equipmentOption?.value,
-      projectDays: projectDays.toFixed(2),
-      calculation: `${equipmentOption?.value ?? 0} * ${projectDays.toFixed(2)}`
-    });
-    const equipmentCost = (equipmentOption?.value ?? 0) * projectDays;
-    console.log('💰 [MASTER ENGINE] Equipment cost result:', equipmentCost);
+    // 3. Excavation costs (bundled service)
+    // ONLY check toggle value - respects user's choice to enable/disable
+    let excavationCost = 0;
+    let excavationDetails = undefined;
 
-    // 4. Obstacle costs
+    const excavationEnabled = values?.serviceIntegrations?.includeExcavation === true;
+
+    if (excavationEnabled) {
+      try {
+        const details = await calculateExcavationCost(sqft, companyId);
+        excavationCost = details.cost;
+        excavationDetails = {
+          cubicYards: details.cubicYards,
+          depth: details.depth,
+          wasteFactor: details.wasteFactor,
+          baseRate: details.baseRate,
+          profit: details.profit
+        };
+        console.log('💰 [MASTER ENGINE] Excavation cost calculated:', {
+          enabled: excavationEnabled,
+          cost: excavationCost,
+          details: excavationDetails
+        });
+      } catch (error) {
+        console.error('❌ [MASTER ENGINE] Failed to calculate excavation cost:', error);
+      }
+    }
+
+    // 4. Equipment costs (deprecated - set to 0 for backward compatibility)
+    const equipmentCost = 0;
+
+    // 5. Obstacle costs
     const obstacleVar = config?.variables_config?.siteAccess?.obstacleRemoval;
     const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'none'];
     const obstacleCost = obstacleOption?.value ?? 0;
@@ -586,9 +656,10 @@ export class MasterPricingEngine {
     const adjustedLaborCost = laborCost * complexityMultiplier;
     const adjustedMaterialCost = totalMaterialCost * complexityMultiplier;
 
-    // 6. Calculate profit ONLY on labor and materials (the actual work)
+    // 6. Calculate profit on labor, materials, AND excavation (the actual work)
     // Equipment rentals and obstacle removal are pass-through costs (no profit markup)
-    const profitableSubtotal = adjustedLaborCost + adjustedMaterialCost;
+    // Excavation gets complexity & profit markup since it's actual work
+    const profitableSubtotal = adjustedLaborCost + adjustedMaterialCost + excavationCost;
     const profit = profitableSubtotal * profitMargin;
 
     // 7. Calculate final subtotal: profitable costs + profit + pass-through costs
@@ -618,6 +689,8 @@ export class MasterPricingEngine {
       materialCostBase: Math.round(materialCostBase * 100) / 100,
       materialWasteCost: Math.round(materialWasteCost * 100) / 100,
       totalMaterialCost: Math.round(adjustedMaterialCost * 100) / 100,
+      excavationCost: excavationCost ? Math.round(excavationCost * 100) / 100 : undefined,
+      excavationDetails: excavationDetails,
       equipmentCost: Math.round(equipmentCost * 100) / 100,
       obstacleCost: Math.round(obstacleCost * 100) / 100,
       subtotal: Math.round(subtotal * 100) / 100,
@@ -637,8 +710,9 @@ export class MasterPricingEngine {
     serviceName: string = 'excavation_removal',
     companyId?: string
   ): Promise<any> {
-    // Load config from Supabase
-    const config = await this.loadPricingConfig(serviceName, companyId) as any;
+    // CRITICAL: Force reload from database to bypass cache
+    // This ensures admin changes (like base rate) take effect immediately
+    const config = await this.forceReloadFromDatabase(serviceName, companyId) as any;
 
     // Extract calculation settings with defaults
     const wasteFactor = calculationSettings?.wasteFactor?.default ?? 10;
@@ -758,7 +832,24 @@ export class MasterPricingEngine {
    * Convert Supabase row to PaverPatioConfig format
    */
   private convertRowToConfig(row: PricingConfigRow): PaverPatioConfig {
-    return {
+    // CRITICAL: Supabase returns numeric columns as strings - must parse to numbers
+    const hourlyLaborRate = typeof row.hourly_labor_rate === 'string'
+      ? parseFloat(row.hourly_labor_rate)
+      : row.hourly_labor_rate;
+    const optimalTeamSize = typeof row.optimal_team_size === 'string'
+      ? parseFloat(row.optimal_team_size)
+      : row.optimal_team_size;
+    const baseProductivity = typeof row.base_productivity === 'string'
+      ? parseFloat(row.base_productivity)
+      : row.base_productivity;
+    const baseMaterialCost = typeof row.base_material_cost === 'string'
+      ? parseFloat(row.base_material_cost)
+      : row.base_material_cost;
+    const profitMargin = typeof row.profit_margin === 'string'
+      ? parseFloat(row.profit_margin)
+      : row.profit_margin;
+
+    const config = {
       service: row.service_name,
       serviceId: row.service_name,
       category: "Hardscaping",
@@ -767,15 +858,15 @@ export class MasterPricingEngine {
       description: "Live Supabase configuration",
       baseSettings: {
         laborSettings: {
-          hourlyLaborRate: { value: row.hourly_labor_rate },
-          optimalTeamSize: { value: row.optimal_team_size },
-          baseProductivity: { value: row.base_productivity }
+          hourlyLaborRate: { value: hourlyLaborRate },
+          optimalTeamSize: { value: optimalTeamSize },
+          baseProductivity: { value: baseProductivity }
         },
         materialSettings: {
-          baseMaterialCost: { value: row.base_material_cost }
+          baseMaterialCost: { value: baseMaterialCost }
         },
         businessSettings: {
-          profitMarginTarget: { value: row.profit_margin }
+          profitMarginTarget: { value: profitMargin }
         }
       },
       calculationSystem: {
@@ -785,8 +876,20 @@ export class MasterPricingEngine {
         tier2: "cost_calculation"
       },
       variables: row.variables_config,  // For paver patio (uses 'variables')
-      variables_config: row.variables_config  // For excavation & new services (uses 'variables_config')
+      variables_config: row.variables_config,  // For excavation & new services (uses 'variables_config')
+      // CRITICAL: Also expose base values at root level for excavation calculations
+      hourly_labor_rate: hourlyLaborRate,
+      profit_margin: profitMargin
     } as PaverPatioConfig;
+
+    console.log('🔄 [MASTER ENGINE] Converted row to config:', {
+      serviceName: row.service_name,
+      hourlyLaborRate: hourlyLaborRate,
+      profitMargin: profitMargin,
+      wasStringBefore: typeof row.hourly_labor_rate === 'string'
+    });
+
+    return config;
   }
 
   /**

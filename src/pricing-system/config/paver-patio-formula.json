@@ -64,37 +64,6 @@
   },
 
   "variables": {
-    "excavation": {
-      "label": "Excavation & Site Preparation",
-      "description": "Variables affecting excavation and site preparation",
-
-      "tearoutComplexity": {
-        "label": "Tearout Complexity",
-        "description": "Multiplier based on what needs to be removed",
-        "type": "select",
-        "default": "grass",
-        "calculationTier": 1,
-        "effectType": "labor_time_percentage",
-        "options": {
-          "grass": { "label": "Grass/Sod Only", "value": 0, "multiplier": 1.0 },
-          "concrete": { "label": "Concrete/Pavement", "value": 20, "multiplier": 1.2 },
-          "asphalt": { "label": "Heavy Asphalt", "value": 30, "multiplier": 1.3 }
-        }
-      },
-      "equipmentRequired": {
-        "label": "Equipment Required",
-        "type": "select",
-        "default": "handTools",
-        "calculationTier": 2,
-        "effectType": "daily_equipment_cost",
-        "options": {
-          "handTools": { "label": "Hand Tools Only", "value": 0 },
-          "attachments": { "label": "Attachments/Jackhammers", "value": 125 },
-          "lightMachinery": { "label": "Light Machinery", "value": 250 },
-          "heavyMachinery": { "label": "Heavy Machinery", "value": 350 }
-        }
-      }
-    },
     "siteAccess": {
       "label": "Site Access & Obstacles",
       "description": "Site accessibility and obstacle removal requirements",
@@ -180,6 +149,20 @@
           "complex": { "label": "Complex Project - Multiple levels, curves, or features", "value": 30, "multiplier": 1.3 },
           "extreme": { "label": "Extreme Complexity - Highly complex design with multiple challenges", "value": 50, "multiplier": 1.5 }
         }
+      }
+    }
+  },
+
+  "variables_config": {
+    "serviceIntegrations": {
+      "label": "Bundled Services",
+      "description": "Automatically include related service calculations",
+      "includeExcavation": {
+        "type": "toggle",
+        "label": "Include Excavation",
+        "default": true,
+        "description": "Auto-calculate excavation cost and time based on patio square footage",
+        "linkedService": "excavation_removal"
       }
     }
   }

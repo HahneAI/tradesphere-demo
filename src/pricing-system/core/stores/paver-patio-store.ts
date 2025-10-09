@@ -10,6 +10,9 @@ import type {
 // Import master pricing engine for unified calculations
 import { masterPricingEngine } from '../calculations/master-pricing-engine';
 
+// Import excavation integration for bundled service calculations
+import { calculateExcavationHours, calculateExcavationCost } from '../calculations/excavation-integration';
+
 // Import the JSON configuration (fallback only)
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 // Import Services database for baseline values
@@ -20,19 +23,19 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
   // Complete fallback structure if config is missing or incomplete
   if (!config || !config.variables) {
     return {
-      excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
+      // excavation category REMOVED - now handled via serviceIntegrations
       siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
       materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
       labor: { teamSize: 'threePlus' },
-      complexity: { overallComplexity: 'simple' }
+      complexity: { overallComplexity: 'simple' },
+      serviceIntegrations: {
+        includeExcavation: config?.variables_config?.serviceIntegrations?.includeExcavation?.default ?? true
+      }
     };
   }
 
   return {
-    excavation: {
-      tearoutComplexity: (config.variables.excavation?.tearoutComplexity as PaverPatioVariable)?.default as string ?? 'grass',
-      equipmentRequired: (config.variables.excavation?.equipmentRequired as PaverPatioVariable)?.default as string ?? 'handTools',
-    },
+    // excavation category REMOVED - now handled via serviceIntegrations
     siteAccess: {
       accessDifficulty: (config.variables.siteAccess?.accessDifficulty as PaverPatioVariable)?.default as string ?? 'easy',
       obstacleRemoval: (config.variables.siteAccess?.obstacleRemoval as PaverPatioVariable)?.default as string ?? 'none',
@@ -47,6 +50,9 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     complexity: {
       overallComplexity: (config.variables.complexity?.overallComplexity as PaverPatioVariable)?.default as string ?? 'simple',
     },
+    serviceIntegrations: {
+      includeExcavation: config?.variables_config?.serviceIntegrations?.includeExcavation?.default ?? true
+    }
   };
 };
 
@@ -63,11 +69,14 @@ const getTrueBaselineValues = (): PaverPatioValues => {
   // Fallback to hardcoded values if Services database unavailable
   console.warn('⚠️ Services database unavailable, using hardcoded fallback baseline values');
   return {
-    excavation: { tearoutComplexity: 'grass', equipmentRequired: 'handTools' },
+    // excavation category REMOVED - now handled via serviceIntegrations
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
     materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
     labor: { teamSize: 'threePlus' },
-    complexity: { overallComplexity: 1.0 }
+    complexity: { overallComplexity: 1.0 },
+    serviceIntegrations: {
+      includeExcavation: true
+    }
   };
 };
 
@@ -80,11 +89,8 @@ const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
       const defaults = getDefaultValues(config);
 
       // Validate structure and merge carefully
-      const validatedValues = {
-        excavation: {
-          tearoutComplexity: parsedValues.excavation?.tearoutComplexity || defaults.excavation.tearoutComplexity,
-          equipmentRequired: parsedValues.excavation?.equipmentRequired || defaults.excavation.equipmentRequired,
-        },
+      const validatedValues: PaverPatioValues = {
+        // excavation category REMOVED - now handled via serviceIntegrations
         siteAccess: {
           accessDifficulty: parsedValues.siteAccess?.accessDifficulty || defaults.siteAccess.accessDifficulty,
           obstacleRemoval: parsedValues.siteAccess?.obstacleRemoval || defaults.siteAccess.obstacleRemoval,
@@ -99,6 +105,9 @@ const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
         complexity: {
           overallComplexity: parsedValues.complexity?.overallComplexity || defaults.complexity.overallComplexity,
         },
+        serviceIntegrations: {
+          includeExcavation: parsedValues.serviceIntegrations?.includeExcavation ?? defaults.serviceIntegrations?.includeExcavation ?? true
+        }
       };
 
       return validatedValues;
@@ -143,14 +152,25 @@ const calculateExpertPricing = (
   // Apply base-independent variable system - each percentage applies to ORIGINAL base hours
   // This keeps each variable's effect independent and predictable
 
-  const tearoutVar = config?.variables?.excavation?.tearoutComplexity as PaverPatioVariable;
-  const tearoutOption = tearoutVar?.options?.[values?.excavation?.tearoutComplexity ?? 'grass'];
+  // NEW: Add excavation hours if service integration is enabled
+  // ONLY check toggle value - respects user's choice to enable/disable
+  let excavationHours = 0;
+  const excavationEnabled = values?.serviceIntegrations?.includeExcavation === true;
 
-  if (tearoutOption?.value && tearoutOption.value > 0) {
-    const tearoutHours = baseHours * (tearoutOption.value / 100);
-    adjustedHours += tearoutHours;
-    breakdownSteps.push(`+Tearout complexity (+${tearoutOption.value}% of base): +${tearoutHours.toFixed(1)} hours`);
+  console.log('🔍 [PAVER PATIO] Checking excavation integration:', {
+    toggleValue: values?.serviceIntegrations?.includeExcavation,
+    excavationEnabled,
+    willCalculateExcavation: excavationEnabled
+  });
+
+  if (excavationEnabled) {
+    excavationHours = calculateExcavationHours(sqft);
+    adjustedHours += excavationHours;
+    breakdownSteps.push(`+Excavation (bundled service): +${excavationHours.toFixed(1)} hours`);
   }
+
+  // REMOVED: tearoutComplexity (now handled by excavation service)
+  // REMOVED: equipmentRequired (deprecated)
 
   const accessVar = config?.variables?.siteAccess?.accessDifficulty as PaverPatioVariable;
   const accessOption = accessVar?.options?.[values?.siteAccess?.accessDifficulty ?? 'moderate'];
@@ -200,19 +220,20 @@ const calculateExpertPricing = (
   const materialWasteCost = materialCostBase * cuttingWaste;
   const totalMaterialCost = materialCostBase + materialWasteCost;
 
-  // Equipment cost (daily rate * project days) with null guards
-  const equipmentVar = config?.variables?.excavation?.equipmentRequired as PaverPatioVariable;
-  const equipmentOption = equipmentVar?.options?.[values?.excavation?.equipmentRequired ?? 'handTools'];
-  const projectDays = totalManHours / (optimalTeamSize * 8);
-  const equipmentCost = (equipmentOption?.value ?? 0) * projectDays;
+  // REMOVED: Equipment cost (deprecated - was part of old excavation variables)
+  const equipmentCost = 0; // Set to 0 for backward compatibility
+
+  // NOTE: Excavation cost calculation moved to async wrapper
+  // This sync function is used for quick local calculations
+  // Full excavation costing happens in async calculatePrice wrapper
 
   // Obstacle flat costs with null guards
   const obstacleVar = config?.variables?.siteAccess?.obstacleRemoval as PaverPatioVariable;
   const obstacleOption = obstacleVar?.options?.[values?.siteAccess?.obstacleRemoval ?? 'minor'];
   const obstacleCost = obstacleOption?.value ?? 0;
 
-  // Calculate subtotal
-  const subtotal = laborCost + totalMaterialCost + equipmentCost + obstacleCost;
+  // Calculate subtotal (excavation cost added in async wrapper)
+  const subtotal = laborCost + totalMaterialCost + obstacleCost;
 
   // Convert string complexity to numeric multiplier
   const complexityValue = values?.complexity?.overallComplexity;
@@ -244,6 +265,8 @@ const calculateExpertPricing = (
     tier1Results: {
       baseHours: baseHours ?? 0,
       adjustedHours: adjustedHours ?? 0,
+      paverPatioHours: baseHours ?? 0,  // Paver-specific hours (without excavation)
+      excavationHours: excavationHours, // Excavation hours from bundled service
       totalManHours: totalManHours ?? 0,
       totalDays: totalDays,
       breakdown: breakdownSteps
@@ -253,14 +276,18 @@ const calculateExpertPricing = (
       materialCostBase: materialCostBase ?? 0,
       materialWasteCost: materialWasteCost ?? 0,
       totalMaterialCost: totalMaterialCost ?? 0,
-      equipmentCost: equipmentCost ?? 0,
+      excavationCost: 0,  // Will be populated by async wrapper
+      excavationDetails: undefined, // Will be populated by async wrapper
+      equipmentCost: equipmentCost ?? 0, // DEPRECATED (always 0)
       obstacleCost: obstacleCost ?? 0,
       subtotal: subtotal ?? 0,
       profit: profit ?? 0,
       total: total ?? 0,
       pricePerSqft: (total ?? 0) / sqft
     },
-    breakdown: `Labor: $${(laborCost ?? 0).toFixed(2)} | Materials: $${(totalMaterialCost ?? 0).toFixed(2)} | Equipment: $${(equipmentCost ?? 0).toFixed(2)} | Total: $${(total ?? 0).toFixed(2)}`
+    breakdown: `Labor: $${(laborCost ?? 0).toFixed(2)} | Materials: $${(totalMaterialCost ?? 0).toFixed(2)} | Total: $${(total ?? 0).toFixed(2)}`,
+    sqft,
+    inputValues: values
   };
 };
 
@@ -289,16 +316,17 @@ const calculatePrice = async (
 
     // Fallback to legacy calculation if master engine fails
     console.warn('🔄 [QUICK CALCULATOR] Falling back to legacy local calculation');
-    return calculateLegacyFallback(config, values, sqft);
+    return await calculateLegacyFallback(config, values, sqft, companyId);
   }
 };
 
 // Legacy fallback for Quick Calculator (when Supabase unavailable)
-const calculateLegacyFallback = (
+const calculateLegacyFallback = async (
   config: PaverPatioConfig | null,
   values: PaverPatioValues,
-  sqft: number = 100
-): PaverPatioCalculationResult => {
+  sqft: number = 100,
+  companyId?: string
+): Promise<PaverPatioCalculationResult> => {
   console.warn('🔄 [FALLBACK] Quick Calculator using legacy JSON-based calculation');
 
   // Use config from props or fallback to imported JSON
@@ -310,6 +338,8 @@ const calculateLegacyFallback = (
       tier1Results: {
         baseHours: 0,
         adjustedHours: 0,
+        paverPatioHours: 0,
+        excavationHours: 0,
         totalManHours: 0,
         totalDays: 0,
         breakdown: ['Error: Configuration missing']
@@ -319,6 +349,8 @@ const calculateLegacyFallback = (
         materialCostBase: 0,
         materialWasteCost: 0,
         totalMaterialCost: 0,
+        excavationCost: 0,
+        excavationDetails: undefined,
         equipmentCost: 0,
         obstacleCost: 0,
         subtotal: 0,
@@ -335,7 +367,48 @@ const calculateLegacyFallback = (
   }
 
   // Use the exact same calculation logic as master engine but with JSON config
-  return calculateExpertPricing(actualConfig, values, sqft);
+  const baseResult = calculateExpertPricing(actualConfig, values, sqft);
+
+  // Add excavation cost if enabled (async operation)
+  // ONLY check toggle value - respects user's choice to enable/disable
+  if (values?.serviceIntegrations?.includeExcavation === true) {
+    try {
+      const excavationDetails = await calculateExcavationCost(sqft, companyId);
+
+      // Recalculate Tier 2 with excavation cost added to profitableSubtotal
+      const profitMargin = actualConfig?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.20;
+      const complexity = baseResult.tier2Results.subtotal / (baseResult.tier2Results.laborCost + baseResult.tier2Results.totalMaterialCost + baseResult.tier2Results.obstacleCost);
+
+      // Add excavation to profitable subtotal (gets complexity & profit markup)
+      const profitableSubtotal = baseResult.tier2Results.laborCost + baseResult.tier2Results.totalMaterialCost + excavationDetails.cost;
+      const adjustedTotal = profitableSubtotal * complexity;
+      const profit = adjustedTotal * profitMargin;
+      const total = adjustedTotal + profit + baseResult.tier2Results.obstacleCost;
+
+      return {
+        ...baseResult,
+        tier2Results: {
+          ...baseResult.tier2Results,
+          excavationCost: excavationDetails.cost,
+          excavationDetails: {
+            cubicYards: excavationDetails.cubicYards,
+            depth: excavationDetails.depth,
+            wasteFactor: excavationDetails.wasteFactor,
+            baseRate: excavationDetails.baseRate,
+            profit: excavationDetails.profit
+          },
+          subtotal: profitableSubtotal + baseResult.tier2Results.obstacleCost,
+          profit,
+          total,
+          pricePerSqft: total / sqft
+        }
+      };
+    } catch (error) {
+      console.error('Failed to calculate excavation cost, proceeding without it:', error);
+    }
+  }
+
+  return baseResult;
 };
 
 // Load sqft from localStorage
