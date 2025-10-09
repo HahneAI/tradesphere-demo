@@ -9,8 +9,18 @@ interface User {
   company_id: string;      // UUID string
   role: string;            // 'office_staff', 'field_tech', etc.
   title: string;           // 'Operations Manager', etc.
-  is_head_user: boolean;   // Company owner flag
+
+  // Admin flag
   is_admin: boolean;       // Admin privileges
+
+  // Role-based permission flags (Phase 2)
+  is_developer: boolean;   // Developer role
+  is_owner: boolean;       // Company owner (replaces is_head_user)
+  is_manager: boolean;     // Manager role
+  is_analyst: boolean;     // Analyst role
+  is_sales: boolean;       // Sales role
+  is_field_tech: boolean;  // Field technician role
+
   user_icon?: string;      // Lucide icon name (User, TreePine, etc.)
   created_at: string;
   updated_at: string;
@@ -20,6 +30,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
+  isOwner: boolean;              // NEW: Quick check for owner role
+  canEditMaterials: boolean;     // NEW: is_admin OR is_owner
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   updateUserIcon: (iconName: string) => Promise<boolean>;
@@ -51,8 +63,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     company_id: '08f0827a-608f-485a-a19f-e0c55ecf6484',
     role: 'admin',
     title: 'Owner',
-    is_head_user: true,
     is_admin: true,
+    is_developer: false,
+    is_owner: true,
+    is_manager: false,
+    is_analyst: false,
+    is_sales: false,
+    is_field_tech: false,
     user_icon: 'User',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -63,6 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [canEditMaterials, setCanEditMaterials] = useState(false);
 
   const supabase = getSupabase();
 
@@ -111,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAdmin(false);
+          setIsOwner(false);
+          setCanEditMaterials(false);
           setLoading(false);
         } else if (event === 'INITIAL_SESSION') {
           if (!session) {
@@ -141,6 +162,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (error) {
               setUser(DEMO_USER);
               setIsAdmin(true);
+              setIsOwner(true);
+              setCanEditMaterials(true);
               setLoading(false);
             }
           } else {
@@ -153,6 +176,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           setUser(DEMO_USER);
           setIsAdmin(true);
+          setIsOwner(true);
+          setCanEditMaterials(true);
           setLoading(false);
         }
       }, 100);
@@ -191,18 +216,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Log state change to authenticated with role
         console.log(`✅ Authenticated as ${data.role.toUpperCase()}`);
 
-        // Log user payload
+        // Log user payload with all role flags
         console.log('👤 User payload:', {
           email: data.email,
           name: data.name,
           role: data.role,
           title: data.title,
           company_id: data.company_id,
-          is_admin: data.is_admin
+          is_admin: data.is_admin,
+          is_owner: data.is_owner,
+          is_developer: data.is_developer,
+          is_manager: data.is_manager,
+          is_analyst: data.is_analyst,
+          is_sales: data.is_sales,
+          is_field_tech: data.is_field_tech
         });
 
         setUser(data);
-        setIsAdmin(data.is_admin);
+        setIsAdmin(data.is_admin || false);
+        setIsOwner(data.is_owner || false);
+        setCanEditMaterials((data.is_admin || data.is_owner) || false);
       }
     } catch (error) {
       console.error('❌ Error fetching user data:', error);
@@ -257,6 +290,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Step 3: Update context state
       setUser(userData);
       setIsAdmin(userData.is_admin);
+      setIsOwner(userData.is_owner || false);
+      setCanEditMaterials((userData.is_admin || userData.is_owner) || false);
       setLoading(false);
 
       return { success: true };
@@ -303,10 +338,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Clear React state
       setUser(null);
       setIsAdmin(false);
+      setIsOwner(false);
+      setCanEditMaterials(false);
     } catch (error) {
       console.error('❌ Sign out failed:', error);
       setUser(null);
       setIsAdmin(false);
+      setIsOwner(false);
+      setCanEditMaterials(false);
     }
   };
 
@@ -352,6 +391,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     isAdmin,
+    isOwner,
+    canEditMaterials,
     signIn,
     signOut,
     updateUserIcon

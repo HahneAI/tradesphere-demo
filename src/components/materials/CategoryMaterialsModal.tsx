@@ -18,7 +18,7 @@ interface CategoryMaterialsModalProps {
   onClose: () => void;
   companyId: string;
   serviceConfigId: string;
-  isAdminOrOwner: boolean;
+  canEditMaterials: boolean;
 }
 
 export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
@@ -27,7 +27,7 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
   onClose,
   companyId,
   serviceConfigId,
-  isAdminOrOwner,
+  canEditMaterials,
 }) => {
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -139,7 +139,7 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
 
               <div className="flex items-center space-x-2">
                 {/* Add Material Button (Admin Only) */}
-                {isAdminOrOwner && (
+                {canEditMaterials && (
                   <button
                     onClick={handleAddMaterial}
                     className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -207,7 +207,7 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                 <p className="text-sm mb-6" style={{ color: visualConfig.colors.text.secondary }}>
                   Get started by adding materials to this category.
                 </p>
-                {isAdminOrOwner && (
+                {canEditMaterials && (
                   <button
                     onClick={handleAddMaterial}
                     className="flex items-center space-x-2 px-6 py-3 rounded-lg text-sm font-medium transition-colors mx-auto"
@@ -314,7 +314,7 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
 
                     {/* Action Buttons */}
                     <div className="flex space-x-2 mt-3 pt-3 border-t" style={{ borderColor: visualConfig.colors.text.secondary + '20' }}>
-                      {isAdminOrOwner ? (
+                      {canEditMaterials ? (
                         <>
                           {/* Edit Button */}
                           <button

@@ -24,7 +24,7 @@ interface MaterialsTabProps {
 }
 
 export const MaterialsTab: React.FC<MaterialsTabProps> = ({ isOpen, onClose }) => {
-  const { user } = useAuth();
+  const { user, canEditMaterials } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
 
@@ -39,9 +39,6 @@ export const MaterialsTab: React.FC<MaterialsTabProps> = ({ isOpen, onClose }) =
   // Modal state
   const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Permission checking
-  const isAdminOrOwner = user?.is_admin || user?.is_head_user || false;
 
   // Fetch available services on mount
   useEffect(() => {
@@ -174,7 +171,7 @@ export const MaterialsTab: React.FC<MaterialsTabProps> = ({ isOpen, onClose }) =
                 Materials Management
               </h2>
               <p className="text-sm mt-1" style={{ color: visualConfig.colors.text.secondary }}>
-                {isAdminOrOwner
+                {canEditMaterials
                   ? 'Manage material library and pricing for service calculations'
                   : 'View material library and pricing (read-only)'
                 }
@@ -224,7 +221,7 @@ export const MaterialsTab: React.FC<MaterialsTabProps> = ({ isOpen, onClose }) =
                   </div>
 
                   {/* Role Badge (only show for non-admin) */}
-                  {!isAdminOrOwner && (
+                  {!canEditMaterials && (
                     <div
                       className="flex items-center space-x-2 px-3 py-2 rounded-lg"
                       style={{
@@ -241,7 +238,7 @@ export const MaterialsTab: React.FC<MaterialsTabProps> = ({ isOpen, onClose }) =
                 </div>
 
                 {/* Info Banner */}
-                {!isAdminOrOwner && (
+                {!canEditMaterials && (
                   <div
                     className="p-4 rounded-lg border-l-4"
                     style={{
@@ -396,7 +393,7 @@ export const MaterialsTab: React.FC<MaterialsTabProps> = ({ isOpen, onClose }) =
         onClose={handleCloseModal}
         companyId={user?.company_id || ''}
         serviceConfigId={selectedServiceConfigId}
-        isAdminOrOwner={isAdminOrOwner}
+        canEditMaterials={canEditMaterials}
       />
     </>
   );

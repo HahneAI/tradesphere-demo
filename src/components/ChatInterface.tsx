@@ -30,6 +30,7 @@ import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
 import { ServicesPage } from './ServicesPage';
 import QuickCalculatorTab from '../pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
+import { MaterialsTab } from './materials/MaterialsTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -252,7 +253,7 @@ const ChatInterface = () => {
   const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
 
   // Full-page navigation system
-  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers'>('chat');
+  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers' | 'materials'>('chat');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1726,6 +1727,7 @@ const ChatInterface = () => {
         onAvatarClick={() => setShowAvatarPopup(true)}
         onCustomersClick={() => setCurrentPage('customers')}
         onServicesClick={() => setCurrentPage('services')}
+        onMaterialsClick={() => setCurrentPage('materials')}
         onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
@@ -2203,6 +2205,13 @@ const ChatInterface = () => {
             onLoadCustomer={handleLoadCustomer}
           />
         </div>
+      )}
+
+      {currentPage === 'materials' && (
+        <MaterialsTab
+          isOpen={true}
+          onClose={() => setCurrentPage('chat')}
+        />
       )}
 
       {currentPage === 'chat' && (
