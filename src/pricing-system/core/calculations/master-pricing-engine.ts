@@ -566,7 +566,7 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste - NEW vs OLD system
-    const useMaterialsDatabase = values?.materials?.useMaterialsDatabase ?? false;
+    let useMaterialsDatabase = values?.materials?.useMaterialsDatabase ?? false;
     let totalMaterialCost = 0;
     let materialCostBase = 0;
     let materialWasteCost = 0;
