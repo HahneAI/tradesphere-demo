@@ -916,6 +916,7 @@ export class MasterPricingEngine {
       : row.profit_margin;
 
     const config = {
+      id: row.id,  // Database UUID for service_pricing_configs record (required for materials database)
       service: row.service_name,
       serviceId: row.service_name,
       category: "Hardscaping",

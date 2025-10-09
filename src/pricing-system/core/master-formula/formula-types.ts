@@ -38,6 +38,7 @@ export interface PaverPatioVariable {
 }
 
 export interface PaverPatioConfig {
+  id?: string;  // Database UUID for service_pricing_configs record (required for materials database)
   service: string;
   serviceId: string;
   category: string;
