@@ -350,7 +350,9 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
         {/* Configuration Panel */}
         <div className="lg:col-span-2 space-y-4">
           {store.config && store.config.variables ?
-            Object.entries(store.config.variables).map(([categoryKey, categoryConfig]) => {
+            Object.entries(store.config.variables)
+              .filter(([categoryKey]) => categoryKey !== 'excavation') // SKIP excavation category - now handled via serviceIntegrations
+              .map(([categoryKey, categoryConfig]) => {
               // Only process if this is a complete category object with variables
               if (!categoryConfig || typeof categoryConfig !== 'object') {
                 return null;
