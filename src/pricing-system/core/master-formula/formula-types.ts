@@ -67,10 +67,7 @@ export interface PaverPatioConfig {
 }
 
 export interface PaverPatioValues {
-  excavation: {
-    tearoutComplexity: string;
-    equipmentRequired: string;
-  };
+  // excavation category REMOVED - now handled via serviceIntegrations
   siteAccess: {
     accessDifficulty: string;
     obstacleRemoval: string;
@@ -85,12 +82,17 @@ export interface PaverPatioValues {
   complexity: {
     overallComplexity: number;
   };
+  serviceIntegrations?: {
+    includeExcavation?: boolean;
+  };
 }
 
 export interface PaverPatioCalculationResult {
   tier1Results: {
     baseHours: number;
     adjustedHours: number;
+    paverPatioHours?: number;      // Paver-specific hours (without excavation)
+    excavationHours?: number;      // Excavation hours (from bundled service)
     totalManHours: number;
     totalDays: number;
     breakdown: string[];
@@ -100,7 +102,15 @@ export interface PaverPatioCalculationResult {
     materialCostBase: number;
     materialWasteCost: number;
     totalMaterialCost: number;
-    equipmentCost: number;
+    excavationCost?: number;       // Excavation cost (from bundled service)
+    excavationDetails?: {          // Excavation breakdown
+      cubicYards: number;
+      depth: number;
+      wasteFactor: number;
+      baseRate: number;
+      profit: number;
+    };
+    equipmentCost: number;         // DEPRECATED (always 0)
     obstacleCost: number;
     subtotal: number;
     profit: number;
@@ -108,6 +118,10 @@ export interface PaverPatioCalculationResult {
     pricePerSqft: number;
   };
   breakdown: string;
+  sqft?: number;
+  inputValues?: PaverPatioValues;
+  confidence?: number;
+  calculationDate?: string;
 }
 
 export interface PaverPatioStore {

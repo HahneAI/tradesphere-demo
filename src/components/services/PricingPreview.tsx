@@ -31,6 +31,10 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
   const getSubtotal = () => calculation?.tier2Results?.subtotal ?? 0;
   const getLaborCost = () => calculation?.tier2Results?.laborCost ?? 0;
   const getMaterialCost = () => calculation?.tier2Results?.totalMaterialCost ?? 0;
+  const getExcavationCost = () => calculation?.tier2Results?.excavationCost ?? 0;
+  const getExcavationDetails = () => calculation?.tier2Results?.excavationDetails;
+  const getExcavationHours = () => calculation?.tier1Results?.excavationHours ?? 0;
+  const getPaverPatioHours = () => calculation?.tier1Results?.paverPatioHours ?? 0;
   const getEquipmentCost = () => calculation?.tier2Results?.equipmentCost ?? 0;
   const getObstacleCost = () => calculation?.tier2Results?.obstacleCost ?? 0;
   const getProfit = () => calculation?.tier2Results?.profit ?? 0;
@@ -215,11 +219,13 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
                   ${getMaterialCost().toFixed(2)}
                 </span>
               </div>
-              {getEquipmentCost() > 0 && (
+              {getExcavationCost() > 0 && (
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: visualConfig.colors.text.secondary }}>Equipment:</span>
+                  <span style={{ color: visualConfig.colors.text.secondary }}>
+                    Excavation ({getExcavationDetails()?.cubicYards} yd³ @ {getExcavationDetails()?.depth}"):
+                  </span>
                   <span style={{ color: visualConfig.colors.text.primary }}>
-                    ${getEquipmentCost().toFixed(2)}
+                    ${getExcavationCost().toFixed(2)}
                   </span>
                 </div>
               )}
