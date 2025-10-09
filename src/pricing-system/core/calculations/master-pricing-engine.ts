@@ -693,8 +693,9 @@ export class MasterPricingEngine {
     serviceName: string = 'excavation_removal',
     companyId?: string
   ): Promise<any> {
-    // Load config from Supabase
-    const config = await this.loadPricingConfig(serviceName, companyId) as any;
+    // CRITICAL: Force reload from database to bypass cache
+    // This ensures admin changes (like base rate) take effect immediately
+    const config = await this.forceReloadFromDatabase(serviceName, companyId) as any;
 
     // Extract calculation settings with defaults
     const wasteFactor = calculationSettings?.wasteFactor?.default ?? 10;

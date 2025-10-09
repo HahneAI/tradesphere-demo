@@ -66,8 +66,9 @@ export async function calculateExcavationCost(
   wasteFactor: number;
 }> {
   try {
-    // Load LIVE excavation service config from database
-    const config = await masterPricingEngine.loadPricingConfig('excavation_removal', companyId) as any;
+    // CRITICAL: Force reload from database to bypass cache
+    // This ensures admin changes (like base rate) take effect immediately
+    const config = await masterPricingEngine.forceReloadFromDatabase('excavation_removal', companyId) as any;
 
     // Extract ALL parameters from live config (NO hardcoded defaults)
     // These values can be changed by admin in Services DB and will propagate automatically
