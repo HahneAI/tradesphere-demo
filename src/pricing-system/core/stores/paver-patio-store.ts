@@ -154,7 +154,18 @@ const calculateExpertPricing = (
 
   // NEW: Add excavation hours if service integration is enabled
   let excavationHours = 0;
-  if (isExcavationEnabled(config) || values?.serviceIntegrations?.includeExcavation === true) {
+  const excavationEnabledInConfig = isExcavationEnabled(config);
+  const excavationEnabledInValues = values?.serviceIntegrations?.includeExcavation === true;
+
+  console.log('🔍 [PAVER PATIO] Checking excavation integration:', {
+    excavationEnabledInConfig,
+    excavationEnabledInValues,
+    configCheck: config?.variables_config?.serviceIntegrations,
+    valuesCheck: values?.serviceIntegrations,
+    willCalculateExcavation: excavationEnabledInConfig || excavationEnabledInValues
+  });
+
+  if (excavationEnabledInConfig || excavationEnabledInValues) {
     excavationHours = calculateExcavationHours(sqft);
     adjustedHours += excavationHours;
     breakdownSteps.push(`+Excavation (bundled service): +${excavationHours.toFixed(1)} hours`);

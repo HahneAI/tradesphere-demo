@@ -377,6 +377,82 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
             }) :
             <div>No configuration available</div>
           }
+
+          {/* Service Integrations Section */}
+          {store.config?.variables_config?.serviceIntegrations && (
+            <div
+              className="border-l-4 border rounded-lg overflow-hidden"
+              style={{
+                backgroundColor: visualConfig.colors.surface,
+                borderColor: visualConfig.colors.text.secondary + '20',
+                borderLeftColor: '#10b981', // Green accent for bundled services
+              }}
+            >
+              {/* Section Header */}
+              <button
+                onClick={() => toggleSection('serviceIntegrations')}
+                className="w-full p-4 flex items-center justify-between hover:opacity-80 transition-opacity"
+                style={{ backgroundColor: '#10b98110' }} // Light green background
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: '#10b981' }}
+                  />
+                  <div className="text-left">
+                    <h3 className="text-lg font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                      {store.config.variables_config.serviceIntegrations.label || 'Bundled Services'}
+                    </h3>
+                    <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                      {store.config.variables_config.serviceIntegrations.description || 'Automatically include related service calculations'}
+                    </p>
+                  </div>
+                </div>
+                <Icons.ChevronDown
+                  className={`h-5 w-5 transition-transform ${expandedSections.has('serviceIntegrations') ? 'transform rotate-180' : ''}`}
+                  style={{ color: visualConfig.colors.text.secondary }}
+                />
+              </button>
+
+              {/* Section Content */}
+              {expandedSections.has('serviceIntegrations') && (
+                <div className="px-4 pb-4 space-y-4">
+                  {/* Excavation Toggle */}
+                  {store.config.variables_config.serviceIntegrations.includeExcavation && (
+                    <div className="flex items-center justify-between p-4 rounded-lg border" style={{ borderColor: visualConfig.colors.text.secondary + '20' }}>
+                      <div className="flex-1">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={store.values.serviceIntegrations?.includeExcavation ?? true}
+                            onChange={(e) => handleValueChange('serviceIntegrations', 'includeExcavation', e.target.checked)}
+                            className="w-5 h-5 rounded border-2 transition-colors"
+                            style={{
+                              accentColor: '#10b981'
+                            }}
+                          />
+                          <div>
+                            <div className="font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                              {store.config.variables_config.serviceIntegrations.includeExcavation.label}
+                            </div>
+                            <div className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+                              {store.config.variables_config.serviceIntegrations.includeExcavation.description}
+                            </div>
+                          </div>
+                        </label>
+                      </div>
+                      {store.values.serviceIntegrations?.includeExcavation && (
+                        <div className="ml-4 flex items-center space-x-2 px-3 py-1 rounded-full" style={{ backgroundColor: '#10b98120', color: '#10b981' }}>
+                          <Icons.Check className="h-4 w-4" />
+                          <span className="text-sm font-medium">Active</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Pricing Preview Panel */}
