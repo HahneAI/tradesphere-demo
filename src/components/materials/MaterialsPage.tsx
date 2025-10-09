@@ -317,12 +317,12 @@ export const MaterialsPage: React.FC = () => {
                     }}>
                   <td className="p-4 font-medium" style={{ color: visualConfig.colors.text.primary }}>
                     <div className="truncate" title={category.category_label}>
-                      {category.category_label}
+                      {truncateText(category.category_label, 21)}
                     </div>
                   </td>
                   <td className="p-4" style={{ color: visualConfig.colors.text.secondary }}>
                     <div className="truncate" title={category.category_description || undefined}>
-                      {category.category_description || '—'}
+                      {truncateText(category.category_description, 30)}
                     </div>
                   </td>
                   <td className="p-4" style={{ color: visualConfig.colors.text.primary }}>
