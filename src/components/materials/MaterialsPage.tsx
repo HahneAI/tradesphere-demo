@@ -135,6 +135,13 @@ export const MaterialsPage: React.FC = () => {
     return methodMap[method] || method;
   };
 
+  // Truncate text with ellipsis
+  const truncateText = (text: string | null | undefined, maxLength: number): string => {
+    if (!text) return '—';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
   // Filter categories based on search
   const filteredCategories = categories.filter(category =>
     category.category_label.toLowerCase().includes(filter.toLowerCase()) ||
@@ -258,7 +265,16 @@ export const MaterialsPage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full table-fixed">
+            <colgroup>
+              <col style={{ width: '20%' }} /> {/* Category Name */}
+              <col style={{ width: '25%' }} /> {/* Description */}
+              <col style={{ width: '15%' }} /> {/* Calculation Method */}
+              <col style={{ width: '12%' }} /> {/* Materials */}
+              <col style={{ width: '10%' }} /> {/* Required */}
+              <col style={{ width: '10%' }} /> {/* Status */}
+              <col style={{ width: '8%' }} />  {/* Actions */}
+            </colgroup>
             <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
               <tr>
                 <th className="p-4 text-left font-medium border-b"
@@ -300,10 +316,14 @@ export const MaterialsPage: React.FC = () => {
                       borderBottom: `1px solid ${theme === 'light' ? '#e5e7eb' : '#374151'}`
                     }}>
                   <td className="p-4 font-medium" style={{ color: visualConfig.colors.text.primary }}>
-                    {category.category_label}
+                    <div className="truncate" title={category.category_label}>
+                      {category.category_label}
+                    </div>
                   </td>
                   <td className="p-4" style={{ color: visualConfig.colors.text.secondary }}>
-                    {category.category_description || '—'}
+                    <div className="truncate" title={category.category_description || undefined}>
+                      {category.category_description || '—'}
+                    </div>
                   </td>
                   <td className="p-4" style={{ color: visualConfig.colors.text.primary }}>
                     <div className="flex items-center gap-2">
