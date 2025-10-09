@@ -13,7 +13,7 @@ import type { PaverPatioConfig, PaverPatioValues } from '../master-formula/formu
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
 // Import excavation integration for bundled service calculations
-import { calculateExcavationHours, calculateExcavationCost, isExcavationEnabled } from './excavation-integration';
+import { calculateExcavationHours, calculateExcavationCost } from './excavation-integration';
 // REMOVED: Hardcoded helpers that bypass database
 // All values now read directly from config.variables
 
@@ -458,20 +458,18 @@ export class MasterPricingEngine {
     let adjustedHours = baseHours;
     const breakdownSteps: string[] = [`Base: ${sqft} sqft ÷ ${baseProductivity} sqft/day × ${optimalTeamSize} people × 8 hours = ${baseHours.toFixed(1)} hours`];
 
-    // NEW: Add excavation hours if service integration is enabled
+    // NEW: Add excavation hours if service integration toggle is enabled
+    // ONLY check toggle value - respects user's choice to enable/disable
     let excavationHours = 0;
-    const excavationEnabledInConfig = isExcavationEnabled(config);
-    const excavationEnabledInValues = values?.serviceIntegrations?.includeExcavation === true;
+    const excavationEnabled = values?.serviceIntegrations?.includeExcavation === true;
 
     console.log('🔍 [MASTER ENGINE] Checking excavation integration:', {
-      excavationEnabledInConfig,
-      excavationEnabledInValues,
-      configCheck: config?.variables_config?.serviceIntegrations,
-      valuesCheck: values?.serviceIntegrations,
-      willCalculateExcavation: excavationEnabledInConfig || excavationEnabledInValues
+      toggleValue: values?.serviceIntegrations?.includeExcavation,
+      excavationEnabled,
+      willCalculateExcavation: excavationEnabled
     });
 
-    if (excavationEnabledInConfig || excavationEnabledInValues) {
+    if (excavationEnabled) {
       excavationHours = calculateExcavationHours(sqft);
       adjustedHours += excavationHours;
       breakdownSteps.push(`+Excavation (bundled service): +${excavationHours.toFixed(1)} hours`);
@@ -571,13 +569,13 @@ export class MasterPricingEngine {
     const totalMaterialCost = materialCostBase + materialWasteCost;
 
     // 3. Excavation costs (bundled service)
+    // ONLY check toggle value - respects user's choice to enable/disable
     let excavationCost = 0;
     let excavationDetails = undefined;
 
-    const excavationEnabledInConfig = isExcavationEnabled(config);
-    const excavationEnabledInValues = values?.serviceIntegrations?.includeExcavation === true;
+    const excavationEnabled = values?.serviceIntegrations?.includeExcavation === true;
 
-    if (excavationEnabledInConfig || excavationEnabledInValues) {
+    if (excavationEnabled) {
       try {
         const details = await calculateExcavationCost(sqft, companyId);
         excavationCost = details.cost;
@@ -589,6 +587,7 @@ export class MasterPricingEngine {
           profit: details.profit
         };
         console.log('💰 [MASTER ENGINE] Excavation cost calculated:', {
+          enabled: excavationEnabled,
           cost: excavationCost,
           details: excavationDetails
         });

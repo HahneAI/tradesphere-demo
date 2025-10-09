@@ -222,7 +222,7 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
               {getExcavationCost() > 0 && (
                 <div className="flex justify-between text-xs">
                   <span style={{ color: visualConfig.colors.text.secondary }}>
-                    Excavation ({getExcavationDetails()?.cubicYards} yd³ @ {getExcavationDetails()?.depth}"):
+                    Excavation ({getExcavationDetails()?.cubicYards} cubic yards @ {getExcavationDetails()?.depth}" depth):
                   </span>
                   <span style={{ color: visualConfig.colors.text.primary }}>
                     ${getExcavationCost().toFixed(2)}

@@ -129,12 +129,6 @@ export async function calculateExcavationCost(
   }
 }
 
-/**
- * Helper to check if excavation is enabled for a service
- *
- * @param config - Service configuration
- * @returns true if excavation integration is enabled
- */
-export function isExcavationEnabled(config: any): boolean {
-  return config?.variables_config?.serviceIntegrations?.includeExcavation?.default === true;
-}
+// REMOVED: isExcavationEnabled() function
+// Now we check the toggle value directly: values?.serviceIntegrations?.includeExcavation === true
+// This respects the user's choice instead of using config defaults
