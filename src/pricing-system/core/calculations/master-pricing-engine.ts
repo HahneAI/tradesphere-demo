@@ -277,11 +277,9 @@ export class MasterPricingEngine {
           if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
             console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
 
-            // Clear cache
-            this.configCache.delete(subscriptionKey);
-
-            // Load fresh config
-            const newConfig = await this.loadPricingConfig(serviceName, companyId);
+            // CRITICAL: Force reload from database to bypass cache entirely
+            // Using loadPricingConfig() could still use cached data even after delete
+            const newConfig = await this.forceReloadFromDatabase(serviceName, companyId);
 
             // CRITICAL FIX: Add timestamp to force React to detect change
             // Without this, setConfig(newConfig) won't trigger useEffect because
@@ -403,18 +401,37 @@ export class MasterPricingEngine {
     serviceName: string = 'paver_patio_sqft',
     companyId?: string
   ): Promise<PaverPatioConfig> {
+    const cacheKey = companyId ? `${companyId}:${serviceName}` : serviceName;
+
     // Clear cache first
     if (companyId) {
+      const hadCache = this.configCache.has(cacheKey);
       this.clearCache(serviceName, companyId);
+      console.log('🧹 [MASTER ENGINE] Force reload - cache cleared:', {
+        serviceName,
+        companyId,
+        cacheKey,
+        hadCachedData: hadCache
+      });
     }
 
     console.log('🔄 [MASTER ENGINE] Force reloading from database (bypassing cache):', {
       serviceName,
-      companyId
+      companyId,
+      willQuerySupabase: true
     });
 
     // Load fresh from database
-    return this.loadPricingConfig(serviceName, companyId);
+    const config = await this.loadPricingConfig(serviceName, companyId);
+
+    console.log('✅ [MASTER ENGINE] Force reload complete - fresh config loaded:', {
+      serviceName,
+      hourlyLaborRate: (config as any)?.hourly_labor_rate,
+      profitMargin: (config as any)?.profit_margin,
+      configKeys: config ? Object.keys(config).slice(0, 10) : []
+    });
+
+    return config;
   }
 
   /**

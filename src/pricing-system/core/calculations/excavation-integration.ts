@@ -85,7 +85,11 @@ export async function calculateExcavationCost(
       baseRate: `$${baseRate}/yd³`,
       profitMargin: `${(profitMargin * 100).toFixed(1)}%`,
       configSource: 'excavation_removal service (live database)',
-      companyId: companyId || 'default'
+      companyId: companyId || 'default',
+      // CRITICAL DEBUG: Show exact values from config object
+      rawConfigBaseRate: config?.hourly_labor_rate,
+      rawConfigProfitMargin: config?.profit_margin,
+      usingFallback: !config?.hourly_labor_rate ? 'YES - using $25 fallback' : 'NO - using database value'
     });
 
     // Calculate cubic yards (matches excavation service formula exactly)
