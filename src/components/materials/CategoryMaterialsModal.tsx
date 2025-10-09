@@ -247,13 +247,23 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                           src={material.image_thumbnail_url}
                           alt={material.material_name}
                           className="w-full h-full object-cover rounded-lg"
+                          onError={(e) => {
+                            // Hide broken image and show placeholder icon instead
+                            e.currentTarget.style.display = 'none';
+                            const placeholder = e.currentTarget.nextElementSibling;
+                            if (placeholder) {
+                              (placeholder as HTMLElement).style.display = 'block';
+                            }
+                          }}
                         />
-                      ) : (
-                        <Icons.ImagePlus
-                          className="h-12 w-12"
-                          style={{ color: visualConfig.colors.text.secondary }}
-                        />
-                      )}
+                      ) : null}
+                      <Icons.ImagePlus
+                        className="h-12 w-12"
+                        style={{
+                          color: visualConfig.colors.text.secondary,
+                          display: material.image_thumbnail_url ? 'none' : 'block'
+                        }}
+                      />
 
                       {/* Default Star Badge */}
                       {material.is_default && (

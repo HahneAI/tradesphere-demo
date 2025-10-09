@@ -242,6 +242,7 @@ export async function fetchMaterialById(
  * Fetch service configs for materials tab service selector
  *
  * Returns all services that have material categories configured
+ * Uses a single optimized query with JOIN to avoid N+1 problem
  *
  * @param companyId - Company UUID
  * @returns Array of service configs with material categories
@@ -252,36 +253,41 @@ export async function fetchServicesWithMaterials(
   try {
     const supabase = getSupabase();
 
-    // First get all service configs for company
+    // Optimized query: Get all categories in one query, then filter services
+    const { data: categories, error: categoriesError } = await supabase
+      .from('service_material_categories')
+      .select('service_config_id')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+
+    if (categoriesError) {
+      console.error('❌ Error fetching material categories:', categoriesError);
+      return { data: null, error: categoriesError.message };
+    }
+
+    // Get unique service_config_ids that have categories
+    const serviceIdsWithMaterials = [...new Set(categories?.map(c => c.service_config_id) || [])];
+
+    if (serviceIdsWithMaterials.length === 0) {
+      console.log('⚠️ No services with materials configured');
+      return { data: [], error: null };
+    }
+
+    // Fetch service details for those IDs
     const { data: serviceConfigs, error: serviceError } = await supabase
       .from('service_pricing_configs')
       .select('id, service_name')
       .eq('company_id', companyId)
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .in('id', serviceIdsWithMaterials);
 
     if (serviceError) {
       console.error('❌ Error fetching service configs:', serviceError);
       return { data: null, error: serviceError.message };
     }
 
-    // Filter to only services that have material categories
-    const servicesWithMaterials: Array<{ id: string; service_name: string }> = [];
-
-    for (const service of serviceConfigs || []) {
-      const { count } = await supabase
-        .from('service_material_categories')
-        .select('*', { count: 'exact', head: true })
-        .eq('company_id', companyId)
-        .eq('service_config_id', service.id)
-        .eq('is_active', true);
-
-      if (count && count > 0) {
-        servicesWithMaterials.push(service);
-      }
-    }
-
-    console.log(`✅ Found ${servicesWithMaterials.length} services with materials configured`);
-    return { data: servicesWithMaterials, error: null };
+    console.log(`✅ Found ${serviceConfigs?.length || 0} services with materials configured`);
+    return { data: serviceConfigs || [], error: null };
   } catch (err: any) {
     console.error('❌ Exception fetching services with materials:', err);
     return { data: null, error: err.message || 'Unknown error occurred' };

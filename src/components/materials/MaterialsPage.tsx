@@ -53,7 +53,13 @@ export const MaterialsPage: React.FC = () => {
       const defaultService = data?.find(s => s.service_name === 'paver_patio_sqft');
       if (defaultService) {
         setSelectedServiceConfigId(defaultService.id);
+      } else if (data && data.length > 0) {
+        // If paver_patio_sqft not found, use first available service
+        setSelectedServiceConfigId(data[0].id);
+        setSelectedService(data[0].service_name);
       }
+      // If no services available, selectedServiceConfigId remains empty
+      // and the loading state will resolve to empty state
     };
 
     loadServices();
@@ -235,7 +241,7 @@ export const MaterialsPage: React.FC = () => {
             />
           </div>
 
-          {/* Add Category Button (Admin Only) */}
+          {/* Add Category Button (Coming Soon) - Commented out until implementation
           {canEditMaterials && (
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
@@ -249,12 +255,23 @@ export const MaterialsPage: React.FC = () => {
               Add Category
             </button>
           )}
+          */}
         </div>
       </div>
 
       {/* Table Container */}
       <div className="flex-1 overflow-auto">
-        {filteredCategories.length === 0 ? (
+        {availableServices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-12">
+            <Icons.Package className="h-16 w-16 mb-4" style={{ color: visualConfig.colors.text.secondary }} />
+            <h3 className="text-lg font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
+              No Services with Materials Configured
+            </h3>
+            <p className="text-sm text-center max-w-md" style={{ color: visualConfig.colors.text.secondary }}>
+              No services have material categories set up yet. Material categories need to be configured for each service before they can be managed here.
+            </p>
+          </div>
+        ) : filteredCategories.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12">
             <Icons.Package className="h-16 w-16 mb-4" style={{ color: visualConfig.colors.text.secondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
