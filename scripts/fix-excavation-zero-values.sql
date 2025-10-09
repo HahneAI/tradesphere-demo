@@ -30,10 +30,10 @@ WHERE service_name = 'excavation_removal'
 -- Update excavation_removal to have 0 values for unused settings
 UPDATE service_pricing_configs
 SET
-  hourly_labor_rate = 0,        -- Not used (uses calculationSettings.baseRatePerCubicYard instead)
-  optimal_team_size = 0,        -- Not used in calculation
-  base_productivity = 0,        -- Not used (excavation is tier-based on sqft)
-  base_material_cost = 0,       -- Not used
+  -- hourly_labor_rate KEPT AS-IS (this IS used - represents price per cubic yard)
+  optimal_team_size = 0,        -- Not used in calculation (show as "—")
+  base_productivity = 0,        -- Not used in calculation (show as "—")
+  base_material_cost = 0,       -- Not used in calculation (show as "—")
   -- profit_margin stays as-is (this IS used in the calculation)
   updated_at = NOW()
 WHERE service_name = 'excavation_removal'
@@ -43,12 +43,11 @@ WHERE service_name = 'excavation_removal'
 SELECT
   company_id,
   service_name,
-  hourly_labor_rate as labor_rate_should_be_0,
+  hourly_labor_rate as rate_per_cubic_yard_KEEP,
   optimal_team_size as team_size_should_be_0,
   base_productivity as productivity_should_be_0,
   base_material_cost as material_cost_should_be_0,
-  profit_margin as profit_stays_same,
-  variables_config -> 'calculationSettings' -> 'baseRatePerCubicYard' as actual_rate_used,
+  profit_margin as profit_KEEP,
   updated_at
 FROM service_pricing_configs
 WHERE service_name = 'excavation_removal'
@@ -58,12 +57,14 @@ WHERE service_name = 'excavation_removal'
 -- NOTES:
 -- ============================================================================
 -- After running this script, the Services Database UI should show:
---   - Base Rate: —  (instead of showing a value)
---   - Optimal Team Size: —
---   - Base Productivity: —
---   - Base Material Cost: —
---   - Profit Margin Target: [actual percentage value]
+--   - Base Rate: [actual $/yd³ value] (KEPT - this IS used as price per cubic yard)
+--   - Optimal Team Size: —  (set to 0 - not used)
+--   - Base Productivity: —  (set to 0 - not used)
+--   - Base Material Cost: —  (set to 0 - not used)
+--   - Profit Margin Target: [actual percentage value] (KEPT - this IS used)
 --
--- The actual excavation rate is stored in:
---   variables_config.calculationSettings.baseRatePerCubicYard.default
+-- The hourly_labor_rate field has been repurposed for excavation:
+--   - Label: "Price per Cubic Yard" (not "Hourly Labor Rate")
+--   - Unit: "$ per cubic yard" (not "$/hour/person")
+--   - This value IS synced to the excavation formula calculations
 -- ============================================================================

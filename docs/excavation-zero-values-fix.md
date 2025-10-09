@@ -51,11 +51,12 @@ psql YOUR_DATABASE_CONNECTION_STRING < scripts/fix-excavation-zero-values.sql
 The script will:
 1. Show current values (before update)
 2. Set these fields to `0` for excavation_removal:
-   - `hourly_labor_rate` → 0
    - `optimal_team_size` → 0
    - `base_productivity` → 0
    - `base_material_cost` → 0
-3. Leave `profit_margin` as-is (this IS used)
+3. Keep these fields as-is (both ARE used):
+   - `hourly_labor_rate` (repurposed as "Price per Cubic Yard")
+   - `profit_margin`
 4. Show verification of the update
 
 ### Step 3: Verification
@@ -65,35 +66,45 @@ After running the SQL script:
 1. **Open the Services Database view** in the application
 2. **Find the excavation_removal service card**
 3. **Verify the display** shows:
-   - Base Rate: **—** (em dash)
-   - Optimal Team Size: **—**
-   - Base Productivity: **—**
-   - Base Material Cost: **—**
-   - Profit Margin Target: **[actual percentage]**
+   - Base Rate: **[actual $/yd³ value]** (kept - IS used)
+   - Optimal Team Size: **—** (em dash)
+   - Base Productivity: **—** (em dash)
+   - Base Material Cost: **—** (em dash)
+   - Profit Margin Target: **[actual percentage]** (kept - IS used)
 
-## Why Excavation Uses Zero Values
+## Why Excavation Uses Different Settings
 
 The excavation_removal service is **fundamentally different** from other services:
 
 | Service Type | Uses Base Settings | Uses variables_config |
 |-------------|-------------------|----------------------|
-| **paver_patio_sqft** | ✅ Yes | ✅ Yes |
-| **excavation_removal** | ❌ No | ✅ Yes (calculationSettings) |
+| **paver_patio_sqft** | ✅ Yes (all fields) | ✅ Yes |
+| **excavation_removal** | ⚠️ Partially (only rate & profit) | ✅ Yes (calculationSettings) |
 
-### Excavation Calculation Approach
+### Excavation's Unique Approach
 
-Instead of using `hourly_labor_rate`, `optimal_team_size`, etc., excavation uses:
+**Fields that ARE used:**
+- `hourly_labor_rate` → **Repurposed as "Price per Cubic Yard"**
+  - Label: "Base Rate"
+  - Unit: "$ per cubic yard"
+  - This value IS synced to excavation formula calculations
+- `profit_margin` → Standard profit margin percentage
 
+**Fields that are NOT used (show as "—"):**
+- `optimal_team_size` → Not applicable (excavation is volume-based, not crew-based)
+- `base_productivity` → Not applicable (uses tier-based hours instead)
+- `base_material_cost` → Not applicable (no materials in excavation)
+
+**Additional calculation settings from variables_config:**
 ```
 variables_config.calculationSettings {
-  baseRatePerCubicYard: { default: 3.50 }  ← Actual rate used
   defaultDepth: { default: 12 }             ← inches
   wasteFactor: { default: 10 }              ← percentage
   compactionFactor: { default: 0 }          ← percentage
 }
 ```
 
-**Formula**: `(area × depth / 27) × (1 + wasteFactor/100) × baseRatePerCubicYard`
+**Formula**: `(area × depth / 27) × (1 + wasteFactor/100) × hourly_labor_rate`
 
 ### Why Show "—" Instead of "0"?
 
