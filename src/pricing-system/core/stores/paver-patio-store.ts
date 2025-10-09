@@ -25,7 +25,11 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     return {
       // excavation category REMOVED - now handled via serviceIntegrations
       siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
+      materials: {
+        paverStyle: 'standard',
+        cuttingComplexity: 'minimal',
+        useMaterialsDatabase: config?.variables_config?.materials?.useMaterialsDatabase?.default ?? true
+      },
       labor: { teamSize: 'threePlus' },
       complexity: { overallComplexity: 'simple' },
       serviceIntegrations: {
@@ -43,6 +47,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     materials: {
       paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'standard',
       cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
+      useMaterialsDatabase: config?.variables_config?.materials?.useMaterialsDatabase?.default ?? true
     },
     labor: {
       teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'threePlus',
@@ -71,7 +76,11 @@ const getTrueBaselineValues = (): PaverPatioValues => {
   return {
     // excavation category REMOVED - now handled via serviceIntegrations
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
+    materials: {
+      paverStyle: 'standard',
+      cuttingComplexity: 'minimal',
+      useMaterialsDatabase: true  // Default to new system
+    },
     labor: { teamSize: 'threePlus' },
     complexity: { overallComplexity: 1.0 },
     serviceIntegrations: {
@@ -98,6 +107,7 @@ const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
         materials: {
           paverStyle: parsedValues.materials?.paverStyle || defaults.materials.paverStyle,
           cuttingComplexity: parsedValues.materials?.cuttingComplexity || defaults.materials.cuttingComplexity,
+          useMaterialsDatabase: parsedValues.materials?.useMaterialsDatabase ?? defaults.materials.useMaterialsDatabase ?? true
         },
         labor: {
           teamSize: parsedValues.labor?.teamSize || defaults.labor.teamSize,
