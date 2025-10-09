@@ -22,7 +22,8 @@
 --    - Primary identifier: id (UUID, defaults to auth.uid() from Supabase Auth)
 --    - Links to: companies table via company_id
 --    - Purpose: Represents authenticated users in Supabase auth system
---    - Contains: email, name, role, title, is_head_user, is_admin, user_icon
+--    - Contains: email, name, role, title, is_admin, user_icon
+--    - Role-based permissions: is_developer, is_owner, is_manager, is_analyst, is_sales, is_field_tech
 --    - IMPORTANT: Used by RLS policies to enforce data isolation
 --    - Authentication: Email/password via supabase.auth.signInWithPassword()
 --
@@ -47,7 +48,7 @@
 --    1. User logs in with email/password via supabase.auth.signInWithPassword()
 --    2. Supabase Auth creates authenticated session with auth.uid()
 --    3. Application fetches user record from users table (WHERE id = auth.uid())
---    4. User object contains: id, email, name, role, title, company_id, is_admin, is_head_user
+--    4. User object contains: id, email, name, role, title, company_id, is_admin, role flags
 --    5. Session persisted automatically by Supabase (no localStorage needed)
 --
 -- Users Table Structure:
@@ -58,7 +59,12 @@
 --    - title: Job title display (migrated from beta_users.job_title)
 --    - company_id: Links to companies table
 --    - is_admin: Admin privileges flag
---    - is_head_user: Company owner flag (grants edit access to services database)
+--    - is_developer: Developer role flag
+--    - is_owner: Company owner flag (grants edit access to services database, materials)
+--    - is_manager: Manager role flag
+--    - is_analyst: Analyst role flag
+--    - is_sales: Sales role flag
+--    - is_field_tech: Field technician role flag
 --    - user_icon: Lucide icon name for avatar
 --
 -- RLS POLICY PATTERN:
@@ -134,6 +140,133 @@
 --    │   ├── subscription_period_start: date (nullable)
 --    │   └── subscription_period_end: date (nullable)
 --    └── Links to: companies.dwolla_customer_url
+--
+-- CUSTOMER MANAGEMENT:
+--    customers
+--    ├── id: UUID (NOT NULL, DEFAULT gen_random_uuid()) - PRIMARY KEY
+--    ├── company_id: UUID (NOT NULL, FOREIGN KEY → companies.id)
+--    ├── customer_name: character varying (NOT NULL)
+--    ├── customer_email: character varying (nullable)
+--    ├── customer_phone: character varying (nullable)
+--    ├── customer_address: text (nullable)
+--    ├── customer_notes: text (nullable)
+--    ├── created_by_user_id: UUID (NOT NULL, FOREIGN KEY → users.id)
+--    ├── created_by_user_name: character varying (nullable)
+--    ├── created_at: timestamp with time zone (DEFAULT now())
+--    ├── updated_at: timestamp with time zone (DEFAULT now())
+--    ├── Purpose: Manual customer records created through UI
+--    ├── Separate from: "VC Usage" which stores AI chat conversations
+--    └── RLS: Company isolation enforced
+--
+-- ============================================================================
+-- PHASE 2: MATERIALS MANAGEMENT SYSTEM
+-- ============================================================================
+--
+-- OVERVIEW:
+-- Phase 2 replaces simple pricing multipliers with real material costs from database.
+-- Each service defines its own material categories (e.g., paver patios need: base rock,
+-- fabric, pavers, edging, sand). Materials feed into Tier 2 pricing as actual costs.
+--
+-- BUSINESS GOALS:
+-- - Service-specific material categories (matches RSMeans methodology)
+-- - Company-controlled pricing (each company maintains their own supplier pricing)
+-- - Real-time cost calculation with visual material selection
+-- - Multi-tenancy with proper data isolation
+-- - Supports multiple units of measure: cubic yards, sqft, linear feet, per piece, per pallet
+-- - Waste factors (10% standard, 15-25% for complex cuts) and compaction factors (20% for base)
+--
+-- MATERIALS SYSTEM ARCHITECTURE:
+--    service_material_categories
+--    ├── Belongs to: service_pricing_configs (via service_config_id)
+--    ├── Belongs to: companies (via company_id)
+--    ├── Purpose: Define what material types a service needs
+--    ├── Contains: category_key, category_label, calculation_method, sort_order
+--    ├── Calculation methods: 'volume_depth', 'area_coverage', 'linear_perimeter'
+--    ├── Fields: default_depth_inches, is_required, is_active
+--    ├── Example categories for paver patio: base_rock, clean_rock, fabric, pavers, edging, sand
+--    └── Cascades delete to service_materials when category deleted
+--
+--    service_materials
+--    ├── Belongs to: service_material_categories (via material_category foreign key)
+--    ├── Belongs to: service_pricing_configs (via service_config_id)
+--    ├── Belongs to: companies (via company_id)
+--    ├── Purpose: Individual material records within each category
+--    ├── Pricing fields: price_per_unit, unit_type, units_per_package
+--    ├── Coverage fields: coverage_per_unit, coverage_depth_inches
+--    ├── Physical properties: length_inches, width_inches, thickness_inches, weight_lbs
+--    ├── Calculation modifiers: waste_factor_percentage, compaction_factor_percentage
+--    ├── Metadata: material_grade, color, finish, supplier_name
+--    ├── Images: image_url, image_thumbnail_url (Supabase Storage)
+--    ├── Flags: is_active, is_default (one per category)
+--    ├── Audit: created_by, updated_by (FOREIGN KEY → users.id)
+--    └── Auto-cleanup: Database trigger removes images from storage on material delete
+--
+-- MATERIAL CALCULATION METHODS:
+--
+-- 1. Volume Depth (base_rock, clean_rock)
+--    - Used for: Materials that fill 3D space at a specific depth
+--    - Input: Project square footage, depth in inches
+--    - Formula: (sqft × depth_inches / 12) / 27 = cubic yards
+--    - Modifiers: Apply compaction factor (20%), then waste factor (10%)
+--    - Rounding: Round up to nearest 0.25 cubic yards for ordering
+--    - Example: 360 sqft × 6" depth = 6.67 cy → +20% compaction → +10% waste → 8.8 cy
+--
+-- 2. Area Coverage (pavers, fabric, polymeric_sand)
+--    - Used for: Materials that cover 2D surface area
+--    - Input: Project square footage, coverage rate per unit
+--    - Formula: sqft / coverage_per_unit = quantity needed
+--    - Modifiers: Apply waste factor (10-25% depending on cutting complexity)
+--    - Rounding: Round up to whole units
+--    - Example: 360 sqft / 1 sqft per paver = 360 → +10% waste → 396 pavers
+--
+-- 3. Linear Perimeter (edging)
+--    - Used for: Materials that run along edges
+--    - Input: Project square footage (perimeter estimated from area)
+--    - Formula: Perimeter estimated assuming 1.5:1 rectangular ratio
+--    - Modifiers: Apply waste factor (10%)
+--    - Rounding: Round up to whole linear feet
+--    - Example: 360 sqft ≈ 15ft × 24ft = 78ft perimeter → +10% waste → 86 lf
+--    - Note: User can override with custom perimeter if known
+--
+-- DATA ACCESS PATTERN:
+-- Primary query joins categories with their materials, ordered by category sort_order
+-- and material is_default flag. Filters by company_id AND service_config_id for
+-- multi-tenancy. Only active materials returned. Results include all fields for
+-- display (names, prices, images) and calculation (coverage, waste, depths).
+--
+-- TIER 2 PRICING INTEGRATION:
+-- Old system: sqft × $5.84 base rate × style multiplier (1.0 standard, 1.2 premium)
+-- New system: Calculate each category independently using real prices and quantities, sum for total
+-- Example (360 sqft patio):
+--   - Base rock: 9 cy @ $36.75/cy = $330.75
+--   - Clean rock: 3 cy @ $19.90/cy = $59.70
+--   - Fabric: 2 rolls @ $199.66/roll = $399.32
+--   - Pavers: 396 sqft @ $5.17/sqft = $2,047.32
+--   - Edging: 86 lf @ $1.24/lf = $106.64
+--   - Polymeric sand: 5 bags @ $37.60/bag = $188.00
+--   - Total: $3,131.73 (vs old system $2,304.96)
+--
+-- MATERIAL IMAGES SYSTEM:
+-- Storage: Supabase Storage bucket 'material-images' with public read access
+-- Organization: company_id/material_id/filename.jpg
+-- Three versions: original.jpg (full res), thumbnail.jpg (200×200), preview.jpg (800×800)
+-- Upload: Client-side resize using canvas API, upload all three versions
+-- Policies: Only admin and owner roles can upload/update/delete for their company
+-- Cleanup: Database trigger auto-deletes all three image files on material deletion
+--
+-- USER PERMISSIONS:
+-- Admin & Owner: Full CRUD on materials, upload images, configure categories, bulk import
+-- Regular Users: Read-only access, can view and select materials but cannot modify
+-- Enforcement: Database (RLS policies), Storage (Supabase policies), API (server validation), UI (role checks)
+-- Failed permission checks: 403 Forbidden, logged for security auditing
+--
+-- VALIDATION RULES:
+-- - Required categories must have material selected before quote generation
+-- - Single selection per category (radio buttons not checkboxes)
+-- - Each category should have exactly one is_default material
+-- - Materials can only belong to categories for their service
+-- - Cascade deletes: service_config → categories → materials
+-- - Missing required materials throws validation error listing categories
 --
 -- ============================================================================
 -- IMPORTANT TABLES DETAILS
@@ -226,11 +359,17 @@
 --    - name: character varying (NOT NULL, DEFAULT 'User') - replaces beta_users.first_name
 --    - role: character varying (NOT NULL) - 'office_staff' | 'field_tech'
 --    - title: character varying (nullable) - replaces beta_users.job_title
---    - is_admin: boolean (DEFAULT false)
---    - is_head_user: boolean (DEFAULT false) - company owner flag (grants services database edit access)
+--    - is_admin: boolean (DEFAULT false) - Admin privileges
+--    - is_developer: boolean (DEFAULT false) - Developer role flag
+--    - is_owner: boolean (DEFAULT false) - Company owner (grants services database, materials edit access)
+--    - is_manager: boolean (DEFAULT false) - Manager role flag
+--    - is_analyst: boolean (DEFAULT false) - Analyst role flag
+--    - is_sales: boolean (DEFAULT false) - Sales role flag
+--    - is_field_tech: boolean (DEFAULT false) - Field technician role flag
 --    - user_icon: character varying (NOT NULL, DEFAULT 'User') - Lucide icon name
 --    - created_at: timestamp without time zone (DEFAULT now())
 --    - updated_at: timestamp without time zone (DEFAULT now())
+--    - NOTE: Removed is_head_user in favor of is_owner flag
 --
 -- beta_users: (DEPRECATED - Legacy table kept for data migration reference)
 --    - id: UUID (PRIMARY KEY, DEFAULT gen_random_uuid())
@@ -263,6 +402,83 @@
 --    - monthly_amount: numeric (DEFAULT 2000.00)
 --    - created_at: timestamp without time zone (DEFAULT now())
 --    - updated_at: timestamp without time zone (DEFAULT now())
+--
+-- customers:
+--    - id: UUID (NOT NULL, DEFAULT gen_random_uuid()) - PRIMARY KEY
+--    - company_id: UUID (NOT NULL, FOREIGN KEY → companies.id)
+--    - customer_name: character varying (NOT NULL)
+--    - customer_email: character varying (nullable)
+--    - customer_phone: character varying (nullable)
+--    - customer_address: text (nullable)
+--    - customer_notes: text (nullable)
+--    - created_by_user_id: UUID (NOT NULL, FOREIGN KEY → users.id)
+--    - created_by_user_name: character varying (nullable) - Display name of creator
+--    - created_at: timestamp with time zone (DEFAULT now())
+--    - updated_at: timestamp with time zone (DEFAULT now())
+--    - Purpose: Manual customer records created through the UI
+--    - Separate from: "VC Usage" which stores AI chat conversation data
+--    - RLS: Company isolation enforced, users can CRUD their company's customers
+--
+-- service_material_categories: ✅ PHASE 2
+--    - id: UUID (NOT NULL, DEFAULT gen_random_uuid()) - PRIMARY KEY
+--    - company_id: UUID (NOT NULL, FOREIGN KEY → companies.id)
+--    - service_config_id: UUID (NOT NULL, FOREIGN KEY → service_pricing_configs.id)
+--    - category_key: text (NOT NULL) - Unique identifier (e.g., 'base_rock', 'pavers')
+--    - category_label: text (NOT NULL) - Display name (e.g., 'Base Rock', 'Paver Blocks')
+--    - category_description: text (nullable) - Additional context for users
+--    - sort_order: integer (DEFAULT 0) - Display ordering (0 = first)
+--    - is_required: boolean (DEFAULT true) - Must select material before quote generation
+--    - calculation_method: text (NOT NULL) - 'volume_depth' | 'area_coverage' | 'linear_perimeter'
+--    - default_depth_inches: numeric (nullable) - For volume_depth calculations
+--    - is_active: boolean (DEFAULT true)
+--    - created_at: timestamp with time zone (DEFAULT now())
+--    - updated_at: timestamp with time zone (DEFAULT now())
+--    - Purpose: Define material types a service needs (e.g., paver patio needs 6 categories)
+--    - Example: Paver patio categories: base_rock, clean_rock, fabric, pavers, edging, polymeric_sand
+--    - Cascade: Deleting category cascades to delete all its service_materials
+--    - RLS: Company isolation enforced
+--
+-- service_materials: ✅ PHASE 2
+--    - id: UUID (NOT NULL, DEFAULT gen_random_uuid()) - PRIMARY KEY
+--    - company_id: UUID (NOT NULL, FOREIGN KEY → companies.id)
+--    - service_config_id: UUID (NOT NULL, FOREIGN KEY → service_pricing_configs.id)
+--    - material_name: text (NOT NULL) - Display name (e.g., 'Bulk Limestone Clean 3/4-1 inch')
+--    - material_category: text (NOT NULL) - Links to service_material_categories.category_key
+--    - material_description: text (nullable) - Detailed description for users
+--    - supplier_name: text (nullable) - Where material is purchased from
+--    - Pricing fields:
+--      • price_per_unit: numeric (NOT NULL) - Cost per unit ($/cy, $/sqft, $/lf, $/piece)
+--      • unit_type: text (NOT NULL) - 'cubic_yard', 'square_foot', 'linear_foot', 'piece', 'pallet', 'bag'
+--      • units_per_package: numeric (nullable) - How many units come in one package
+--    - Coverage fields:
+--      • coverage_per_unit: numeric (nullable) - How much area/volume one unit covers
+--      • coverage_depth_inches: numeric (nullable) - For volume calculations
+--    - Physical properties:
+--      • length_inches: numeric (nullable)
+--      • width_inches: numeric (nullable)
+--      • thickness_inches: numeric (nullable)
+--      • weight_lbs: numeric (nullable)
+--    - Calculation modifiers:
+--      • waste_factor_percentage: numeric (DEFAULT 10.00) - Additional material for cuts/breakage
+--      • compaction_factor_percentage: numeric (DEFAULT 0.00) - Volume change when compacted
+--    - Metadata:
+--      • material_grade: text (nullable) - Quality grade (e.g., 'Standard', 'Premium')
+--      • color: text (nullable) - Material color
+--      • finish: text (nullable) - Surface finish (e.g., 'Smooth', 'Textured')
+--    - Images:
+--      • image_url: text (nullable) - URL to original image in Supabase Storage
+--      • image_thumbnail_url: text (nullable) - URL to 200×200 thumbnail
+--    - Flags:
+--      • is_active: boolean (DEFAULT true) - Active materials shown in UI
+--      • is_default: boolean (DEFAULT false) - Auto-selected material per category
+--    - Audit:
+--      • created_by: UUID (nullable, FOREIGN KEY → users.id)
+--      • updated_by: UUID (nullable, FOREIGN KEY → users.id)
+--      • created_at: timestamp with time zone (DEFAULT now())
+--      • updated_at: timestamp with time zone (DEFAULT now())
+--    - Purpose: Individual material records within each category
+--    - RLS: Company isolation, admin/owner can mutate, regular users read-only
+--    - Trigger: Auto-deletes images from storage on material deletion
 --
 -- ============================================================================
 -- RLS SECURITY MODEL (UPDATED FOR SUPABASE AUTH)
@@ -302,18 +518,33 @@
 -- ============================================================================
 --
 --   companies (id: UUID)
---   ├─→ beta_users.company_id (UUID, FOREIGN KEY)
+--   ├─→ beta_users.company_id (UUID, FOREIGN KEY) [DEPRECATED]
 --   ├─→ users.company_id (UUID, NOT NULL, FOREIGN KEY)
 --   ├─→ service_pricing_configs.company_id (UUID, NOT NULL, FOREIGN KEY)
+--   ├─→ service_material_categories.company_id (UUID, NOT NULL, FOREIGN KEY) ✅ PHASE 2
+--   ├─→ service_materials.company_id (UUID, NOT NULL, FOREIGN KEY) ✅ PHASE 2
+--   ├─→ customers.company_id (UUID, NOT NULL, FOREIGN KEY)
 --   ├─→ "VC Usage".company_id (UUID, FOREIGN KEY)
 --   ├─→ customer_interactions.company_id (UUID, FOREIGN KEY)
 --   ├─→ demo_messages.company_id (UUID, FOREIGN KEY)
 --   └─→ payments.company_id (UUID, FOREIGN KEY)
 --
 --   users (id: UUID, DEFAULT auth.uid())
---   └─→ service_pricing_configs.updated_by (UUID, FOREIGN KEY)
+--   ├─→ service_pricing_configs.updated_by (UUID, FOREIGN KEY)
+--   ├─→ service_materials.created_by (UUID, FOREIGN KEY) ✅ PHASE 2
+--   ├─→ service_materials.updated_by (UUID, FOREIGN KEY) ✅ PHASE 2
+--   ├─→ customers.created_by_user_id (UUID, NOT NULL, FOREIGN KEY)
+--   ├─→ customer_interactions.user_id (UUID, FOREIGN KEY)
+--   └─→ "VC Usage".user_id (UUID, FOREIGN KEY)
 --
---   beta_codes (code: character varying, UNIQUE)
+--   service_pricing_configs (id: UUID)
+--   ├─→ service_material_categories.service_config_id (UUID, NOT NULL, FOREIGN KEY) ✅ PHASE 2
+--   └─→ service_materials.service_config_id (UUID, NOT NULL, FOREIGN KEY) ✅ PHASE 2
+--
+--   service_material_categories (category_key: text) ✅ PHASE 2
+--   └─→ service_materials.material_category (text, FOREIGN KEY via category_key)
+--
+--   beta_codes (code: character varying, UNIQUE) [DEPRECATED]
 --   └─→ beta_users.beta_code_used (character varying, FOREIGN KEY)
 --
 -- ============================================================================
