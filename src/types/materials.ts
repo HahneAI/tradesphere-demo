@@ -100,29 +100,89 @@ export interface MaterialSelection {
 export type MaterialsByCategory = Record<string, ServiceMaterial[]>;
 
 /**
- * Material Calculation Result
+ * Material Quantity Result with Unit Conversion
  *
- * Result from material quantity calculation for a single category
+ * Complete quantity breakdown including unit conversion for purchasing
  */
-export interface MaterialCalculationResult {
-  categoryKey: string;
-  materialId: string;
-  materialName: string;
-  unitType: string;
-  quantity: number;
-  pricePerUnit: number;
-  subtotal: number;
-  wasteFactorApplied: number;
-  compactionFactorApplied: number;
+export interface MaterialQuantityResult {
+  // Calculated quantities
+  quantityNeeded: number;           // Raw quantity (e.g., 44 linear feet)
+  quantityWithWaste: number;        // After waste factor (e.g., 48.4 linear feet)
+  quantityWithCompaction: number;   // After compaction factor (base materials only)
+
+  // Unit conversion for purchasing
+  purchaseUnits: number;            // How many packages to buy (e.g., 6.05 sections)
+  purchaseUnitsRounded: number;     // Rounded up to 0.1 (e.g., 6.1 sections)
+
+  // Cost breakdown
+  unitCost: number;                 // Price per single unit
+  totalCost: number;                // Final cost (purchaseUnitsRounded × unitCost × coverage)
+
+  // Display strings
+  unitLabel: string;                // "sections" or "rolls" or "cubic yards"
+  quantityDisplay: string;          // "6.1 sections (48.4 linear feet)"
+
+  // Applied factors
+  wasteFactorPercent: number;       // Waste factor used in calculation
+  compactionFactorPercent: number;  // Compaction factor used (if applicable)
 }
 
 /**
- * Total Materials Cost Breakdown
+ * Category Calculation Result with Unit Conversion
  *
- * Complete breakdown of material costs across all categories
+ * Result from material quantity calculation for a single category
+ */
+export interface CategoryCalculationResult {
+  categoryKey: string;
+  categoryLabel: string;
+  materialId: string;
+  materialName: string;
+  calculationMethod: 'volume_depth' | 'area_coverage' | 'linear_perimeter';
+
+  // Detailed quantity breakdown with unit conversion
+  quantities: MaterialQuantityResult;
+
+  // Cost
+  subtotal: number;
+}
+
+/**
+ * Material Calculation Input Parameters
+ *
+ * Input data needed for material calculations
+ */
+export interface MaterialCalculationInput {
+  squareFootage: number;
+  selectedMaterials?: Record<string, string>; // categoryKey → materialId (optional, uses defaults if not provided)
+  customPerimeter?: number;                    // Optional user override for linear calculations
+}
+
+/**
+ * Complete Material Calculation Result
+ *
+ * Full breakdown of material costs with unit conversion details
+ */
+export interface MaterialCalculationResult {
+  categories: CategoryCalculationResult[];
+  totalMaterialCost: number;
+  costPerSquareFoot: number;        // Total cost ÷ square footage
+  breakdown: string;                 // Human-readable summary
+  detailedUnits: {                   // Purchasable units summary
+    [categoryKey: string]: {
+      unitsNeeded: number;          // e.g., 6.1
+      unitLabel: string;            // e.g., "sections"
+      displayText: string;          // e.g., "6.1 sections (48.4 linear feet)"
+    };
+  };
+}
+
+/**
+ * Total Materials Cost Breakdown (Legacy - kept for compatibility)
+ *
+ * Simple breakdown of material costs across all categories
  */
 export interface MaterialsCostBreakdown {
-  results: MaterialCalculationResult[];
+  results: CategoryCalculationResult[];
   totalMaterialsCost: number;
   costPerSquareFoot: number;
 }
