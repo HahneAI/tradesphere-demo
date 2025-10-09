@@ -30,7 +30,7 @@ import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
 import { ServicesPage } from './ServicesPage';
 import QuickCalculatorTab from '../pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
-import { MaterialsTab } from './materials/MaterialsTab';
+import { MaterialsPage } from './materials/MaterialsPage';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -2208,10 +2208,7 @@ const ChatInterface = () => {
       )}
 
       {currentPage === 'materials' && (
-        <MaterialsTab
-          isOpen={true}
-          onClose={() => setCurrentPage('chat')}
-        />
+        <MaterialsPage />
       )}
 
       {currentPage === 'chat' && (
