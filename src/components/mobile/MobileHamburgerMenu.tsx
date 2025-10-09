@@ -17,6 +17,7 @@ interface MobileHamburgerMenuProps {
   onAvatarClick: () => void;
   onCustomersClick: () => void;
   onServicesClick: () => void;
+  onMaterialsClick: () => void;
   onQuickCalculatorClick: () => void;
   visualConfig: SmartVisualTheme;
   theme: 'light' | 'dark';
@@ -31,6 +32,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
   onNotesClick,
   onCustomersClick,
   onServicesClick,
+  onMaterialsClick,
   onQuickCalculatorClick,
   visualConfig,
   onAvatarClick,
@@ -123,6 +125,23 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
           >
             <Icons.Database className="h-5 w-5" />
             <span className="font-medium">Services Database</span>
+          </button>
+
+          <button
+            onClick={() => {
+              onMaterialsClick();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Package className="h-5 w-5" />
+            <span className="font-medium">Materials</span>
           </button>
 
           <button
