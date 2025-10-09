@@ -14,6 +14,9 @@ import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
 // Import excavation integration for bundled service calculations
 import { calculateExcavationHours, calculateExcavationCost } from './excavation-integration';
+// Import materials database calculation engine (Phase B)
+import { calculateAllMaterialCosts } from '../../../services/materialCalculations';
+import type { MaterialCalculationResult } from '../../../types/materials';
 // REMOVED: Hardcoded helpers that bypass database
 // All values now read directly from config.variables
 
@@ -64,6 +67,9 @@ export interface Tier2Results {
   profit: number;
   total: number;
   pricePerSqft: number;
+  // NEW FIELDS for materials database system:
+  materialCostPerSqft?: number;           // Cost per sqft from new system
+  materialBreakdown?: MaterialCalculationResult;  // Detailed breakdown with purchasing units
 }
 
 export interface CalculationResult {
@@ -559,31 +565,89 @@ export class MasterPricingEngine {
     // 1. Labor costs
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
-    // 2. Material costs with waste
-    // CRITICAL FIX: Read multiplier from config.variables_config instead of hardcoded helper
-    const paverVar = config?.variables_config?.materials?.paverStyle;
-    const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
-    const paverOption = paverVar?.options?.[paverStyleValue];
-    const materialMultiplier = paverOption?.multiplier ?? 1.0;
+    // 2. Material costs with waste - NEW vs OLD system
+    const useMaterialsDatabase = values?.materials?.useMaterialsDatabase ?? false;
+    let totalMaterialCost = 0;
+    let materialCostBase = 0;
+    let materialWasteCost = 0;
+    let materialCostPerSqft: number | undefined;
+    let materialBreakdown: MaterialCalculationResult | undefined;
 
-    // 🔍 DEBUG: Log what material multiplier is being used
-    console.log('🔍 [MASTER ENGINE DEBUG] Material multiplier from DATABASE:', {
-      selectedPaverStyle: paverStyleValue,
-      paverStyleOptions: paverVar?.options,
-      selectedOption: paverOption,
-      multiplierFromDB: materialMultiplier,
-      premiumOption: paverVar?.options?.premium,
-      premiumValue: paverVar?.options?.premium?.value,
-      premiumMultiplier: paverVar?.options?.premium?.multiplier
-    });
+    if (useMaterialsDatabase && companyId) {
+      // NEW SYSTEM: Database-driven material calculations
+      console.log('🔷 Using NEW materials database system');
 
-    const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
+      try {
+        const result = await calculateAllMaterialCosts(
+          {
+            squareFootage: sqft,
+            selectedMaterials: values?.selectedMaterials,
+            customPerimeter: values?.customPerimeter
+          },
+          companyId,
+          config.id  // serviceConfigId
+        );
 
-    const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
-    const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
-    const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
-    const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
-    const totalMaterialCost = materialCostBase + materialWasteCost;
+        totalMaterialCost = result.totalMaterialCost;
+        materialCostPerSqft = result.costPerSquareFoot;
+        materialBreakdown = result;
+
+        // Set legacy fields for backward compatibility
+        materialCostBase = totalMaterialCost;
+        materialWasteCost = 0;  // Waste already included in new system
+
+        console.log('✅ Material calculation result:', {
+          totalCost: totalMaterialCost.toFixed(2),
+          perSqft: materialCostPerSqft.toFixed(2),
+          categories: result.categories.length
+        });
+        console.log('📦 Material breakdown:', result.breakdown);
+
+      } catch (error) {
+        console.error('❌ Error calculating materials from database, falling back to old system:', error);
+        // Fall through to old system on error
+        useMaterialsDatabase = false;
+      }
+    }
+
+    if (!useMaterialsDatabase) {
+      // OLD SYSTEM: Simple multiplier-based calculations (LEGACY)
+      console.log('🔶 Using OLD multiplier-based material system');
+
+      // CRITICAL FIX: Read multiplier from config.variables_config instead of hardcoded helper
+      const paverVar = config?.variables_config?.materials?.paverStyle;
+      const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
+      const paverOption = paverVar?.options?.[paverStyleValue];
+      const materialMultiplier = paverOption?.multiplier ?? 1.0;
+
+      // 🔍 DEBUG: Log what material multiplier is being used
+      console.log('🔍 [MASTER ENGINE DEBUG] Material multiplier from DATABASE:', {
+        selectedPaverStyle: paverStyleValue,
+        paverStyleOptions: paverVar?.options,
+        selectedOption: paverOption,
+        multiplierFromDB: materialMultiplier,
+        premiumOption: paverVar?.options?.premium,
+        premiumValue: paverVar?.options?.premium?.value,
+        premiumMultiplier: paverVar?.options?.premium?.multiplier
+      });
+
+      materialCostBase = baseMaterialCost * sqft * materialMultiplier;
+
+      const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
+      const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+      const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
+      materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
+      totalMaterialCost = materialCostBase + materialWasteCost;
+
+      console.log('📊 OLD system calculation:', {
+        baseCost: baseMaterialCost,
+        multiplier: materialMultiplier,
+        materialCostBase: materialCostBase.toFixed(2),
+        wastePercent: cuttingWastePercent,
+        materialWasteCost: materialWasteCost.toFixed(2),
+        total: totalMaterialCost.toFixed(2)
+      });
+    }
 
     // 3. Excavation costs (bundled service)
     // ONLY check toggle value - respects user's choice to enable/disable
@@ -696,7 +760,9 @@ export class MasterPricingEngine {
       subtotal: Math.round(subtotal * 100) / 100,
       profit: Math.round(profit * 100) / 100,
       total: Math.round(total * 100) / 100,
-      pricePerSqft: Math.round((total / sqft) * 100) / 100
+      pricePerSqft: Math.round((total / sqft) * 100) / 100,
+      materialCostPerSqft: materialCostPerSqft ? Math.round(materialCostPerSqft * 100) / 100 : undefined,
+      materialBreakdown: materialBreakdown
     };
   }
 
