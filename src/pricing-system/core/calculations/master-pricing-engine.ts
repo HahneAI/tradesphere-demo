@@ -832,7 +832,24 @@ export class MasterPricingEngine {
    * Convert Supabase row to PaverPatioConfig format
    */
   private convertRowToConfig(row: PricingConfigRow): PaverPatioConfig {
-    return {
+    // CRITICAL: Supabase returns numeric columns as strings - must parse to numbers
+    const hourlyLaborRate = typeof row.hourly_labor_rate === 'string'
+      ? parseFloat(row.hourly_labor_rate)
+      : row.hourly_labor_rate;
+    const optimalTeamSize = typeof row.optimal_team_size === 'string'
+      ? parseFloat(row.optimal_team_size)
+      : row.optimal_team_size;
+    const baseProductivity = typeof row.base_productivity === 'string'
+      ? parseFloat(row.base_productivity)
+      : row.base_productivity;
+    const baseMaterialCost = typeof row.base_material_cost === 'string'
+      ? parseFloat(row.base_material_cost)
+      : row.base_material_cost;
+    const profitMargin = typeof row.profit_margin === 'string'
+      ? parseFloat(row.profit_margin)
+      : row.profit_margin;
+
+    const config = {
       service: row.service_name,
       serviceId: row.service_name,
       category: "Hardscaping",
@@ -841,15 +858,15 @@ export class MasterPricingEngine {
       description: "Live Supabase configuration",
       baseSettings: {
         laborSettings: {
-          hourlyLaborRate: { value: row.hourly_labor_rate },
-          optimalTeamSize: { value: row.optimal_team_size },
-          baseProductivity: { value: row.base_productivity }
+          hourlyLaborRate: { value: hourlyLaborRate },
+          optimalTeamSize: { value: optimalTeamSize },
+          baseProductivity: { value: baseProductivity }
         },
         materialSettings: {
-          baseMaterialCost: { value: row.base_material_cost }
+          baseMaterialCost: { value: baseMaterialCost }
         },
         businessSettings: {
-          profitMarginTarget: { value: row.profit_margin }
+          profitMarginTarget: { value: profitMargin }
         }
       },
       calculationSystem: {
@@ -859,8 +876,20 @@ export class MasterPricingEngine {
         tier2: "cost_calculation"
       },
       variables: row.variables_config,  // For paver patio (uses 'variables')
-      variables_config: row.variables_config  // For excavation & new services (uses 'variables_config')
+      variables_config: row.variables_config,  // For excavation & new services (uses 'variables_config')
+      // CRITICAL: Also expose base values at root level for excavation calculations
+      hourly_labor_rate: hourlyLaborRate,
+      profit_margin: profitMargin
     } as PaverPatioConfig;
+
+    console.log('🔄 [MASTER ENGINE] Converted row to config:', {
+      serviceName: row.service_name,
+      hourlyLaborRate: hourlyLaborRate,
+      profitMargin: profitMargin,
+      wasStringBefore: typeof row.hourly_labor_rate === 'string'
+    });
+
+    return config;
   }
 
   /**
