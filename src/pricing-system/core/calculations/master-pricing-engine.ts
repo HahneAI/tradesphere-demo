@@ -565,14 +565,18 @@ export class MasterPricingEngine {
         // Calculate material-based excavation depth if materials database is enabled
         let customDepth: number | undefined = undefined;
 
-        if (useMaterialsDatabase && companyId && configId && values?.selectedMaterials) {
+        if (useMaterialsDatabase && companyId && configId) {
           try {
             const depthResult = await calculatePatioExcavationDepth(
-              values.selectedMaterials,
+              values?.selectedMaterials || {},
               companyId,
               configId
             );
             customDepth = depthResult.depth;
+            console.log('✅ [MASTER ENGINE] Material-based excavation depth:', {
+              depth: customDepth,
+              breakdown: depthResult.breakdown
+            });
           } catch (depthError) {
             console.error('❌ [MASTER ENGINE] Failed to calculate material-based depth:', depthError);
           }
