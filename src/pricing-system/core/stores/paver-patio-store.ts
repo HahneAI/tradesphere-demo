@@ -313,13 +313,14 @@ const calculatePrice = async (
   console.log('🚀 [QUICK CALCULATOR] Using Master Pricing Engine for calculation');
 
   try {
-    // Use master pricing engine for live Supabase calculation with company_id
-    const result = await masterPricingEngine.calculatePricing(values, sqft, 'paver_patio_sqft', companyId);
+    // Use master pricing engine for live Supabase calculation with company_id and config_id
+    const result = await masterPricingEngine.calculatePricing(values, sqft, 'paver_patio_sqft', companyId, config?.id);
 
     console.log('✅ [QUICK CALCULATOR] Master engine calculation complete:', {
       total: result.tier2Results.total,
       source: 'Master Pricing Engine + Live Supabase',
-      usedCompanyId: !!companyId
+      usedCompanyId: !!companyId,
+      usedConfigId: !!config?.id
     });
 
     return result;

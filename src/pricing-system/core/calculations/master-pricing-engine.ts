@@ -15,7 +15,7 @@ import { getSupabase } from '../../../services/supabase';
 // Import excavation integration for bundled service calculations
 import { calculateExcavationHours, calculateExcavationCost } from './excavation-integration';
 // Import materials database calculation engine (Phase B)
-import { calculateAllMaterialCosts } from '../../../services/materialCalculations';
+import { calculateAllMaterialCosts, calculatePatioExcavationDepth } from '../../../services/materialCalculations';
 import type { MaterialCalculationResult } from '../../../types/materials';
 // REMOVED: Hardcoded helpers that bypass database
 // All values now read directly from config.variables
@@ -447,7 +447,8 @@ export class MasterPricingEngine {
     values: PaverPatioValues,
     sqft: number = 100,
     serviceName: string = 'paver_patio_sqft',
-    companyId?: string
+    companyId?: string,
+    configId?: string
   ): Promise<CalculationResult> {
     // Load live config from Supabase
     const config = await this.loadPricingConfig(serviceName, companyId);
@@ -456,7 +457,7 @@ export class MasterPricingEngine {
     const tier1Results = this.calculateTier1(config, values, sqft);
 
     // Calculate Tier 2 (costs) - now async to support excavation cost calculation
-    const tier2Results = await this.calculateTier2(config, values, tier1Results, sqft, companyId);
+    const tier2Results = await this.calculateTier2(config, values, tier1Results, sqft, companyId, configId);
 
     return {
       tier1Results,
@@ -555,7 +556,8 @@ export class MasterPricingEngine {
     values: PaverPatioValues,
     tier1Results: Tier1Results,
     sqft: number,
-    companyId?: string
+    companyId?: string,
+    configId?: string
   ): Promise<Tier2Results> {
     const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
     const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
@@ -566,7 +568,7 @@ export class MasterPricingEngine {
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
     // 2. Material costs with waste - NEW vs OLD system
-    let useMaterialsDatabase = values?.materials?.useMaterialsDatabase ?? false;
+    let useMaterialsDatabase = values?.materials?.useMaterialsDatabase ?? true;
     let totalMaterialCost = 0;
     let materialCostBase = 0;
     let materialWasteCost = 0;
@@ -658,7 +660,33 @@ export class MasterPricingEngine {
 
     if (excavationEnabled) {
       try {
-        const details = await calculateExcavationCost(sqft, companyId);
+        // Calculate material-based excavation depth if materials database is enabled
+        let customDepth: number | undefined = undefined;
+
+        if (useMaterialsDatabase && companyId && configId && values?.selectedMaterials) {
+          console.log('🔍 [MASTER ENGINE] Calculating material-based excavation depth', {
+            companyId,
+            configId,
+            selectedMaterials: values.selectedMaterials
+          });
+
+          try {
+            const depthResult = await calculatePatioExcavationDepth(
+              values.selectedMaterials,
+              companyId,
+              configId
+            );
+            customDepth = depthResult.depth;
+            console.log('✅ [MASTER ENGINE] Material-based excavation depth calculated:', {
+              depth: customDepth,
+              breakdown: depthResult.breakdown
+            });
+          } catch (depthError) {
+            console.error('❌ [MASTER ENGINE] Failed to calculate material-based depth, using default:', depthError);
+          }
+        }
+
+        const details = await calculateExcavationCost(sqft, companyId, customDepth);
         excavationCost = details.cost;
         excavationDetails = {
           cubicYards: details.cubicYards,
