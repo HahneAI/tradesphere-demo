@@ -296,39 +296,39 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
         <table className="w-full">
           <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
             <tr>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Service Name
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Category
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Base Rate
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Optimal Team Size
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Base Productivity
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Material Cost
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Profit Margin
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Status
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-left text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Configuration
               </th>
@@ -342,13 +342,13 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                   style={{ 
                     borderBottom: `1px solid ${theme === 'light' ? '#e5e7eb' : '#374151'}`
                   }}>
-                <td className="p-4 font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                <td className="px-3 py-2 text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
                   {service.service}
                 </td>
-                <td className="p-4" style={{ color: visualConfig.colors.text.primary }}>
+                <td className="px-3 py-2 text-sm" style={{ color: visualConfig.colors.text.primary }}>
                   {service.category}
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="laborSettings.hourlyLaborRate"
@@ -357,7 +357,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     validation={service.baseSettings.laborSettings.hourlyLaborRate.validation}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="laborSettings.optimalTeamSize"
@@ -366,7 +366,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     validation={service.baseSettings.laborSettings.optimalTeamSize.validation}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="laborSettings.baseProductivity"
@@ -375,7 +375,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     validation={service.baseSettings.laborSettings.baseProductivity.validation}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   {(() => {
                     // Dynamically get first material setting key (different per service)
                     const materialSettingKey = Object.keys(service.baseSettings.materialSettings)[0];
@@ -392,7 +392,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     );
                   })()}
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="businessSettings.profitMarginTarget"
@@ -402,19 +402,19 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     isProfitMargin={true}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2">
                   <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     <div className="w-2 h-2 rounded-full mr-1 bg-green-400" />
                     Active
                   </div>
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2">
                   <button
                     onClick={() => setSpecificsModalOpen({
                       serviceId: service.serviceId,
                       serviceName: service.service
                     })}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-opacity-10"
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors hover:bg-opacity-10"
                     style={{
                       borderColor: visualConfig.colors.primary,
                       color: visualConfig.colors.primary
