@@ -12,6 +12,8 @@ import { masterPricingEngine } from '../calculations/master-pricing-engine';
 
 // Import excavation integration for bundled service calculations
 import { calculateExcavationHours, calculateExcavationCost } from '../calculations/excavation-integration';
+// Import material-based excavation depth calculator
+import { calculatePatioExcavationDepth } from '../../../services/materialCalculations';
 
 // Import the JSON configuration (fallback only)
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
@@ -383,7 +385,20 @@ const calculateLegacyFallback = async (
   // ONLY check toggle value - respects user's choice to enable/disable
   if (values?.serviceIntegrations?.includeExcavation === true) {
     try {
-      const excavationDetails = await calculateExcavationCost(sqft, companyId);
+      // Calculate dynamic excavation depth based on selected materials
+      const { depth: excavationDepth, breakdown: depthBreakdown } = await calculatePatioExcavationDepth(
+        values?.selectedMaterials || {},
+        companyId,
+        actualConfig.id
+      );
+
+      console.log('🏗️ [PAVER PATIO] Using material-based excavation depth:', {
+        depth: `${excavationDepth} inches`,
+        breakdown: depthBreakdown
+      });
+
+      // Calculate excavation cost with custom depth
+      const excavationDetails = await calculateExcavationCost(sqft, companyId, excavationDepth);
 
       // Recalculate Tier 2 with excavation cost added to profitableSubtotal
       const profitMargin = actualConfig?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.20;
@@ -403,6 +418,7 @@ const calculateLegacyFallback = async (
           excavationDetails: {
             cubicYards: excavationDetails.cubicYards,
             depth: excavationDetails.depth,
+            depthBreakdown: depthBreakdown, // NEW: Show breakdown in UI
             wasteFactor: excavationDetails.wasteFactor,
             baseRate: excavationDetails.baseRate,
             profit: excavationDetails.profit

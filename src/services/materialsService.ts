@@ -327,3 +327,35 @@ export async function updateMaterialFactor(
     return { success: false, error: err.message || 'Unknown error occurred' };
   }
 }
+
+/**
+ * Update material depth
+ *
+ * @param materialId - Material UUID
+ * @param depth - New depth in inches (e.g., 6.0)
+ * @returns Success status
+ */
+export async function updateMaterialDepth(
+  materialId: string,
+  depth: number
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+      .from('service_materials')
+      .update({ coverage_depth_inches: depth })
+      .eq('id', materialId);
+
+    if (error) {
+      console.error(`❌ Error updating depth for material ${materialId}:`, error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Updated coverage_depth_inches to ${depth}" for material ${materialId}`);
+    return { success: true, error: null };
+  } catch (err: any) {
+    console.error(`❌ Exception updating depth:`, err);
+    return { success: false, error: err.message || 'Unknown error occurred' };
+  }
+}

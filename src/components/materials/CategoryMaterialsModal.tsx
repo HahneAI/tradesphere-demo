@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../../config/industry';
-import { fetchMaterialsForCategory, updateMaterialFactor } from '../../services/materialsService';
+import { fetchMaterialsForCategory, updateMaterialFactor, updateMaterialDepth } from '../../services/materialsService';
 import type { MaterialCategory, ServiceMaterial } from '../../types/materials';
 
 interface CategoryMaterialsModalProps {
@@ -37,6 +37,8 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [editingFactor, setEditingFactor] = useState<{ materialId: string; field: 'waste' | 'compaction' } | null>(null);
   const [factorEditValue, setFactorEditValue] = useState<string>('');
+  const [editingDepth, setEditingDepth] = useState<string | null>(null); // materialId being edited
+  const [depthEditValue, setDepthEditValue] = useState<string>('');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Fetch materials when modal opens
@@ -138,6 +140,61 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
       handleSaveFactor();
     } else if (e.key === 'Escape') {
       handleCancelEditFactor();
+    }
+  };
+
+  const handleStartEditDepth = (materialId: string, currentDepth: number | null) => {
+    setEditingDepth(materialId);
+    setDepthEditValue((currentDepth || 6.0).toString());
+    setSaveStatus('idle');
+  };
+
+  const handleCancelEditDepth = () => {
+    setEditingDepth(null);
+    setDepthEditValue('');
+    setSaveStatus('idle');
+  };
+
+  const handleSaveDepth = async () => {
+    if (!editingDepth) return;
+
+    const numValue = parseFloat(depthEditValue);
+
+    // Validation
+    if (isNaN(numValue) || numValue < 0 || numValue > 24) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+      return;
+    }
+
+    setSaveStatus('saving');
+
+    const { success, error: updateError } = await updateMaterialDepth(editingDepth, numValue);
+
+    if (success) {
+      // Update local state
+      setMaterials(prev => prev.map(m =>
+        m.id === editingDepth
+          ? { ...m, coverage_depth_inches: numValue }
+          : m
+      ));
+      setSaveStatus('saved');
+      setTimeout(() => {
+        setEditingDepth(null);
+        setSaveStatus('idle');
+      }, 1000);
+    } else {
+      console.error('Failed to update depth:', updateError);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const handleDepthKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveDepth();
+    } else if (e.key === 'Escape') {
+      handleCancelEditDepth();
     }
   };
 
@@ -513,6 +570,75 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                               }}
                             >
                               <span>{material.compaction_factor_percentage.toFixed(1)}%</span>
+                              {canEditMaterials && <Icons.Edit2 className="h-2.5 w-2.5" style={{ color: visualConfig.colors.primary }} />}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Material Depth (only for volume_depth categories like base_rock, clean_rock) */}
+                      {category.calculation_method === 'volume_depth' && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium" style={{ color: visualConfig.colors.text.secondary }}>
+                            Material Depth:
+                          </span>
+                          {canEditMaterials && editingDepth === material.id ? (
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                value={depthEditValue}
+                                onChange={(e) => setDepthEditValue(e.target.value)}
+                                onKeyPress={handleDepthKeyPress}
+                                min={0}
+                                max={24}
+                                step={0.5}
+                                className="w-14 px-1 py-0.5 text-xs border rounded"
+                                style={{
+                                  backgroundColor: visualConfig.colors.surface,
+                                  borderColor: saveStatus === 'error' ? '#dc2626' : visualConfig.colors.text.secondary + '40',
+                                  color: visualConfig.colors.text.primary,
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleSaveDepth}
+                                disabled={saveStatus === 'saving'}
+                                className="p-0.5 rounded transition-colors hover:opacity-80 disabled:opacity-50"
+                                style={{
+                                  backgroundColor: visualConfig.colors.primary,
+                                  color: '#ffffff'
+                                }}
+                              >
+                                {saveStatus === 'saving' ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                                ) : saveStatus === 'saved' ? (
+                                  <Icons.Check className="h-3 w-3" />
+                                ) : (
+                                  <Icons.Save className="h-3 w-3" />
+                                )}
+                              </button>
+                              <button
+                                onClick={handleCancelEditDepth}
+                                className="p-0.5 rounded transition-colors hover:opacity-80"
+                                style={{
+                                  backgroundColor: visualConfig.colors.text.secondary + '20',
+                                  color: visualConfig.colors.text.secondary
+                                }}
+                              >
+                                <Icons.X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => canEditMaterials && handleStartEditDepth(material.id, material.coverage_depth_inches)}
+                              disabled={!canEditMaterials}
+                              className={`flex items-center space-x-1 px-2 py-0.5 rounded text-xs ${canEditMaterials ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                color: visualConfig.colors.text.primary,
+                              }}
+                            >
+                              <span>{(material.coverage_depth_inches || 6.0).toFixed(1)}"</span>
                               {canEditMaterials && <Icons.Edit2 className="h-2.5 w-2.5" style={{ color: visualConfig.colors.primary }} />}
                             </button>
                           )}

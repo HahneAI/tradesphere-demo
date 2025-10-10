@@ -52,11 +52,13 @@ export function calculateExcavationHours(area_sqft: number): number {
  *
  * @param area_sqft - Area in square feet
  * @param companyId - Company ID for config lookup
+ * @param customDepth - Optional custom depth override (for paver patio material-based depth)
  * @returns Excavation cost breakdown with all dynamic config values
  */
 export async function calculateExcavationCost(
   area_sqft: number,
-  companyId?: string
+  companyId?: string,
+  customDepth?: number
 ): Promise<{
   cost: number;
   cubicYards: number;
@@ -72,14 +74,17 @@ export async function calculateExcavationCost(
 
     // Extract ALL parameters from live config (NO hardcoded defaults)
     // These values can be changed by admin in Services DB and will propagate automatically
-    const defaultDepth = config?.variables_config?.calculationSettings?.defaultDepth?.default ?? 12;
+    const configDepth = config?.variables_config?.calculationSettings?.defaultDepth?.default ?? 12;
+    const depth = customDepth ?? configDepth; // Use custom depth if provided (paver patio), otherwise use config default
     const wasteFactor = config?.variables_config?.calculationSettings?.wasteFactor?.default ?? 10;
     const compactionFactor = config?.variables_config?.calculationSettings?.compactionFactor?.default ?? 0;
     const baseRate = config?.hourly_labor_rate ?? 25;
     const profitMargin = config?.profit_margin ?? 0.05;
 
     console.log('🔍 [EXCAVATION INTEGRATION] Using LIVE config from database:', {
-      defaultDepth: `${defaultDepth} inches`,
+      configDepth: `${configDepth} inches`,
+      customDepth: customDepth ? `${customDepth} inches (OVERRIDE)` : 'not provided',
+      actualDepth: `${depth} inches`,
       wasteFactor: `${wasteFactor}%`,
       compactionFactor: `${compactionFactor}%`,
       baseRate: `$${baseRate}/yd³`,
@@ -93,7 +98,7 @@ export async function calculateExcavationCost(
     });
 
     // Calculate cubic yards (matches excavation service formula exactly)
-    const depthFt = defaultDepth / 12;
+    const depthFt = depth / 12; // Use actual depth (custom or config)
     const cubicFeet = area_sqft * depthFt;
     const cyRaw = cubicFeet / 27;
 
@@ -110,7 +115,7 @@ export async function calculateExcavationCost(
 
     console.log('🔍 [EXCAVATION INTEGRATION] Cost calculation:', {
       area_sqft: `${area_sqft} sqft`,
-      depth: `${defaultDepth} inches (${depthFt.toFixed(2)} ft)`,
+      depth: `${depth} inches (${depthFt.toFixed(2)} ft)`,
       cubicFeet: cubicFeet.toFixed(2),
       cubicYardsRaw: cyRaw.toFixed(2),
       cubicYardsAdjusted: cyAdjusted.toFixed(2),
@@ -125,7 +130,7 @@ export async function calculateExcavationCost(
       cubicYards: cyFinal,
       baseRate,
       profit: Math.round(profit * 100) / 100,
-      depth: defaultDepth,
+      depth: depth, // Return actual depth used
       wasteFactor
     };
   } catch (error) {
