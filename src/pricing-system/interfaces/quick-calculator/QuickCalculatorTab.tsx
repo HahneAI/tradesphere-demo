@@ -221,21 +221,21 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header */}
-          <div className="flex items-center justify-between p-6 border-b flex-shrink-0"
+          <div className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-6 border-b flex-shrink-0 gap-3 md:gap-0"
                style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
               {/* Back Button (only show when on a specific service) */}
               {!showSelectionScreen && (
                 <button
                   onClick={handleBackToSelection}
-                  className="p-1 rounded-lg hover:bg-opacity-20 transition-colors"
+                  className="p-1 rounded-lg hover:bg-opacity-20 transition-colors flex-shrink-0"
                   style={{ color: visualConfig.colors.text.secondary }}
                 >
                   <Icons.ArrowLeft className="h-5 w-5" />
                 </button>
               )}
 
-              <h2 className="text-xl font-semibold" style={{ color: visualConfig.colors.text.primary }}>
+              <h2 className="text-lg md:text-xl font-semibold flex-shrink-0" style={{ color: visualConfig.colors.text.primary }}>
                 Quick Calculator
               </h2>
 
@@ -244,7 +244,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
                 <select
                   value={selectedService}
                   onChange={(e) => handleServiceSwitch(e.target.value as ServiceId)}
-                  className="px-4 py-2 rounded-lg border transition-colors"
+                  className="px-3 md:px-4 py-2 rounded-lg border transition-colors text-sm md:text-base min-w-0 flex-1 md:flex-initial max-w-xs md:max-w-none truncate"
                   style={{
                     backgroundColor: visualConfig.colors.surface,
                     color: visualConfig.colors.text.primary,
@@ -261,7 +261,7 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-lg hover:bg-opacity-20 transition-colors"
+              className="p-1 rounded-lg hover:bg-opacity-20 transition-colors absolute top-4 right-4 md:relative md:top-auto md:right-auto"
               style={{ color: visualConfig.colors.text.secondary }}
             >
               <Icons.X className="h-5 w-5" />

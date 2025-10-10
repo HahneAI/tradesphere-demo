@@ -432,9 +432,30 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Configuration Panel */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
+        {/* Pricing Preview Panel - MOBILE FIRST (shows first on mobile, right side on desktop) */}
+        <div className="lg:col-span-1 lg:order-2">
+          <div
+            className="p-4 rounded-lg border lg:sticky lg:top-4"
+            style={{
+              backgroundColor: visualConfig.colors.surface,
+              borderColor: visualConfig.colors.text.secondary + '20'
+            }}
+          >
+            <h3 className="text-lg font-medium mb-4" style={{ color: visualConfig.colors.text.primary }}>
+              Live Pricing Preview
+            </h3>
+            <PricingPreview
+              calculation={store.lastCalculation}
+              onCalculate={store.calculatePrice}
+              visualConfig={visualConfig}
+              initialSqft={store.sqft}
+            />
+          </div>
+        </div>
+
+        {/* Configuration Panel - Shows second on mobile, left side on desktop */}
+        <div className="lg:col-span-2 lg:order-1 space-y-4">
           {store.config && store.config.variables ?
             Object.entries(store.config.variables)
               .filter(([categoryKey]) => categoryKey !== 'excavation') // SKIP excavation category - now handled via serviceIntegrations
@@ -539,27 +560,6 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
               )}
             </div>
           )}
-        </div>
-
-        {/* Pricing Preview Panel */}
-        <div className="lg:col-span-1">
-          <div 
-            className="sticky top-4 p-4 rounded-lg border"
-            style={{ 
-              backgroundColor: visualConfig.colors.surface,
-              borderColor: visualConfig.colors.text.secondary + '20'
-            }}
-          >
-            <h3 className="text-lg font-medium mb-4" style={{ color: visualConfig.colors.text.primary }}>
-              Live Pricing Preview
-            </h3>
-            <PricingPreview
-              calculation={store.lastCalculation}
-              onCalculate={store.calculatePrice}
-              visualConfig={visualConfig}
-              initialSqft={store.sqft}
-            />
-          </div>
         </div>
       </div>
     </div>
