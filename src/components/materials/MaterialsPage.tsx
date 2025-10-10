@@ -313,27 +313,27 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             </colgroup>
             <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
               <tr>
-                <th className="px-3 py-2 text-left text-sm font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Category Name
                 </th>
-                <th className="px-3 py-2 text-left text-sm font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Description
                 </th>
-                <th className="px-3 py-2 text-left text-sm font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Calculation Method
                 </th>
-                <th className="px-3 py-2 text-left text-sm font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Materials
                 </th>
-                <th className="px-3 py-2 text-left text-sm font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Required
                 </th>
-                <th className="px-3 py-2 text-left text-sm font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Actions
                 </th>

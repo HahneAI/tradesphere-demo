@@ -296,39 +296,39 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
         <table className="w-full">
           <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
             <tr>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Service Name
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Category
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Base Rate
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Optimal Team Size
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Base Productivity
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Material Cost
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Profit Margin
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Status
               </th>
-              <th className="px-3 py-2 text-left text-sm font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Configuration
               </th>
@@ -428,24 +428,6 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Status Bar */}
-      <div className="flex items-center justify-between p-3 border-t text-sm"
-           style={{ 
-             backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937',
-             borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-             color: visualConfig.colors.text.secondary 
-           }}>
-        <div className="flex items-center gap-4">
-          <span>Role: {isAdmin ? 'Admin' : 'User'}</span>
-          <span>{isAdmin ? 'Edit Mode: Click values to edit' : 'View Only'}</span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Icons.RefreshCw className="h-4 w-4" />
-          <span>Last updated: {new Date().toLocaleTimeString()}</span>
-        </div>
       </div>
 
       {/* Service Specifics Modal */}
