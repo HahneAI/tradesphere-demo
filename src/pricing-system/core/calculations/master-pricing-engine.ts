@@ -195,21 +195,6 @@ export class MasterPricingEngine {
       // Cache the result
       this.configCache.set(cacheKey, configRow);
 
-      console.log('✅ [MASTER ENGINE] Config loaded from Supabase:', {
-        profitMargin: configRow.profit_margin,
-        hourlyRate: configRow.hourly_labor_rate,
-        lastUpdated: configRow.updated_at,
-        source: 'Supabase Database'
-      });
-
-      // 🔍 DEBUG: Log variables_config from database
-      console.log('🔍 [MASTER ENGINE DEBUG] variables_config from DB:', {
-        hasVariablesConfig: !!configRow.variables_config,
-        variableKeys: Object.keys(configRow.variables_config || {}),
-        premiumMaterialValue: configRow.variables_config?.materials?.paverStyle?.options?.premium?.value,
-        premiumMultiplier: configRow.variables_config?.materials?.paverStyle?.options?.premium?.multiplier
-      });
-
       return this.convertRowToConfig(configRow);
 
     } catch (error) {
@@ -233,29 +218,11 @@ export class MasterPricingEngine {
       this.subscriptions.get(subscriptionKey).unsubscribe();
     }
 
-    // CRITICAL: Check if we're authenticated before subscribing (async check, log results when ready)
+    // CRITICAL: Check if we're authenticated before subscribing
     this.supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔧 [MASTER ENGINE] Auth check for subscription:', {
-        channelName: `pricing_config_${subscriptionKey}`,
-        isAuthenticated: !!session,
-        userId: session?.user?.id,
-        userEmail: session?.user?.email,
-        accessToken: session?.access_token ? `${session.access_token.substring(0, 20)}...` : 'NONE'
-      });
-
       if (!session) {
-        console.error('❌ [MASTER ENGINE] CRITICAL: No auth session found! Real-time will NOT work with RLS!');
-        console.error('❌ [MASTER ENGINE] Subscription will appear SUBSCRIBED but events will never fire!');
-      } else {
-        console.log('✅ [MASTER ENGINE] Auth session found - real-time should work');
+        console.error('❌ [MASTER ENGINE] No auth session - real-time subscriptions will fail!');
       }
-    });
-
-    console.log('🔧 [MASTER ENGINE] Creating subscription channel:', {
-      channelName: `pricing_config_${subscriptionKey}`,
-      companyId,
-      serviceName,
-      table: 'service_pricing_configs'
     });
 
     // Create new subscription
@@ -270,18 +237,9 @@ export class MasterPricingEngine {
           filter: `company_id=eq.${companyId}`
         },
         async (payload) => {
-          console.log('🎯🎯🎯 [MASTER ENGINE] ========== REAL-TIME EVENT RECEIVED ==========', {
-            timestamp: new Date().toISOString(),
-            event: payload.eventType,
-            serviceName: payload.new?.service_name || payload.old?.service_name,
-            targetService: serviceName,
-            willProcess: (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName),
-            payload: payload
-          });
-
           // Only process updates for matching service
           if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
-            console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
+            console.log('🔄 [MASTER ENGINE] Real-time config update received');
 
             // CRITICAL: Force reload from database to bypass cache entirely
             // Using loadPricingConfig() could still use cached data even after delete
@@ -296,43 +254,19 @@ export class MasterPricingEngine {
               _updateSource: 'real-time-subscription'
             };
 
-            console.log('🔄 [MASTER ENGINE] Triggering config update with timestamp:', configWithTimestamp._lastUpdated);
             onUpdate(configWithTimestamp as any);
           }
         }
       )
       .subscribe((status, error) => {
-        console.log('📡 [MASTER ENGINE] Subscription status change:', {
-          status,
-          error,
-          subscriptionKey,
-          timestamp: new Date().toISOString()
-        });
-
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [MASTER ENGINE] Real-time subscription ACTIVE and ready', {
-            channel: `pricing_config_${subscriptionKey}`,
-            table: 'service_pricing_configs',
-            filter: `company_id=eq.${companyId}`
-          });
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [MASTER ENGINE] Subscription FAILED:', error);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [MASTER ENGINE] Subscription failed:', error);
         } else if (status === 'TIMED_OUT') {
-          console.error('⏱️ [MASTER ENGINE] Subscription TIMED OUT - WebSocket connection failed');
-        } else if (status === 'CLOSED') {
-          console.warn('🔌 [MASTER ENGINE] Subscription CLOSED (component unmounted or StrictMode cleanup)');
+          console.error('⏱️ [MASTER ENGINE] Subscription timed out');
         }
       });
 
     this.subscriptions.set(subscriptionKey, subscription);
-
-    console.log('👂 [MASTER ENGINE] Subscription setup complete:', {
-      subscriptionKey,
-      channelName: `pricing_config_${subscriptionKey}`,
-      table: 'service_pricing_configs',
-      filter: `company_id=eq.${companyId}`,
-      serviceName
-    });
 
     // Return cleanup function
     return () => {
@@ -577,8 +511,6 @@ export class MasterPricingEngine {
 
     if (useMaterialsDatabase && companyId) {
       // NEW SYSTEM: Database-driven material calculations
-      console.log('🔷 Using NEW materials database system');
-
       try {
         const result = await calculateAllMaterialCosts(
           {
@@ -598,13 +530,6 @@ export class MasterPricingEngine {
         materialCostBase = totalMaterialCost;
         materialWasteCost = 0;  // Waste already included in new system
 
-        console.log('✅ Material calculation result:', {
-          totalCost: totalMaterialCost.toFixed(2),
-          perSqft: materialCostPerSqft.toFixed(2),
-          categories: result.categories.length
-        });
-        console.log('📦 Material breakdown:', result.breakdown);
-
       } catch (error) {
         console.error('❌ Error calculating materials from database, falling back to old system:', error);
         // Fall through to old system on error
@@ -614,24 +539,10 @@ export class MasterPricingEngine {
 
     if (!useMaterialsDatabase) {
       // OLD SYSTEM: Simple multiplier-based calculations (LEGACY)
-      console.log('🔶 Using OLD multiplier-based material system');
-
-      // CRITICAL FIX: Read multiplier from config.variables_config instead of hardcoded helper
       const paverVar = config?.variables_config?.materials?.paverStyle;
       const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
       const paverOption = paverVar?.options?.[paverStyleValue];
       const materialMultiplier = paverOption?.multiplier ?? 1.0;
-
-      // 🔍 DEBUG: Log what material multiplier is being used
-      console.log('🔍 [MASTER ENGINE DEBUG] Material multiplier from DATABASE:', {
-        selectedPaverStyle: paverStyleValue,
-        paverStyleOptions: paverVar?.options,
-        selectedOption: paverOption,
-        multiplierFromDB: materialMultiplier,
-        premiumOption: paverVar?.options?.premium,
-        premiumValue: paverVar?.options?.premium?.value,
-        premiumMultiplier: paverVar?.options?.premium?.multiplier
-      });
 
       materialCostBase = baseMaterialCost * sqft * materialMultiplier;
 
@@ -640,15 +551,6 @@ export class MasterPricingEngine {
       const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
       materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
       totalMaterialCost = materialCostBase + materialWasteCost;
-
-      console.log('📊 OLD system calculation:', {
-        baseCost: baseMaterialCost,
-        multiplier: materialMultiplier,
-        materialCostBase: materialCostBase.toFixed(2),
-        wastePercent: cuttingWastePercent,
-        materialWasteCost: materialWasteCost.toFixed(2),
-        total: totalMaterialCost.toFixed(2)
-      });
     }
 
     // 3. Excavation costs (bundled service)
@@ -664,12 +566,6 @@ export class MasterPricingEngine {
         let customDepth: number | undefined = undefined;
 
         if (useMaterialsDatabase && companyId && configId && values?.selectedMaterials) {
-          console.log('🔍 [MASTER ENGINE] Calculating material-based excavation depth', {
-            companyId,
-            configId,
-            selectedMaterials: values.selectedMaterials
-          });
-
           try {
             const depthResult = await calculatePatioExcavationDepth(
               values.selectedMaterials,
@@ -677,12 +573,8 @@ export class MasterPricingEngine {
               configId
             );
             customDepth = depthResult.depth;
-            console.log('✅ [MASTER ENGINE] Material-based excavation depth calculated:', {
-              depth: customDepth,
-              breakdown: depthResult.breakdown
-            });
           } catch (depthError) {
-            console.error('❌ [MASTER ENGINE] Failed to calculate material-based depth, using default:', depthError);
+            console.error('❌ [MASTER ENGINE] Failed to calculate material-based depth:', depthError);
           }
         }
 
@@ -695,11 +587,6 @@ export class MasterPricingEngine {
           baseRate: details.baseRate,
           profit: details.profit
         };
-        console.log('💰 [MASTER ENGINE] Excavation cost calculated:', {
-          enabled: excavationEnabled,
-          cost: excavationCost,
-          details: excavationDetails
-        });
       } catch (error) {
         console.error('❌ [MASTER ENGINE] Failed to calculate excavation cost:', error);
       }
