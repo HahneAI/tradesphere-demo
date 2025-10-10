@@ -39,6 +39,22 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
   theme,
   user,
 }) => {
+  // State for collapsible sections
+  const [expandedSections, setExpandedSections] = React.useState<{
+    databases: boolean;
+    miscellaneous: boolean;
+  }>({
+    databases: false,
+    miscellaneous: false,
+  });
+
+  const toggleSection = (section: 'databases' | 'miscellaneous') => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -93,57 +109,66 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
 
         {/* Navigation Items */}
         <nav className="flex-1 p-4 space-y-2">
-          <button
-            onClick={() => {
-              onCustomersClick();
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.Users className="h-5 w-5" />
-            <span className="font-medium">Customers</span>
-          </button>
+          {/* Databases Section - Collapsible */}
+          <div>
+            <button
+              onClick={() => toggleSection('databases')}
+              className="w-full flex items-center justify-between px-3 py-3 rounded-lg text-left transition-colors duration-200"
+              style={{
+                color: visualConfig.colors.text.primary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="flex items-center gap-4">
+                <Icons.Database className="h-5 w-5" />
+                <span className="font-semibold">Databases</span>
+              </div>
+              <Icons.ChevronDown
+                className={`h-4 w-4 transition-transform duration-300 ${expandedSections.databases ? 'rotate-180' : ''}`}
+                style={{ color: visualConfig.colors.text.secondary }}
+              />
+            </button>
+            {expandedSections.databases && (
+              <div className="mt-1 space-y-1">
+                <button
+                  onClick={() => {
+                    onServicesClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.Settings className="h-4 w-4" />
+                  <span className="font-medium">Services Configuration</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onMaterialsClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.Package className="h-4 w-4" />
+                  <span className="font-medium">Materials Management</span>
+                </button>
+              </div>
+            )}
+          </div>
 
-          <button
-            onClick={() => {
-              onServicesClick();
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.Database className="h-5 w-5" />
-            <span className="font-medium">Services Database</span>
-          </button>
-
-          <button
-            onClick={() => {
-              onMaterialsClick();
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.Package className="h-5 w-5" />
-            <span className="font-medium">Materials</span>
-          </button>
-
+          {/* Quick Calculator - Top Level */}
           <button
             onClick={() => {
               onQuickCalculatorClick();
@@ -161,9 +186,10 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
             <span className="font-medium">Quick Calculator</span>
           </button>
 
+          {/* Customers - Top Level */}
           <button
             onClick={() => {
-              onAvatarClick();
+              onCustomersClick();
               onClose();
             }}
             className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
@@ -174,43 +200,84 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <DynamicIcon name={user?.user_icon || 'User'} className="h-5 w-5" />
-            <span className="font-medium">Change Profile Icon</span>
+            <Icons.Users className="h-5 w-5" />
+            <span className="font-medium">Customers</span>
           </button>
 
-          <button
-            onClick={() => {
-              onNotesClick();
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.StickyNote className="h-5 w-5" />
-            <span className="font-medium">Your Notes from Us</span>
-          </button>
-  
-          <button
-            onClick={() => {
-              onFeedbackClick();
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.MessageSquareQuote className="h-5 w-5" />
-            <span className="font-medium">Send Feedback</span>
-          </button>
+          {/* Miscellaneous Section - Collapsible */}
+          <div>
+            <button
+              onClick={() => toggleSection('miscellaneous')}
+              className="w-full flex items-center justify-between px-3 py-3 rounded-lg text-left transition-colors duration-200"
+              style={{
+                color: visualConfig.colors.text.primary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="flex items-center gap-4">
+                <Icons.Settings className="h-5 w-5" />
+                <span className="font-semibold">Miscellaneous</span>
+              </div>
+              <Icons.ChevronDown
+                className={`h-4 w-4 transition-transform duration-300 ${expandedSections.miscellaneous ? 'rotate-180' : ''}`}
+                style={{ color: visualConfig.colors.text.secondary }}
+              />
+            </button>
+            {expandedSections.miscellaneous && (
+              <div className="mt-1 space-y-1">
+                <button
+                  onClick={() => {
+                    onAvatarClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <DynamicIcon name={user?.user_icon || 'User'} className="h-4 w-4" />
+                  <span className="font-medium">Change Profile Icon</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onNotesClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.StickyNote className="h-4 w-4" />
+                  <span className="font-medium">Your Notes from Us</span>
+                </button>
+                <button
+                  onClick={() => {
+                    onFeedbackClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.MessageSquareQuote className="h-4 w-4" />
+                  <span className="font-medium">Send Feedback</span>
+                </button>
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Footer Actions */}

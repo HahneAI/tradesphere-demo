@@ -1733,6 +1733,8 @@ const ChatInterface = () => {
         theme={theme}
         user={user}
       />
+      {/* Main header - only show on chat page; Services and Materials have their own headers */}
+      {currentPage === 'chat' && (
       <header className="flex-shrink-0 border-b transition-colors duration-300" style={{ borderBottomColor: theme === 'light' ? '#e5e7eb' : '#374151', backgroundColor: visualConfig.colors.surface }}>
         <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between w-full">
@@ -2191,10 +2193,11 @@ const ChatInterface = () => {
           </div>
         </div>
       </header>
+      )}
 
       {/* Page Content - Conditional rendering based on currentPage */}
       {currentPage === 'services' && (
-        <ServicesPage />
+        <ServicesPage onBackClick={() => setCurrentPage('chat')} />
       )}
 
       {currentPage === 'customers' && (
@@ -2208,7 +2211,7 @@ const ChatInterface = () => {
       )}
 
       {currentPage === 'materials' && (
-        <MaterialsPage />
+        <MaterialsPage onBackClick={() => setCurrentPage('chat')} />
       )}
 
       {currentPage === 'chat' && (
