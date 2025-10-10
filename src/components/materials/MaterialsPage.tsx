@@ -386,13 +386,13 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
                   <td className="px-3 py-2">
                     <button
                       onClick={() => setSelectedCategory(category)}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors hover:bg-opacity-10"
+                      className="flex items-center gap-2 px-4 h-11 min-h-[44px] text-sm rounded-lg border transition-all duration-150 hover:bg-opacity-10 active:scale-[0.97]"
                       style={{
                         borderColor: visualConfig.colors.primary,
                         color: visualConfig.colors.primary
                       }}
                     >
-                      <Icons.Eye className="h-4 w-4" />
+                      <Icons.Eye className="h-5 w-5" />
                       View Materials
                     </button>
                   </td>
