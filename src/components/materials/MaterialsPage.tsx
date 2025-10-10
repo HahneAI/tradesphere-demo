@@ -195,7 +195,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
           {/* Back button with breadcrumb */}
           <button
             onClick={onBackClick}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-opacity-80"
+            className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
             style={{
               color: visualConfig.colors.text.secondary,
               backgroundColor: 'transparent'
@@ -203,7 +203,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.ArrowLeft className="h-4 w-4" />
+            <Icons.ArrowLeft className="h-5 w-5" />
             <span className="text-sm">Dashboard</span>
           </button>
           <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
@@ -225,11 +225,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             <select
               value={selectedService}
               onChange={(e) => handleServiceChange(e.target.value)}
-              className="pl-3 pr-10 py-2 border rounded-lg text-sm appearance-none cursor-pointer"
+              className="pl-3 pr-10 h-11 min-h-[44px] border rounded-lg text-sm appearance-none cursor-pointer transition-all focus:outline-none focus:ring-2"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
                 color: visualConfig.colors.text.primary,
+                '--tw-ring-color': visualConfig.colors.primary
               }}
             >
               {availableServices.map((service) => (
@@ -253,11 +254,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
               placeholder="Search categories..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
+              className="pl-10 pr-4 h-11 min-h-[44px] border rounded-lg focus:outline-none focus:ring-2 transition-all"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-                color: visualConfig.colors.text.primary
+                color: visualConfig.colors.text.primary,
+                '--tw-ring-color': visualConfig.colors.primary
               }}
             />
           </div>

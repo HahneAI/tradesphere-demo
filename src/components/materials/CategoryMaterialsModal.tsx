@@ -258,13 +258,13 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                 {canEditMaterials && (
                   <button
                     onClick={handleAddMaterial}
-                    className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center space-x-2 px-4 h-11 min-h-[44px] rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.97]"
                     style={{
                       backgroundColor: visualConfig.colors.primary,
                       color: '#ffffff',
                     }}
                   >
-                    <Icons.Plus className="h-4 w-4" />
+                    <Icons.Plus className="h-5 w-5" />
                     <span>Add Material</span>
                   </button>
                 )}
@@ -272,10 +272,10 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                 {/* Close Button */}
                 <button
                   onClick={onClose}
-                  className="p-1 rounded-lg hover:bg-opacity-20 transition-colors"
+                  className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-opacity-20 transition-all duration-150 active:scale-95"
                   style={{ color: visualConfig.colors.text.secondary }}
                 >
-                  <Icons.X className="h-5 w-5" />
+                  <Icons.X className="h-6 w-6" />
                 </button>
               </div>
             </div>
@@ -653,26 +653,26 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                           {/* Edit Button */}
                           <button
                             onClick={() => handleEditMaterial(material.id)}
-                            className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                            className="flex-1 flex items-center justify-center space-x-1 px-3 h-11 min-h-[44px] rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.97]"
                             style={{
                               backgroundColor: visualConfig.colors.primary + '15',
                               color: visualConfig.colors.primary,
                             }}
                           >
-                            <Icons.Edit2 className="h-3 w-3" />
+                            <Icons.Edit2 className="h-4 w-4" />
                             <span>Edit</span>
                           </button>
 
                           {/* Delete Button */}
                           <button
                             onClick={() => handleDeleteMaterial(material.id)}
-                            className="flex items-center justify-center px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                            className="flex items-center justify-center h-11 w-11 min-h-[44px] min-w-[44px] rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.97]"
                             style={{
                               backgroundColor: '#fee2e2',
                               color: '#dc2626',
                             }}
                           >
-                            <Icons.Trash2 className="h-3 w-3" />
+                            <Icons.Trash2 className="h-5 w-5" />
                           </button>
                         </>
                       ) : (
@@ -680,13 +680,13 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                           {/* View Details Button (Non-Admin) */}
                           <button
                             onClick={() => handleViewMaterial(material.id)}
-                            className="flex-1 flex items-center justify-center space-x-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                            className="flex-1 flex items-center justify-center space-x-1 px-3 h-11 min-h-[44px] rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.97]"
                             style={{
                               backgroundColor: visualConfig.colors.primary + '15',
                               color: visualConfig.colors.primary,
                             }}
                           >
-                            <Icons.Eye className="h-3 w-3" />
+                            <Icons.Eye className="h-4 w-4" />
                             <span>View Details</span>
                           </button>
                         </>
@@ -705,7 +705,7 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
           >
             <button
               onClick={onClose}
-              className="px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+              className="px-6 h-11 min-h-[44px] rounded-lg text-sm font-medium transition-all duration-150 active:scale-[0.97]"
               style={{
                 backgroundColor: visualConfig.colors.text.secondary + '15',
                 color: visualConfig.colors.text.secondary,

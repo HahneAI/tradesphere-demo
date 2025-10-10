@@ -220,7 +220,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
           {/* Back button with breadcrumb */}
           <button
             onClick={onBackClick}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-opacity-80"
+            className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
             style={{
               color: visualConfig.colors.text.secondary,
               backgroundColor: 'transparent'
@@ -228,7 +228,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.ArrowLeft className="h-4 w-4" />
+            <Icons.ArrowLeft className="h-5 w-5" />
             <span className="text-sm">Dashboard</span>
           </button>
           <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
@@ -254,11 +254,12 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
               placeholder="Search services..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
+              className="pl-10 pr-4 h-11 min-h-[44px] border rounded-lg focus:outline-none focus:ring-2 transition-all"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-                color: visualConfig.colors.text.primary
+                color: visualConfig.colors.text.primary,
+                '--tw-ring-color': visualConfig.colors.primary
               }}
             />
           </div>
@@ -267,21 +268,19 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
           <button
             onClick={handleInsertService}
             disabled={!user?.company_id || !isAdmin}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 h-11 min-h-[44px] rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
             style={{
               backgroundColor: visualConfig.colors.primary,
-              color: 'white',
-              opacity: (!user?.company_id || !isAdmin) ? 0.5 : 1,
-              cursor: (!user?.company_id || !isAdmin) ? 'not-allowed' : 'pointer'
+              color: 'white'
             }}
             title={!isAdmin ? 'Admin access required' : !user?.company_id ? 'Please log in' : 'Create test service'}
           >
-            <Icons.Plus className="h-4 w-4" />
+            <Icons.Plus className="h-5 w-5" />
             Insert (Test)
           </button>
-          
+
           {/* Sort Button */}
-          <button className="flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors"
+          <button className="flex items-center gap-2 px-4 h-11 min-h-[44px] border rounded-lg transition-all duration-150 active:scale-95"
                   style={{
                     borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
                     color: visualConfig.colors.text.primary
