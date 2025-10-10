@@ -293,3 +293,37 @@ export async function fetchServicesWithMaterials(
     return { data: null, error: err.message || 'Unknown error occurred' };
   }
 }
+
+/**
+ * Update material waste or compaction factor
+ *
+ * @param materialId - Material UUID
+ * @param field - Field to update ('waste_factor_percentage' or 'compaction_factor_percentage')
+ * @param value - New percentage value (e.g., 10.0 for 10%)
+ * @returns Success status
+ */
+export async function updateMaterialFactor(
+  materialId: string,
+  field: 'waste_factor_percentage' | 'compaction_factor_percentage',
+  value: number
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+      .from('service_materials')
+      .update({ [field]: value })
+      .eq('id', materialId);
+
+    if (error) {
+      console.error(`❌ Error updating ${field} for material ${materialId}:`, error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Updated ${field} to ${value}% for material ${materialId}`);
+    return { success: true, error: null };
+  } catch (err: any) {
+    console.error(`❌ Exception updating ${field}:`, err);
+    return { success: false, error: err.message || 'Unknown error occurred' };
+  }
+}

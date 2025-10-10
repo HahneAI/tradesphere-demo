@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../../config/industry';
-import { fetchMaterialsForCategory } from '../../services/materialsService';
+import { fetchMaterialsForCategory, updateMaterialFactor } from '../../services/materialsService';
 import type { MaterialCategory, ServiceMaterial } from '../../types/materials';
 
 interface CategoryMaterialsModalProps {
@@ -35,6 +35,9 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
   const [materials, setMaterials] = useState<ServiceMaterial[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingFactor, setEditingFactor] = useState<{ materialId: string; field: 'waste' | 'compaction' } | null>(null);
+  const [factorEditValue, setFactorEditValue] = useState<string>('');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   // Fetch materials when modal opens
   useEffect(() => {
@@ -80,6 +83,62 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
 
   const handleViewMaterial = (materialId: string) => {
     console.log('View material:', materialId);
+  };
+
+  const handleStartEditFactor = (materialId: string, field: 'waste' | 'compaction', currentValue: number) => {
+    setEditingFactor({ materialId, field });
+    setFactorEditValue(currentValue.toString());
+    setSaveStatus('idle');
+  };
+
+  const handleCancelEditFactor = () => {
+    setEditingFactor(null);
+    setFactorEditValue('');
+    setSaveStatus('idle');
+  };
+
+  const handleSaveFactor = async () => {
+    if (!editingFactor) return;
+
+    const numValue = parseFloat(factorEditValue);
+
+    // Validation
+    if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+      return;
+    }
+
+    setSaveStatus('saving');
+
+    const dbField = editingFactor.field === 'waste' ? 'waste_factor_percentage' : 'compaction_factor_percentage';
+    const { success, error: updateError } = await updateMaterialFactor(editingFactor.materialId, dbField, numValue);
+
+    if (success) {
+      // Update local state
+      setMaterials(prev => prev.map(m =>
+        m.id === editingFactor.materialId
+          ? { ...m, [dbField]: numValue }
+          : m
+      ));
+      setSaveStatus('saved');
+      setTimeout(() => {
+        setEditingFactor(null);
+        setSaveStatus('idle');
+      }, 1000);
+    } else {
+      console.error('Failed to update factor:', updateError);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const handleFactorKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveFactor();
+    } else if (e.key === 'Escape') {
+      handleCancelEditFactor();
+    }
   };
 
   // Format price display
@@ -319,6 +378,145 @@ export const CategoryMaterialsModal: React.FC<CategoryMaterialsModalProps> = ({
                         >
                           {material.material_grade}
                         </span>
+                      )}
+                    </div>
+
+                    {/* Waste & Compaction Factors */}
+                    <div className="space-y-2 mb-3 pb-3 border-b" style={{ borderColor: visualConfig.colors.text.secondary + '20' }}>
+                      {/* Waste Factor */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium" style={{ color: visualConfig.colors.text.secondary }}>
+                          Waste Factor:
+                        </span>
+                        {canEditMaterials && editingFactor?.materialId === material.id && editingFactor.field === 'waste' ? (
+                          <div className="flex items-center space-x-1">
+                            <input
+                              type="number"
+                              value={factorEditValue}
+                              onChange={(e) => setFactorEditValue(e.target.value)}
+                              onKeyPress={handleFactorKeyPress}
+                              min={0}
+                              max={100}
+                              step={0.1}
+                              className="w-14 px-1 py-0.5 text-xs border rounded"
+                              style={{
+                                backgroundColor: visualConfig.colors.surface,
+                                borderColor: saveStatus === 'error' ? '#dc2626' : visualConfig.colors.text.secondary + '40',
+                                color: visualConfig.colors.text.primary,
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              onClick={handleSaveFactor}
+                              disabled={saveStatus === 'saving'}
+                              className="p-0.5 rounded transition-colors hover:opacity-80 disabled:opacity-50"
+                              style={{
+                                backgroundColor: visualConfig.colors.primary,
+                                color: '#ffffff'
+                              }}
+                            >
+                              {saveStatus === 'saving' ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                              ) : saveStatus === 'saved' ? (
+                                <Icons.Check className="h-3 w-3" />
+                              ) : (
+                                <Icons.Save className="h-3 w-3" />
+                              )}
+                            </button>
+                            <button
+                              onClick={handleCancelEditFactor}
+                              className="p-0.5 rounded transition-colors hover:opacity-80"
+                              style={{
+                                backgroundColor: visualConfig.colors.text.secondary + '20',
+                                color: visualConfig.colors.text.secondary
+                              }}
+                            >
+                              <Icons.X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => canEditMaterials && handleStartEditFactor(material.id, 'waste', material.waste_factor_percentage)}
+                            disabled={!canEditMaterials}
+                            className={`flex items-center space-x-1 px-2 py-0.5 rounded text-xs ${canEditMaterials ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+                            style={{
+                              backgroundColor: visualConfig.colors.background,
+                              color: visualConfig.colors.text.primary,
+                            }}
+                          >
+                            <span>{material.waste_factor_percentage.toFixed(1)}%</span>
+                            {canEditMaterials && <Icons.Edit2 className="h-2.5 w-2.5" style={{ color: visualConfig.colors.primary }} />}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Compaction Factor (only show if > 0) */}
+                      {material.compaction_factor_percentage > 0 && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium" style={{ color: visualConfig.colors.text.secondary }}>
+                            Compaction Factor:
+                          </span>
+                          {canEditMaterials && editingFactor?.materialId === material.id && editingFactor.field === 'compaction' ? (
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="number"
+                                value={factorEditValue}
+                                onChange={(e) => setFactorEditValue(e.target.value)}
+                                onKeyPress={handleFactorKeyPress}
+                                min={0}
+                                max={100}
+                                step={0.1}
+                                className="w-14 px-1 py-0.5 text-xs border rounded"
+                                style={{
+                                  backgroundColor: visualConfig.colors.surface,
+                                  borderColor: saveStatus === 'error' ? '#dc2626' : visualConfig.colors.text.secondary + '40',
+                                  color: visualConfig.colors.text.primary,
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                onClick={handleSaveFactor}
+                                disabled={saveStatus === 'saving'}
+                                className="p-0.5 rounded transition-colors hover:opacity-80 disabled:opacity-50"
+                                style={{
+                                  backgroundColor: visualConfig.colors.primary,
+                                  color: '#ffffff'
+                                }}
+                              >
+                                {saveStatus === 'saving' ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                                ) : saveStatus === 'saved' ? (
+                                  <Icons.Check className="h-3 w-3" />
+                                ) : (
+                                  <Icons.Save className="h-3 w-3" />
+                                )}
+                              </button>
+                              <button
+                                onClick={handleCancelEditFactor}
+                                className="p-0.5 rounded transition-colors hover:opacity-80"
+                                style={{
+                                  backgroundColor: visualConfig.colors.text.secondary + '20',
+                                  color: visualConfig.colors.text.secondary
+                                }}
+                              >
+                                <Icons.X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => canEditMaterials && handleStartEditFactor(material.id, 'compaction', material.compaction_factor_percentage)}
+                              disabled={!canEditMaterials}
+                              className={`flex items-center space-x-1 px-2 py-0.5 rounded text-xs ${canEditMaterials ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
+                              style={{
+                                backgroundColor: visualConfig.colors.background,
+                                color: visualConfig.colors.text.primary,
+                              }}
+                            >
+                              <span>{material.compaction_factor_percentage.toFixed(1)}%</span>
+                              {canEditMaterials && <Icons.Edit2 className="h-2.5 w-2.5" style={{ color: visualConfig.colors.primary }} />}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
 
