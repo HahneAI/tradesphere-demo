@@ -106,9 +106,21 @@ export function calculateVolumeMaterial(
   material: ServiceMaterial,
   category: MaterialCategory
 ): MaterialQuantityResult {
-  const depthInches = category.default_depth_inches || material.coverage_depth_inches || 6.0;
+  // CRITICAL FIX: Prioritize material depth over category depth
+  // When user edits depth in UI, they edit material.coverage_depth_inches
+  // This ensures edited depth is used in calculations immediately
+  const depthInches = material.coverage_depth_inches || category.default_depth_inches || 6.0;
   const wasteFactor = material.waste_factor_percentage || 10.0;
   const compactionFactor = material.compaction_factor_percentage || 0.0;
+
+  console.log('📏 [VOLUME CALC] Depth determination:', {
+    materialDepth: material.coverage_depth_inches,
+    categoryDepth: category.default_depth_inches,
+    finalDepth: depthInches,
+    source: material.coverage_depth_inches ? 'material' : category.default_depth_inches ? 'category' : 'fallback',
+    categoryKey: category.category_key,
+    materialName: material.material_name
+  });
 
   // Step 1: Calculate cubic feet
   const cubicFeet = (squareFootage * depthInches) / 12;
@@ -447,7 +459,11 @@ export async function calculatePatioExcavationDepth(
   companyId: string,
   serviceConfigId: string
 ): Promise<{ depth: number; breakdown: string }> {
-  console.log('🏗️ [EXCAVATION DEPTH] Calculating patio excavation depth from materials');
+  console.log('🏗️ [EXCAVATION DEPTH] Calculating patio excavation depth from materials', {
+    selectedMaterials,
+    companyId,
+    serviceConfigId
+  });
 
   let baseRockDepth = 6.0; // Default fallback
   let cleanRockDepth = 2.0; // Default fallback
@@ -459,12 +475,21 @@ export async function calculatePatioExcavationDepth(
     const baseRockId = selectedMaterials?.['base_rock'];
     if (baseRockId) {
       const { data: baseRock } = await fetchMaterialById(baseRockId);
+      console.log('📦 [EXCAVATION DEPTH] Base rock material fetched:', {
+        materialId: baseRockId,
+        materialName: baseRock?.material_name,
+        coverage_depth_inches: baseRock?.coverage_depth_inches
+      });
       if (baseRock?.coverage_depth_inches) {
         baseRockDepth = baseRock.coverage_depth_inches;
       }
     } else {
       // Use default base rock material
       const { data: baseRock } = await getDefaultMaterial(companyId, serviceConfigId, 'base_rock');
+      console.log('📦 [EXCAVATION DEPTH] Default base rock material fetched:', {
+        materialName: baseRock?.material_name,
+        coverage_depth_inches: baseRock?.coverage_depth_inches
+      });
       if (baseRock?.coverage_depth_inches) {
         baseRockDepth = baseRock.coverage_depth_inches;
       }
@@ -474,12 +499,21 @@ export async function calculatePatioExcavationDepth(
     const cleanRockId = selectedMaterials?.['clean_rock'];
     if (cleanRockId) {
       const { data: cleanRock } = await fetchMaterialById(cleanRockId);
+      console.log('📦 [EXCAVATION DEPTH] Clean rock material fetched:', {
+        materialId: cleanRockId,
+        materialName: cleanRock?.material_name,
+        coverage_depth_inches: cleanRock?.coverage_depth_inches
+      });
       if (cleanRock?.coverage_depth_inches) {
         cleanRockDepth = cleanRock.coverage_depth_inches;
       }
     } else {
       // Use default clean rock material
       const { data: cleanRock } = await getDefaultMaterial(companyId, serviceConfigId, 'clean_rock');
+      console.log('📦 [EXCAVATION DEPTH] Default clean rock material fetched:', {
+        materialName: cleanRock?.material_name,
+        coverage_depth_inches: cleanRock?.coverage_depth_inches
+      });
       if (cleanRock?.coverage_depth_inches) {
         cleanRockDepth = cleanRock.coverage_depth_inches;
       }
@@ -489,12 +523,21 @@ export async function calculatePatioExcavationDepth(
     const paverId = selectedMaterials?.['pavers'];
     if (paverId) {
       const { data: paver } = await fetchMaterialById(paverId);
+      console.log('📦 [EXCAVATION DEPTH] Paver material fetched:', {
+        materialId: paverId,
+        materialName: paver?.material_name,
+        thickness_inches: paver?.thickness_inches
+      });
       if (paver?.thickness_inches) {
         paverThickness = paver.thickness_inches;
       }
     } else {
       // Use default paver material
       const { data: paver } = await getDefaultMaterial(companyId, serviceConfigId, 'pavers');
+      console.log('📦 [EXCAVATION DEPTH] Default paver material fetched:', {
+        materialName: paver?.material_name,
+        thickness_inches: paver?.thickness_inches
+      });
       if (paver?.thickness_inches) {
         paverThickness = paver.thickness_inches;
       }
