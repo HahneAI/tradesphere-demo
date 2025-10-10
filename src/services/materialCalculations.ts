@@ -139,24 +139,24 @@ export function calculateVolumeMaterial(
  * Calculate Area-Based Materials (Pavers, Fabric, Polymeric Sand)
  *
  * Formula:
- * 1. Calculate needed sqft: sqft / coverage_per_unit
+ * 1. Calculate needed sqft: project squareFootage (direct coverage)
  * 2. Apply waste factor: sqft × (1 + waste_percent/100)
  * 3. Convert to purchase units: sqft / coverage_per_unit
  * 4. Round up to 0.1
- * 5. Calculate cost: units × price_per_unit × coverage_per_unit
+ * 5. Calculate cost: units × price_per_unit
  *
  * Example 1 - Pavers (sold per sqft, 1:1 coverage):
- * - Needed: 360 sqft / 1.0 = 360 sqft
+ * - Needed: 360 sqft
  * - With 10% waste: 360 × 1.10 = 396 sqft
- * - Purchase units: 396 sqft (no conversion, sold per sqft)
- * - Cost: 396 × $5.17 = $2,047.32
+ * - Purchase units: 396 / 1.0 = 396 sqft
+ * - Cost: 396 × $5.17 = $2,047.32 ✅
  *
- * Example 2 - Fabric (sold per ROLL, 375 sqft per roll):
- * - Needed: 360 sqft / 1.0 = 360 sqft
- * - With 15% waste: 360 × 1.15 = 414 sqft
- * - Rolls needed: 414 / 375 = 1.104 rolls
- * - Rounded: 1.2 rolls
- * - Cost: 1.2 × $0.53 × 375 = $238.50
+ * Example 2 - Fabric (sold per ROLL, 1800 sqft per roll):
+ * - Needed: 100 sqft
+ * - With 15% waste: 100 × 1.15 = 115 sqft
+ * - Rolls needed: 115 / 1800 = 0.0639 rolls
+ * - Rounded: 0.1 rolls
+ * - Cost: 0.1 × $199.66 = $19.97 ✅
  */
 export function calculateAreaMaterial(
   squareFootage: number,
@@ -165,8 +165,8 @@ export function calculateAreaMaterial(
   const wasteFactor = material.waste_factor_percentage || 10.0;
   const coveragePerUnit = material.coverage_per_unit || 1.0;
 
-  // Step 1: Calculate needed square footage
-  const neededSqft = squareFootage / coveragePerUnit;
+  // Step 1: Calculate needed square footage (direct coverage required)
+  const neededSqft = squareFootage;  // We need to cover this much area
 
   // Step 2: Apply waste factor
   const withWaste = neededSqft * (1 + wasteFactor / 100);
@@ -188,8 +188,8 @@ export function calculateAreaMaterial(
   // Step 4: Round up to 0.1
   const purchaseUnitsRounded = roundUpToTenth(purchaseUnits);
 
-  // Step 5: Calculate cost
-  const totalCost = purchaseUnitsRounded * material.price_per_unit * coveragePerUnit;
+  // Step 5: Calculate cost (price_per_unit is already per purchase unit)
+  const totalCost = purchaseUnitsRounded * material.price_per_unit;
 
   // Build display string
   const unitLabel = getUnitLabel(material.unit_type, material.coverage_per_unit);
@@ -225,19 +225,19 @@ export function calculateAreaMaterial(
  * 2. Apply waste factor: lf × (1 + waste_percent/100)
  * 3. Convert to sections: lf / coverage_per_unit
  * 4. Round up to 0.1
- * 5. Calculate cost: sections × price_per_unit × coverage_per_unit
+ * 5. Calculate cost: sections × price_per_unit
  *
  * Perimeter Estimation:
  * - Assume square/rectangular shape
  * - Perimeter ≈ √sqft × 4.15 (geometric approximation)
  * - For 360 sqft → √360 × 4.15 ≈ 78.7 linear feet
  *
- * Example (360 sqft, 8ft sections):
+ * Example (360 sqft, 8ft sections, $1.24/section):
  * - Perimeter: √360 × 4.15 = 78.7 lf
  * - With 10% waste: 78.7 × 1.10 = 86.57 lf
  * - Sections needed: 86.57 / 8 = 10.821 sections
  * - Rounded: 10.9 sections
- * - Cost: 10.9 × $1.24 × 8 = $108.11
+ * - Cost: 10.9 × $1.24 = $13.52 ✅
  */
 export function calculateLinearMaterial(
   squareFootage: number,
@@ -260,8 +260,8 @@ export function calculateLinearMaterial(
   // Step 4: Round up to 0.1
   const purchaseUnitsRounded = roundUpToTenth(purchaseUnits);
 
-  // Step 5: Calculate cost
-  const totalCost = purchaseUnitsRounded * material.price_per_unit * coveragePerUnit;
+  // Step 5: Calculate cost (price_per_unit is already per purchase unit)
+  const totalCost = purchaseUnitsRounded * material.price_per_unit;
 
   // Build display string
   const unitLabel = getUnitLabel(material.unit_type, material.coverage_per_unit);
