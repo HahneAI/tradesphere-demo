@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../config/industry';
 import { useServiceBaseSettings } from '../stores/serviceBaseSettingsStore';
 import { ServiceSpecificsModal } from './services/ServiceSpecificsModal';
+import { ServiceCard } from './services/ServiceCard';
 import { serviceConfigManager } from '../services/ServiceConfigManager';
 
 interface ServicesPageProps {
@@ -291,8 +292,25 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="flex-1 overflow-auto">
+      {/* Mobile Card Layout (< 768px) */}
+      <div className="block md:hidden flex-1 overflow-auto p-4">
+        <div className="space-y-4">
+          {filteredServices.map((service) => (
+            <ServiceCard
+              key={service.serviceId}
+              service={service}
+              visualConfig={visualConfig}
+              theme={theme}
+              isAdmin={isAdmin}
+              updateBaseSetting={updateBaseSetting}
+              onOpenSpecifics={(serviceId, serviceName) => setSpecificsModalOpen({ serviceId, serviceName })}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop Table Layout (>= 768px) */}
+      <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full">
           <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
             <tr>

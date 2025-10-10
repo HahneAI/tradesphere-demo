@@ -18,6 +18,7 @@ import {
 } from '../../services/materialsService';
 import type { MaterialCategory, MaterialsByCategory } from '../../types/materials';
 import { CategoryMaterialsModal } from './CategoryMaterialsModal';
+import { CategoryCard } from './CategoryCard';
 
 interface MaterialsPageProps {
   onBackClick: () => void;
@@ -302,7 +303,27 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             </p>
           </div>
         ) : (
-          <table className="w-full table-fixed">
+          <>
+            {/* Mobile Card Layout (< 768px) */}
+            <div className="block md:hidden p-4">
+              <div className="space-y-4">
+                {filteredCategories.map((category) => (
+                  <CategoryCard
+                    key={category.id}
+                    category={category}
+                    visualConfig={visualConfig}
+                    theme={theme}
+                    materialCount={getMaterialCount(category.category_key)}
+                    onViewMaterials={setSelectedCategory}
+                    formatCalculationMethod={formatCalculationMethod}
+                    truncateText={truncateText}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop Table Layout (>= 768px) */}
+            <table className="hidden md:table w-full table-fixed">
             <colgroup>
               <col style={{ width: '18%' }} /> {/* Category Name */}
               <col style={{ width: '28%' }} /> {/* Description */}
@@ -400,6 +421,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
 
