@@ -692,7 +692,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   // Create backup (for future admin changes)
   const createBackup = useCallback(async () => {
     if (!config) return;
-    
+
     try {
       // In a real implementation, this would create a backup file
       const backup = {
@@ -700,7 +700,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
         values,
         timestamp: new Date().toISOString(),
       };
-      
+
       localStorage.setItem(`paverPatioBackup_${Date.now()}`, JSON.stringify(backup));
       console.log('Paver patio backup created successfully');
     } catch (err) {
@@ -708,6 +708,22 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       throw err;
     }
   }, [config, values]);
+
+  // Force recalculate with fresh database values
+  // Called when Quick Calculator opens/focuses to ensure materials are fresh
+  const forceRecalculate = useCallback(async () => {
+    if (!config) return;
+
+    console.log('🔄 [PAVER PATIO] Force recalculating (ensures fresh material depths from database)');
+
+    try {
+      const calculation = await calculatePrice(config, values, sqft, companyId);
+      setLastCalculation(calculation);
+      console.log('✅ [PAVER PATIO] Recalculation complete with fresh materials');
+    } catch (error) {
+      console.error('❌ [PAVER PATIO] Force recalculation failed:', error);
+    }
+  }, [config, values, sqft, companyId]);
 
   // REMOVED: Subscription setup moved to QuickCalculatorTab component
   // This simplifies the store to just state management
@@ -779,6 +795,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     createBackup,
     reloadConfig,  // NEW: Manual reload for modal open
     setConfig,     // NEW: Expose for real-time subscription callback
+    forceRecalculate,  // NEW: Force recalculation with fresh materials from database
   };
 };
 
