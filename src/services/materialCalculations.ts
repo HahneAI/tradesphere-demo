@@ -48,27 +48,40 @@ function roundUpToTenth(value: number): number {
  * Get display label for unit type
  *
  * Converts database unit_type to human-readable plural form
+ * Handles both standard units and custom package units
  */
 function getUnitLabel(unitType: string, coverage: number | null): string {
-  // Check if this material uses packaging (coverage_per_unit > 1)
-  if (coverage && coverage > 1) {
-    if (unitType === 'linear_foot') return 'sections';
-    if (unitType === 'square_foot') return 'rolls';
-    if (unitType === 'piece') return 'pallets';
-    if (unitType === 'bag') return 'bags';
-  }
-
-  // Standard unit types
+  // Direct unit label mappings (including custom package types)
   const labelMap: Record<string, string> = {
+    // Standard base units
     'cubic_yard': 'cubic yards',
     'square_foot': 'square feet',
     'linear_foot': 'linear feet',
     'piece': 'pieces',
+    'bag': 'bags',
+
+    // Package units
     'pallet': 'pallets',
-    'bag': 'bags'
+    'roll': 'rolls',
+    'section': 'sections',
+
+    // Custom package units with size descriptions
+    'eight_foot_sections': '8ft sections',
+    'ten_foot_sections': '10ft sections',
+    'twelve_foot_sections': '12ft sections',
+
+    // Custom pallet sizes
+    'sqft_pallet': 'pallets',
+    'piece_pallet': 'pallets',
   };
 
-  return labelMap[unitType] || unitType;
+  // If we have a direct mapping, use it
+  if (labelMap[unitType]) {
+    return labelMap[unitType];
+  }
+
+  // Fallback: clean up underscores and return as-is
+  return unitType.replace(/_/g, ' ');
 }
 
 /**
