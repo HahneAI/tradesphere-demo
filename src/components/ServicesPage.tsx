@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../config/industry';
 import { useServiceBaseSettings } from '../stores/serviceBaseSettingsStore';
 import { ServiceSpecificsModal } from './services/ServiceSpecificsModal';
+import { ServiceCard } from './services/ServiceCard';
 import { serviceConfigManager } from '../services/ServiceConfigManager';
 
 interface ServicesPageProps {
@@ -219,7 +220,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
           {/* Back button with breadcrumb */}
           <button
             onClick={onBackClick}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-opacity-80"
+            className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
             style={{
               color: visualConfig.colors.text.secondary,
               backgroundColor: 'transparent'
@@ -227,7 +228,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.ArrowLeft className="h-4 w-4" />
+            <Icons.ArrowLeft className="h-5 w-5" />
             <span className="text-sm">Dashboard</span>
           </button>
           <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
@@ -253,11 +254,12 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
               placeholder="Search services..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
+              className="pl-10 pr-4 h-11 min-h-[44px] border rounded-lg focus:outline-none focus:ring-2 transition-all"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-                color: visualConfig.colors.text.primary
+                color: visualConfig.colors.text.primary,
+                '--tw-ring-color': visualConfig.colors.primary
               }}
             />
           </div>
@@ -266,21 +268,19 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
           <button
             onClick={handleInsertService}
             disabled={!user?.company_id || !isAdmin}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 h-11 min-h-[44px] rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
             style={{
               backgroundColor: visualConfig.colors.primary,
-              color: 'white',
-              opacity: (!user?.company_id || !isAdmin) ? 0.5 : 1,
-              cursor: (!user?.company_id || !isAdmin) ? 'not-allowed' : 'pointer'
+              color: 'white'
             }}
             title={!isAdmin ? 'Admin access required' : !user?.company_id ? 'Please log in' : 'Create test service'}
           >
-            <Icons.Plus className="h-4 w-4" />
+            <Icons.Plus className="h-5 w-5" />
             Insert (Test)
           </button>
-          
+
           {/* Sort Button */}
-          <button className="flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors"
+          <button className="flex items-center gap-2 px-4 h-11 min-h-[44px] border rounded-lg transition-all duration-150 active:scale-95"
                   style={{
                     borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
                     color: visualConfig.colors.text.primary
@@ -291,44 +291,61 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="flex-1 overflow-auto">
+      {/* Mobile Card Layout (< 768px) */}
+      <div className="block md:hidden flex-1 overflow-auto p-4">
+        <div className="space-y-4">
+          {filteredServices.map((service) => (
+            <ServiceCard
+              key={service.serviceId}
+              service={service}
+              visualConfig={visualConfig}
+              theme={theme}
+              isAdmin={isAdmin}
+              updateBaseSetting={updateBaseSetting}
+              onOpenSpecifics={(serviceId, serviceName) => setSpecificsModalOpen({ serviceId, serviceName })}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop Table Layout (>= 768px) */}
+      <div className="hidden md:block flex-1 overflow-auto">
         <table className="w-full">
           <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
             <tr>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Service Name
               </th>
-              <th className="p-4 text-left font-medium border-b" 
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Category
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Base Rate
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Optimal Team Size
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Base Productivity
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Material Cost
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Profit Margin
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Status
               </th>
-              <th className="p-4 text-left font-medium border-b"
+              <th className="px-3 py-2 text-center text-sm font-medium border-b"
                   style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                 Configuration
               </th>
@@ -342,13 +359,13 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                   style={{ 
                     borderBottom: `1px solid ${theme === 'light' ? '#e5e7eb' : '#374151'}`
                   }}>
-                <td className="p-4 font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                <td className="px-3 py-2 text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
                   {service.service}
                 </td>
-                <td className="p-4" style={{ color: visualConfig.colors.text.primary }}>
+                <td className="px-3 py-2 text-sm" style={{ color: visualConfig.colors.text.primary }}>
                   {service.category}
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="laborSettings.hourlyLaborRate"
@@ -357,7 +374,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     validation={service.baseSettings.laborSettings.hourlyLaborRate.validation}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="laborSettings.optimalTeamSize"
@@ -366,7 +383,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     validation={service.baseSettings.laborSettings.optimalTeamSize.validation}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="laborSettings.baseProductivity"
@@ -375,7 +392,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     validation={service.baseSettings.laborSettings.baseProductivity.validation}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   {(() => {
                     // Dynamically get first material setting key (different per service)
                     const materialSettingKey = Object.keys(service.baseSettings.materialSettings)[0];
@@ -392,7 +409,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     );
                   })()}
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2 text-sm">
                   <EditableCell
                     serviceId={service.serviceId}
                     setting="businessSettings.profitMarginTarget"
@@ -402,25 +419,25 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
                     isProfitMargin={true}
                   />
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2">
                   <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     <div className="w-2 h-2 rounded-full mr-1 bg-green-400" />
                     Active
                   </div>
                 </td>
-                <td className="p-4">
+                <td className="px-3 py-2">
                   <button
                     onClick={() => setSpecificsModalOpen({
                       serviceId: service.serviceId,
                       serviceName: service.service
                     })}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-opacity-10"
+                    className="flex items-center gap-2 px-4 h-11 min-h-[44px] text-sm rounded-lg border transition-all duration-150 hover:bg-opacity-10 active:scale-[0.97]"
                     style={{
                       borderColor: visualConfig.colors.primary,
                       color: visualConfig.colors.primary
                     }}
                   >
-                    <Icons.Settings className="h-4 w-4" />
+                    <Icons.Settings className="h-5 w-5" />
                     Open Specifics
                   </button>
                 </td>
@@ -428,24 +445,6 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Status Bar */}
-      <div className="flex items-center justify-between p-3 border-t text-sm"
-           style={{ 
-             backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937',
-             borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-             color: visualConfig.colors.text.secondary 
-           }}>
-        <div className="flex items-center gap-4">
-          <span>Role: {isAdmin ? 'Admin' : 'User'}</span>
-          <span>{isAdmin ? 'Edit Mode: Click values to edit' : 'View Only'}</span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Icons.RefreshCw className="h-4 w-4" />
-          <span>Last updated: {new Date().toLocaleTimeString()}</span>
-        </div>
       </div>
 
       {/* Service Specifics Modal */}

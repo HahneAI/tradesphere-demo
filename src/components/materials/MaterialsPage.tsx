@@ -18,6 +18,7 @@ import {
 } from '../../services/materialsService';
 import type { MaterialCategory, MaterialsByCategory } from '../../types/materials';
 import { CategoryMaterialsModal } from './CategoryMaterialsModal';
+import { CategoryCard } from './CategoryCard';
 
 interface MaterialsPageProps {
   onBackClick: () => void;
@@ -194,7 +195,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
           {/* Back button with breadcrumb */}
           <button
             onClick={onBackClick}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-opacity-80"
+            className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
             style={{
               color: visualConfig.colors.text.secondary,
               backgroundColor: 'transparent'
@@ -202,7 +203,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.ArrowLeft className="h-4 w-4" />
+            <Icons.ArrowLeft className="h-5 w-5" />
             <span className="text-sm">Dashboard</span>
           </button>
           <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
@@ -224,11 +225,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             <select
               value={selectedService}
               onChange={(e) => handleServiceChange(e.target.value)}
-              className="pl-3 pr-10 py-2 border rounded-lg text-sm appearance-none cursor-pointer"
+              className="pl-3 pr-10 h-11 min-h-[44px] border rounded-lg text-sm appearance-none cursor-pointer transition-all focus:outline-none focus:ring-2"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
                 color: visualConfig.colors.text.primary,
+                '--tw-ring-color': visualConfig.colors.primary
               }}
             >
               {availableServices.map((service) => (
@@ -252,11 +254,12 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
               placeholder="Search categories..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
+              className="pl-10 pr-4 h-11 min-h-[44px] border rounded-lg focus:outline-none focus:ring-2 transition-all"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-                color: visualConfig.colors.text.primary
+                color: visualConfig.colors.text.primary,
+                '--tw-ring-color': visualConfig.colors.primary
               }}
             />
           </div>
@@ -302,43 +305,58 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
             </p>
           </div>
         ) : (
-          <table className="w-full table-fixed">
+          <>
+            {/* Mobile Card Layout (< 768px) */}
+            <div className="block md:hidden p-4">
+              <div className="space-y-4">
+                {filteredCategories.map((category) => (
+                  <CategoryCard
+                    key={category.id}
+                    category={category}
+                    visualConfig={visualConfig}
+                    theme={theme}
+                    materialCount={getMaterialCount(category.category_key)}
+                    onViewMaterials={setSelectedCategory}
+                    formatCalculationMethod={formatCalculationMethod}
+                    truncateText={truncateText}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop Table Layout (>= 768px) */}
+            <table className="hidden md:table w-full table-fixed">
             <colgroup>
-              <col style={{ width: '20%' }} /> {/* Category Name */}
-              <col style={{ width: '25%' }} /> {/* Description */}
-              <col style={{ width: '15%' }} /> {/* Calculation Method */}
+              <col style={{ width: '18%' }} /> {/* Category Name */}
+              <col style={{ width: '28%' }} /> {/* Description */}
+              <col style={{ width: '16%' }} /> {/* Calculation Method */}
               <col style={{ width: '12%' }} /> {/* Materials */}
-              <col style={{ width: '10%' }} /> {/* Required */}
-              <col style={{ width: '10%' }} /> {/* Status */}
-              <col style={{ width: '8%' }} />  {/* Actions */}
+              <col style={{ width: '12%' }} /> {/* Required */}
+              <col style={{ width: '14%' }} /> {/* Actions */}
             </colgroup>
             <thead style={{ backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937' }}>
               <tr>
-                <th className="p-4 text-left font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Category Name
                 </th>
-                <th className="p-4 text-left font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Description
                 </th>
-                <th className="p-4 text-left font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Calculation Method
                 </th>
-                <th className="p-4 text-left font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Materials
                 </th>
-                <th className="p-4 text-left font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Required
                 </th>
-                <th className="p-4 text-left font-medium border-b"
-                    style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
-                  Status
-                </th>
-                <th className="p-4 text-left font-medium border-b"
+                <th className="px-3 py-2 text-center text-sm font-medium border-b"
                     style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151', color: visualConfig.colors.text.secondary }}>
                   Actions
                 </th>
@@ -352,23 +370,23 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
                     style={{
                       borderBottom: `1px solid ${theme === 'light' ? '#e5e7eb' : '#374151'}`
                     }}>
-                  <td className="p-4 font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                  <td className="px-3 py-2 text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
                     <div className="truncate" title={category.category_label}>
-                      {truncateText(category.category_label, 21)}
+                      {truncateText(category.category_label, 25)}
                     </div>
                   </td>
-                  <td className="p-4" style={{ color: visualConfig.colors.text.secondary }}>
+                  <td className="px-3 py-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
                     <div className="truncate" title={category.category_description || undefined}>
-                      {truncateText(category.category_description, 30)}
+                      {truncateText(category.category_description, 40)}
                     </div>
                   </td>
-                  <td className="p-4" style={{ color: visualConfig.colors.text.primary }}>
+                  <td className="px-3 py-2 text-sm" style={{ color: visualConfig.colors.text.primary }}>
                     <div className="flex items-center gap-2">
                       <Icons.Calculator className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
-                      {formatCalculationMethod(category.calculation_method)}
+                      <span className="truncate">{formatCalculationMethod(category.calculation_method)}</span>
                     </div>
                   </td>
-                  <td className="p-4">
+                  <td className="px-3 py-2">
                     <span
                       className="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
                       style={{
@@ -379,38 +397,25 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
                       {getMaterialCount(category.category_key)} {getMaterialCount(category.category_key) === 1 ? 'material' : 'materials'}
                     </span>
                   </td>
-                  <td className="p-4">
+                  <td className="px-3 py-2">
                     {category.is_required ? (
                       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                         Required
                       </span>
                     ) : (
-                      <span style={{ color: visualConfig.colors.text.secondary }}>—</span>
+                      <span className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>—</span>
                     )}
                   </td>
-                  <td className="p-4">
-                    {category.is_active ? (
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <div className="w-2 h-2 rounded-full mr-1 bg-green-400" />
-                        Active
-                      </div>
-                    ) : (
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        <div className="w-2 h-2 rounded-full mr-1 bg-gray-400" />
-                        Inactive
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-4">
+                  <td className="px-3 py-2">
                     <button
                       onClick={() => setSelectedCategory(category)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:bg-opacity-10"
+                      className="flex items-center gap-2 px-4 h-11 min-h-[44px] text-sm rounded-lg border transition-all duration-150 hover:bg-opacity-10 active:scale-[0.97]"
                       style={{
                         borderColor: visualConfig.colors.primary,
                         color: visualConfig.colors.primary
                       }}
                     >
-                      <Icons.Eye className="h-4 w-4" />
+                      <Icons.Eye className="h-5 w-5" />
                       View Materials
                     </button>
                   </td>
@@ -418,25 +423,8 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
               ))}
             </tbody>
           </table>
+          </>
         )}
-      </div>
-
-      {/* Status Bar */}
-      <div className="flex items-center justify-between p-3 border-t text-sm"
-           style={{
-             backgroundColor: theme === 'light' ? '#f9fafb' : '#1f2937',
-             borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
-             color: visualConfig.colors.text.secondary
-           }}>
-        <div className="flex items-center gap-4">
-          <span>Role: {canEditMaterials ? 'Admin/Owner' : 'User'}</span>
-          <span>{canEditMaterials ? 'Edit Mode: Full access' : 'View Only: Read-only access'}</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Icons.RefreshCw className="h-4 w-4" />
-          <span>Last updated: {new Date().toLocaleTimeString()}</span>
-        </div>
       </div>
 
       {/* Category Materials Modal */}

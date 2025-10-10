@@ -82,13 +82,13 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
         >
           <div className="flex items-center space-x-3">
             <div
-              className="flex items-center justify-center w-10 h-10 rounded-full"
+              className="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] rounded-full"
               style={{
                 backgroundColor: visualConfig.colors.primary,
                 color: visualConfig.colors.text.onPrimary,
               }}
             >
-              <DynamicIcon name={user?.user_icon || 'User'} className="h-5 w-5" />
+              <DynamicIcon name={user?.user_icon || 'User'} className="h-6 w-6" />
             </div>
             <div>
               <p
@@ -108,12 +108,12 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-3">
           {/* Databases Section - Collapsible */}
           <div>
             <button
               onClick={() => toggleSection('databases')}
-              className="w-full flex items-center justify-between px-3 py-3 rounded-lg text-left transition-colors duration-200"
+              className="w-full flex items-center justify-between px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
               style={{
                 color: visualConfig.colors.text.primary,
                 backgroundColor: 'transparent',
@@ -122,22 +122,22 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <div className="flex items-center gap-4">
-                <Icons.Database className="h-5 w-5" />
+                <Icons.Database className="h-6 w-6" />
                 <span className="font-semibold">Databases</span>
               </div>
               <Icons.ChevronDown
-                className={`h-4 w-4 transition-transform duration-300 ${expandedSections.databases ? 'rotate-180' : ''}`}
+                className={`h-5 w-5 transition-transform duration-300 ${expandedSections.databases ? 'rotate-180' : ''}`}
                 style={{ color: visualConfig.colors.text.secondary }}
               />
             </button>
             {expandedSections.databases && (
-              <div className="mt-1 space-y-1">
+              <div className="mt-1 space-y-2">
                 <button
                   onClick={() => {
                     onServicesClick();
                     onClose();
                   }}
-                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
                   style={{
                     color: visualConfig.colors.text.primary,
                     backgroundColor: 'transparent',
@@ -145,7 +145,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                   onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
                   onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <Icons.Settings className="h-4 w-4" />
+                  <Icons.Settings className="h-5 w-5" />
                   <span className="font-medium">Services Configuration</span>
                 </button>
                 <button
@@ -153,7 +153,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                     onMaterialsClick();
                     onClose();
                   }}
-                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
                   style={{
                     color: visualConfig.colors.text.primary,
                     backgroundColor: 'transparent',
@@ -161,7 +161,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                   onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
                   onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <Icons.Package className="h-4 w-4" />
+                  <Icons.Package className="h-5 w-5" />
                   <span className="font-medium">Materials Management</span>
                 </button>
               </div>
@@ -174,7 +174,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
               onQuickCalculatorClick();
               onClose();
             }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
             style={{
               color: visualConfig.colors.text.primary,
               backgroundColor: 'transparent',
@@ -182,7 +182,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.Calculator className="h-5 w-5" />
+            <Icons.Calculator className="h-6 w-6" />
             <span className="font-medium">Quick Calculator</span>
           </button>
 
@@ -192,7 +192,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
               onCustomersClick();
               onClose();
             }}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200"
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
             style={{
               color: visualConfig.colors.text.primary,
               backgroundColor: 'transparent',
@@ -200,7 +200,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.Users className="h-5 w-5" />
+            <Icons.Users className="h-6 w-6" />
             <span className="font-medium">Customers</span>
           </button>
 
@@ -208,7 +208,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
           <div>
             <button
               onClick={() => toggleSection('miscellaneous')}
-              className="w-full flex items-center justify-between px-3 py-3 rounded-lg text-left transition-colors duration-200"
+              className="w-full flex items-center justify-between px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
               style={{
                 color: visualConfig.colors.text.primary,
                 backgroundColor: 'transparent',
@@ -217,22 +217,22 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
               onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
               <div className="flex items-center gap-4">
-                <Icons.Settings className="h-5 w-5" />
+                <Icons.Settings className="h-6 w-6" />
                 <span className="font-semibold">Miscellaneous</span>
               </div>
               <Icons.ChevronDown
-                className={`h-4 w-4 transition-transform duration-300 ${expandedSections.miscellaneous ? 'rotate-180' : ''}`}
+                className={`h-5 w-5 transition-transform duration-300 ${expandedSections.miscellaneous ? 'rotate-180' : ''}`}
                 style={{ color: visualConfig.colors.text.secondary }}
               />
             </button>
             {expandedSections.miscellaneous && (
-              <div className="mt-1 space-y-1">
+              <div className="mt-1 space-y-2">
                 <button
                   onClick={() => {
                     onAvatarClick();
                     onClose();
                   }}
-                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
                   style={{
                     color: visualConfig.colors.text.primary,
                     backgroundColor: 'transparent',
@@ -240,7 +240,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                   onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
                   onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <DynamicIcon name={user?.user_icon || 'User'} className="h-4 w-4" />
+                  <DynamicIcon name={user?.user_icon || 'User'} className="h-5 w-5" />
                   <span className="font-medium">Change Profile Icon</span>
                 </button>
                 <button
@@ -248,7 +248,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                     onNotesClick();
                     onClose();
                   }}
-                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
                   style={{
                     color: visualConfig.colors.text.primary,
                     backgroundColor: 'transparent',
@@ -256,7 +256,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                   onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
                   onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <Icons.StickyNote className="h-4 w-4" />
+                  <Icons.StickyNote className="h-5 w-5" />
                   <span className="font-medium">Your Notes from Us</span>
                 </button>
                 <button
@@ -264,7 +264,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                     onFeedbackClick();
                     onClose();
                   }}
-                  className="w-full flex items-center gap-4 pl-12 pr-3 py-3 rounded-lg text-left transition-colors duration-200"
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
                   style={{
                     color: visualConfig.colors.text.primary,
                     backgroundColor: 'transparent',
@@ -272,7 +272,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
                   onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
                   onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  <Icons.MessageSquareQuote className="h-4 w-4" />
+                  <Icons.MessageSquareQuote className="h-5 w-5" />
                   <span className="font-medium">Send Feedback</span>
                 </button>
               </div>
@@ -287,14 +287,14 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
         >
           <button
             onClick={onLogoutClick}
-            className="w-full flex items-center gap-4 px-3 py-3 rounded-lg text-left transition-colors duration-200 text-red-600 hover:bg-red-50"
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 text-red-600 hover:bg-red-50 active:scale-95"
             style={{
                 backgroundColor: 'transparent',
             }}
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.1)'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <Icons.LogOut className="h-5 w-5" />
+            <Icons.LogOut className="h-6 w-6" />
             <span className="font-medium">Logout</span>
           </button>
         </div>

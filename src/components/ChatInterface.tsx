@@ -1742,7 +1742,7 @@ const ChatInterface = () => {
             <div className="flex items-center space-x-3 flex-1">
               <button
                 onClick={() => setIsMenuOpen(true)}
-                className="p-2 rounded-md transition-colors"
+                className="h-12 w-12 flex items-center justify-center rounded-md transition-colors active:scale-95"
                 style={{ color: visualConfig.colors.text.secondary }}
                 aria-label="Open menu"
               >
@@ -1796,7 +1796,7 @@ const ChatInterface = () => {
                       loadRecentCustomers();
                     }
                   }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  className="flex items-center gap-2 px-4 h-12 min-h-[48px] rounded-lg transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-[0.97]"
                   style={{
                     backgroundColor: customerDetails ? visualConfig.colors.secondary : visualConfig.colors.surface,
                     color: customerDetails ? visualConfig.colors.text.onPrimary : visualConfig.colors.text.primary,
@@ -2335,7 +2335,7 @@ const ChatInterface = () => {
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder={terminologyConfig.placeholderExamples}
-                    className="w-full px-3 py-2 pr-12 resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
+                    className="w-full px-3 py-2 pr-12 min-h-[48px] resize-none transition-all duration-300 focus:ring-2 focus:ring-opacity-50"
                     style={{
                       backgroundColor: visualConfig.colors.background,
                       color: visualConfig.colors.text.primary,
@@ -2382,7 +2382,7 @@ const ChatInterface = () => {
                   ref={sendButtonRef}
                   onClick={handleSendMessage}
                   disabled={isLoading || !inputText.trim()}
-                  className="px-5 py-3 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg"
+                  className="px-5 h-12 min-h-[48px] text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all duration-300 shadow-md hover:shadow-lg active:scale-[0.97]"
                   style={{
                    backgroundColor: visualConfig.colors.primary,
                     color: visualConfig.colors.text.onPrimary,
@@ -2401,7 +2401,7 @@ const ChatInterface = () => {
             <div className="absolute bottom-3 left-3 hidden md:block">
               <button
                 onClick={() => setShowNotesPopup(true)}
-                  className="flex items-center gap-2 px-3 py-2 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2"
+                  className="flex items-center gap-2 px-3 h-12 min-h-[48px] transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 active:scale-95"
                   style={{
                   backgroundColor: visualConfig.colors.secondary,
                   color: visualConfig.colors.text.onPrimary,
