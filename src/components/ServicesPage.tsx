@@ -214,33 +214,40 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b"
+      <div className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-6 border-b gap-4"
            style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 min-w-0">
           {/* Back button with breadcrumb */}
-          <button
-            onClick={onBackClick}
-            className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
-            style={{
-              color: visualConfig.colors.text.secondary,
-              backgroundColor: 'transparent'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.ArrowLeft className="h-5 w-5" />
-            <span className="text-sm">Dashboard</span>
-          </button>
-          <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onBackClick}
+              className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
+              style={{
+                color: visualConfig.colors.text.secondary,
+                backgroundColor: 'transparent'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Icons.ArrowLeft className="h-5 w-5" />
+              <span className="text-sm">Dashboard</span>
+            </button>
+            <Icons.ChevronRight className="h-4 w-4 hidden md:block" style={{ color: visualConfig.colors.text.secondary }} />
+          </div>
 
-          <h1 className="text-2xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
-            Services Configuration
-          </h1>
-          <div className="flex items-center gap-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-            <Icons.Database className="h-4 w-4" />
-            <span>{filteredServices.length} services</span>
-            <span>•</span>
-            <span>Edit baseline values for your company</span>
+          <div className="flex flex-col gap-1 min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold truncate" style={{ color: visualConfig.colors.text.primary }}>
+              <span className="md:hidden">Services Config</span>
+              <span className="hidden md:inline">Services Configuration</span>
+            </h1>
+            <div className="flex items-center gap-2 text-xs md:text-sm flex-wrap" style={{ color: visualConfig.colors.text.secondary }}>
+              <div className="flex items-center gap-1">
+                <Icons.Database className="h-4 w-4" />
+                <span>{filteredServices.length} services</span>
+              </div>
+              <span className="hidden md:inline">•</span>
+              <span className="hidden md:inline">Edit baseline values for your company</span>
+            </div>
           </div>
         </div>
         

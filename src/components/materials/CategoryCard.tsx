@@ -102,8 +102,8 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
         </div>
       </div>
 
-      {/* Badges Row */}
-      <div className="flex items-center gap-2 flex-wrap">
+      {/* Badges Row - Desktop only per user request */}
+      <div className="hidden md:flex items-center gap-2 flex-wrap">
         {/* Required Badge */}
         {category.is_required && (
           <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">

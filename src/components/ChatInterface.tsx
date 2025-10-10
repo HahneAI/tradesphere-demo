@@ -1735,7 +1735,7 @@ const ChatInterface = () => {
       />
       {/* Main header - only show on chat page; Services and Materials have their own headers */}
       {currentPage === 'chat' && (
-      <header className="flex-shrink-0 border-b transition-colors duration-300" style={{ borderBottomColor: theme === 'light' ? '#e5e7eb' : '#374151', backgroundColor: visualConfig.colors.surface }}>
+      <header className="flex-shrink-0 border-b transition-colors duration-300" style={{ borderBottomColor: theme === 'light' ? '#e5e7eb' : '#374151', backgroundColor: visualConfig.colors.surface, paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between w-full">
             {/* Left side: Hamburger, Logo */}
