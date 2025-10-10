@@ -144,6 +144,12 @@ export async function getDefaultMaterial(
   try {
     const supabase = getSupabase();
 
+    console.log('🔍 [GET DEFAULT MATERIAL] Fetching default material:', {
+      companyId,
+      serviceConfigId,
+      categoryKey
+    });
+
     const { data, error } = await supabase
       .from('service_materials')
       .select('*')
@@ -158,16 +164,30 @@ export async function getDefaultMaterial(
     if (error) {
       // Not finding a default is not necessarily an error
       if (error.code === 'PGRST116') {
-        console.warn(`⚠️ No default material found for category: ${categoryKey}`);
+        console.warn(`⚠️ [GET DEFAULT MATERIAL] No default material found for category: ${categoryKey}`, {
+          companyId,
+          serviceConfigId,
+          categoryKey,
+          errorCode: error.code
+        });
         return { data: null, error: null };
       }
-      console.error(`❌ Error fetching default material for ${categoryKey}:`, error);
+      console.error(`❌ [GET DEFAULT MATERIAL] Error fetching default material for ${categoryKey}:`, error);
       return { data: null, error: error.message };
     }
 
+    console.log(`✅ [GET DEFAULT MATERIAL] Found default material for ${categoryKey}:`, {
+      materialId: data.id,
+      materialName: data.material_name,
+      coverage_depth_inches: data.coverage_depth_inches,
+      price_per_unit: data.price_per_unit,
+      is_default: data.is_default,
+      is_active: data.is_active
+    });
+
     return { data: data as ServiceMaterial, error: null };
   } catch (err: any) {
-    console.error(`❌ Exception fetching default material for ${categoryKey}:`, err);
+    console.error(`❌ [GET DEFAULT MATERIAL] Exception fetching default material for ${categoryKey}:`, err);
     return { data: null, error: err.message || 'Unknown error occurred' };
   }
 }
@@ -220,6 +240,8 @@ export async function fetchMaterialById(
   try {
     const supabase = getSupabase();
 
+    console.log('🔍 [FETCH MATERIAL BY ID] Fetching material:', { materialId });
+
     const { data, error } = await supabase
       .from('service_materials')
       .select('*')
@@ -227,13 +249,23 @@ export async function fetchMaterialById(
       .single();
 
     if (error) {
-      console.error(`❌ Error fetching material ${materialId}:`, error);
+      console.error(`❌ [FETCH MATERIAL BY ID] Error fetching material ${materialId}:`, error);
       return { data: null, error: error.message };
     }
 
+    console.log(`✅ [FETCH MATERIAL BY ID] Found material:`, {
+      materialId: data.id,
+      materialName: data.material_name,
+      category: data.material_category,
+      coverage_depth_inches: data.coverage_depth_inches,
+      price_per_unit: data.price_per_unit,
+      is_default: data.is_default,
+      is_active: data.is_active
+    });
+
     return { data: data as ServiceMaterial, error: null };
   } catch (err: any) {
-    console.error(`❌ Exception fetching material ${materialId}:`, err);
+    console.error(`❌ [FETCH MATERIAL BY ID] Exception fetching material ${materialId}:`, err);
     return { data: null, error: err.message || 'Unknown error occurred' };
   }
 }
@@ -291,5 +323,102 @@ export async function fetchServicesWithMaterials(
   } catch (err: any) {
     console.error('❌ Exception fetching services with materials:', err);
     return { data: null, error: err.message || 'Unknown error occurred' };
+  }
+}
+
+/**
+ * Update material waste or compaction factor
+ *
+ * @param materialId - Material UUID
+ * @param field - Field to update ('waste_factor_percentage' or 'compaction_factor_percentage')
+ * @param value - New percentage value (e.g., 10.0 for 10%)
+ * @returns Success status
+ */
+export async function updateMaterialFactor(
+  materialId: string,
+  field: 'waste_factor_percentage' | 'compaction_factor_percentage',
+  value: number
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+      .from('service_materials')
+      .update({ [field]: value })
+      .eq('id', materialId);
+
+    if (error) {
+      console.error(`❌ Error updating ${field} for material ${materialId}:`, error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ Updated ${field} to ${value}% for material ${materialId}`);
+    return { success: true, error: null };
+  } catch (err: any) {
+    console.error(`❌ Exception updating ${field}:`, err);
+    return { success: false, error: err.message || 'Unknown error occurred' };
+  }
+}
+
+/**
+ * Update material depth
+ *
+ * @param materialId - Material UUID
+ * @param depth - New depth in inches (e.g., 6.0)
+ * @returns Success status
+ */
+export async function updateMaterialDepth(
+  materialId: string,
+  depth: number
+): Promise<{ success: boolean; error: string | null }> {
+  try {
+    const supabase = getSupabase();
+
+    console.log('🔄 [UPDATE MATERIAL DEPTH] Starting update:', {
+      materialId,
+      newDepth: depth
+    });
+
+    // First, fetch current material to log what's being changed
+    const { data: currentMaterial } = await supabase
+      .from('service_materials')
+      .select('material_name, material_category, coverage_depth_inches, is_default')
+      .eq('id', materialId)
+      .single();
+
+    if (currentMaterial) {
+      console.log('📝 [UPDATE MATERIAL DEPTH] Current material state:', {
+        materialId,
+        materialName: currentMaterial.material_name,
+        category: currentMaterial.material_category,
+        oldDepth: currentMaterial.coverage_depth_inches,
+        newDepth: depth,
+        is_default: currentMaterial.is_default
+      });
+    }
+
+    const { error } = await supabase
+      .from('service_materials')
+      .update({ coverage_depth_inches: depth })
+      .eq('id', materialId);
+
+    if (error) {
+      console.error(`❌ [UPDATE MATERIAL DEPTH] Error updating depth for material ${materialId}:`, error);
+      return { success: false, error: error.message };
+    }
+
+    console.log(`✅ [UPDATE MATERIAL DEPTH] Successfully updated coverage_depth_inches to ${depth}" for material ${materialId}`, {
+      materialName: currentMaterial?.material_name,
+      category: currentMaterial?.material_category,
+      oldDepth: currentMaterial?.coverage_depth_inches,
+      newDepth: depth,
+      is_default: currentMaterial?.is_default,
+      wasDefault: currentMaterial?.is_default ? 'YES - This is the default material' : 'NO - This is NOT the default'
+    });
+
+    return { success: true, error: null };
+  } catch (err: any) {
+    console.error(`❌ [UPDATE MATERIAL DEPTH] Exception updating depth:`, err);
+    return { success: false, error: err.message || 'Unknown error occurred' };
   }
 }

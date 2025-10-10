@@ -219,6 +219,23 @@ export const PricingPreview: React.FC<PricingPreviewProps> = ({
                   ${getMaterialCost().toFixed(2)}
                 </span>
               </div>
+
+              {/* Show detailed materials breakdown if available */}
+              {calculation?.tier2Results?.materialBreakdown && (
+                <div className="pl-4 space-y-1 mt-1">
+                  {calculation.tier2Results.materialBreakdown.categories.map(cat => (
+                    <div key={cat.categoryKey} className="flex justify-between text-xs">
+                      <span style={{ color: visualConfig.colors.text.secondary }}>
+                        • {cat.categoryLabel}:
+                      </span>
+                      <span style={{ color: visualConfig.colors.text.primary }}>
+                        ${cat.subtotal.toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {getExcavationCost() > 0 && (
                 <div className="flex justify-between text-xs">
                   <span style={{ color: visualConfig.colors.text.secondary }}>

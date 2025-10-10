@@ -12,6 +12,8 @@ import { masterPricingEngine } from '../calculations/master-pricing-engine';
 
 // Import excavation integration for bundled service calculations
 import { calculateExcavationHours, calculateExcavationCost } from '../calculations/excavation-integration';
+// Import material-based excavation depth calculator
+import { calculatePatioExcavationDepth } from '../../../services/materialCalculations';
 
 // Import the JSON configuration (fallback only)
 import paverPatioConfigJson from '../../config/paver-patio-formula.json';
@@ -25,7 +27,11 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     return {
       // excavation category REMOVED - now handled via serviceIntegrations
       siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-      materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
+      materials: {
+        paverStyle: 'standard',
+        cuttingComplexity: 'minimal',
+        useMaterialsDatabase: config?.variables_config?.materials?.useMaterialsDatabase?.default ?? true
+      },
       labor: { teamSize: 'threePlus' },
       complexity: { overallComplexity: 'simple' },
       serviceIntegrations: {
@@ -43,6 +49,7 @@ const getDefaultValues = (config: PaverPatioConfig): PaverPatioValues => {
     materials: {
       paverStyle: (config.variables.materials?.paverStyle as PaverPatioVariable)?.default as string ?? 'standard',
       cuttingComplexity: (config.variables.materials?.cuttingComplexity as PaverPatioVariable)?.default as string ?? 'minimal',
+      useMaterialsDatabase: config?.variables_config?.materials?.useMaterialsDatabase?.default ?? true
     },
     labor: {
       teamSize: (config.variables.labor?.teamSize as PaverPatioVariable)?.default as string ?? 'threePlus',
@@ -71,7 +78,11 @@ const getTrueBaselineValues = (): PaverPatioValues => {
   return {
     // excavation category REMOVED - now handled via serviceIntegrations
     siteAccess: { accessDifficulty: 'easy', obstacleRemoval: 'none' },
-    materials: { paverStyle: 'standard', cuttingComplexity: 'minimal' },
+    materials: {
+      paverStyle: 'standard',
+      cuttingComplexity: 'minimal',
+      useMaterialsDatabase: true  // Default to new system
+    },
     labor: { teamSize: 'threePlus' },
     complexity: { overallComplexity: 1.0 },
     serviceIntegrations: {
@@ -98,6 +109,7 @@ const loadStoredValues = (config: PaverPatioConfig): PaverPatioValues => {
         materials: {
           paverStyle: parsedValues.materials?.paverStyle || defaults.materials.paverStyle,
           cuttingComplexity: parsedValues.materials?.cuttingComplexity || defaults.materials.cuttingComplexity,
+          useMaterialsDatabase: parsedValues.materials?.useMaterialsDatabase ?? defaults.materials.useMaterialsDatabase ?? true
         },
         labor: {
           teamSize: parsedValues.labor?.teamSize || defaults.labor.teamSize,
@@ -301,13 +313,14 @@ const calculatePrice = async (
   console.log('🚀 [QUICK CALCULATOR] Using Master Pricing Engine for calculation');
 
   try {
-    // Use master pricing engine for live Supabase calculation with company_id
-    const result = await masterPricingEngine.calculatePricing(values, sqft, 'paver_patio_sqft', companyId);
+    // Use master pricing engine for live Supabase calculation with company_id and config_id
+    const result = await masterPricingEngine.calculatePricing(values, sqft, 'paver_patio_sqft', companyId, config?.id);
 
     console.log('✅ [QUICK CALCULATOR] Master engine calculation complete:', {
       total: result.tier2Results.total,
       source: 'Master Pricing Engine + Live Supabase',
-      usedCompanyId: !!companyId
+      usedCompanyId: !!companyId,
+      usedConfigId: !!config?.id
     });
 
     return result;
@@ -373,7 +386,20 @@ const calculateLegacyFallback = async (
   // ONLY check toggle value - respects user's choice to enable/disable
   if (values?.serviceIntegrations?.includeExcavation === true) {
     try {
-      const excavationDetails = await calculateExcavationCost(sqft, companyId);
+      // Calculate dynamic excavation depth based on selected materials
+      const { depth: excavationDepth, breakdown: depthBreakdown } = await calculatePatioExcavationDepth(
+        values?.selectedMaterials || {},
+        companyId,
+        actualConfig.id
+      );
+
+      console.log('🏗️ [PAVER PATIO] Using material-based excavation depth:', {
+        depth: `${excavationDepth} inches`,
+        breakdown: depthBreakdown
+      });
+
+      // Calculate excavation cost with custom depth
+      const excavationDetails = await calculateExcavationCost(sqft, companyId, excavationDepth);
 
       // Recalculate Tier 2 with excavation cost added to profitableSubtotal
       const profitMargin = actualConfig?.baseSettings?.businessSettings?.profitMarginTarget?.value ?? 0.20;
@@ -393,6 +419,7 @@ const calculateLegacyFallback = async (
           excavationDetails: {
             cubicYards: excavationDetails.cubicYards,
             depth: excavationDetails.depth,
+            depthBreakdown: depthBreakdown, // NEW: Show breakdown in UI
             wasteFactor: excavationDetails.wasteFactor,
             baseRate: excavationDetails.baseRate,
             profit: excavationDetails.profit
@@ -666,7 +693,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
   // Create backup (for future admin changes)
   const createBackup = useCallback(async () => {
     if (!config) return;
-    
+
     try {
       // In a real implementation, this would create a backup file
       const backup = {
@@ -674,7 +701,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
         values,
         timestamp: new Date().toISOString(),
       };
-      
+
       localStorage.setItem(`paverPatioBackup_${Date.now()}`, JSON.stringify(backup));
       console.log('Paver patio backup created successfully');
     } catch (err) {
@@ -682,6 +709,22 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
       throw err;
     }
   }, [config, values]);
+
+  // Force recalculate with fresh database values
+  // Called when Quick Calculator opens/focuses to ensure materials are fresh
+  const forceRecalculate = useCallback(async () => {
+    if (!config) return;
+
+    console.log('🔄 [PAVER PATIO] Force recalculating (ensures fresh material depths from database)');
+
+    try {
+      const calculation = await calculatePrice(config, values, sqft, companyId);
+      setLastCalculation(calculation);
+      console.log('✅ [PAVER PATIO] Recalculation complete with fresh materials');
+    } catch (error) {
+      console.error('❌ [PAVER PATIO] Force recalculation failed:', error);
+    }
+  }, [config, values, sqft, companyId]);
 
   // REMOVED: Subscription setup moved to QuickCalculatorTab component
   // This simplifies the store to just state management
@@ -753,6 +796,7 @@ export const usePaverPatioStore = (companyId?: string): PaverPatioStore => {
     createBackup,
     reloadConfig,  // NEW: Manual reload for modal open
     setConfig,     // NEW: Expose for real-time subscription callback
+    forceRecalculate,  // NEW: Force recalculation with fresh materials from database
   };
 };
 

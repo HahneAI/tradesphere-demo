@@ -59,7 +59,8 @@ export const SERVICE_DATABASE: Record<string, ServiceConfig> = {
       materials: {
         paverStyle: 'standard',
         cuttingComplexity: 'minimal',
-        patternComplexity: 'minimal'
+        patternComplexity: 'minimal',
+        useMaterialsDatabase: true  // Default to new database system
       },
       labor: {
         teamSize: 'threePlus'

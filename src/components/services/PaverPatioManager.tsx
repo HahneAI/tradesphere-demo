@@ -3,6 +3,7 @@ import * as Icons from 'lucide-react';
 import { usePaverPatioStore } from '../../pricing-system/core/stores/paver-patio-store';
 import { VariableDropdown } from './VariableDropdown';
 import { VariableSlider } from './VariableSlider';
+import { ToggleInput } from './service-modals/shared/ToggleInput';
 import { PricingPreview } from './PricingPreview';
 import type { PaverPatioValues } from '../../pricing-system/core/master-formula/formula-types';
 
@@ -249,14 +250,38 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
                 value &&
                 typeof value === 'object' &&
                 value.type &&
-                value.options
+                (value.options || value.type === 'toggle')  // ✅ Support toggle type
               )
               .map(([variableKey, variableConfig]: [string, any]) => {
                 const currentValue = categoryValues?.[variableKey];
 
+                // Check if materials database is enabled (for conditional hiding)
+                const useMaterialsDatabase = categoryKey === 'materials'
+                  ? (categoryValues?.useMaterialsDatabase ?? variableConfig.default ?? true)
+                  : false;
+
+                // Hide legacy variables when new system is enabled
+                if (useMaterialsDatabase && ['paverStyle', 'cuttingComplexity'].includes(variableKey)) {
+                  return null;
+                }
+
                 return (
                   <div key={variableKey}>
-                    {variableConfig.type === 'slider' ? (
+                    {variableConfig.type === 'toggle' ? (
+                      <div className="p-4 rounded-lg border" style={{
+                        borderColor: visualConfig.colors.text.secondary + '40',
+                        backgroundColor: visualConfig.colors.background
+                      }}>
+                        <ToggleInput
+                          label={variableConfig.label || variableKey}
+                          value={currentValue ?? variableConfig.default ?? false}
+                          onChange={(value) => handleValueChange(categoryKey, variableKey, value)}
+                          description={variableConfig.description}
+                          isAdmin={true}
+                          visualConfig={visualConfig}
+                        />
+                      </div>
+                    ) : variableConfig.type === 'slider' ? (
                       <VariableSlider
                         variable={variableConfig}
                         value={currentValue || variableConfig.default}
@@ -276,6 +301,67 @@ export const PaverPatioManager: React.FC<PaverPatioManagerProps> = ({
                   </div>
                 );
               })}
+
+            {/* NEW: Live Materials Breakdown (when database toggle is ON) */}
+            {categoryKey === 'materials' &&
+             (categoryValues?.useMaterialsDatabase ?? true) &&
+             store.lastCalculation?.tier2Results?.materialBreakdown && (
+              <div className="mt-4 p-4 rounded-lg border-2" style={{
+                backgroundColor: visualConfig.colors.primary + '08',
+                borderColor: visualConfig.colors.primary + '40'
+              }}>
+                <div className="flex items-center mb-3">
+                  <Icons.Package className="h-5 w-5 mr-2" style={{ color: visualConfig.colors.primary }} />
+                  <h4 className="text-sm font-semibold" style={{ color: visualConfig.colors.text.primary }}>
+                    Live Material Breakdown
+                  </h4>
+                </div>
+
+                <div className="space-y-2">
+                  {store.lastCalculation.tier2Results.materialBreakdown.categories.map(category => (
+                    <div
+                      key={category.categoryKey}
+                      className="flex items-center justify-between p-2 rounded"
+                      style={{ backgroundColor: visualConfig.colors.background }}
+                    >
+                      <div className="flex-1">
+                        <div className="text-xs font-medium" style={{ color: visualConfig.colors.text.primary }}>
+                          {category.categoryLabel}
+                        </div>
+                        <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                          {category.quantities.quantityDisplay}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-semibold" style={{ color: visualConfig.colors.primary }}>
+                          ${category.subtotal.toFixed(2)}
+                        </div>
+                        <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                          ${(category.subtotal / store.sqft).toFixed(2)}/sqft
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div
+                    className="flex justify-between pt-2 mt-2 border-t"
+                    style={{ borderColor: visualConfig.colors.text.secondary + '40' }}
+                  >
+                    <span className="text-sm font-semibold" style={{ color: visualConfig.colors.text.primary }}>
+                      Total Materials:
+                    </span>
+                    <div className="text-right">
+                      <div className="text-sm font-bold" style={{ color: visualConfig.colors.primary }}>
+                        ${store.lastCalculation.tier2Results.materialBreakdown.totalMaterialCost.toFixed(2)}
+                      </div>
+                      <div className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
+                        ${store.lastCalculation.tier2Results.materialBreakdown.costPerSquareFoot.toFixed(2)}/sqft
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

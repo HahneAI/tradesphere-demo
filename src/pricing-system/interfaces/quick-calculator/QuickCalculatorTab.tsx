@@ -49,6 +49,11 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
       setSelectedService(serviceId);
       setShowSelectionScreen(false);
       setTransitionState('entering');
+
+      // Force recalculation when service opens to ensure fresh material data
+      if (serviceId === 'paver_patio_sqft') {
+        setTimeout(() => paverPatioStore.forceRecalculate(), 100);
+      }
     }, 300);
 
     setTimeout(() => {
@@ -84,6 +89,11 @@ export const QuickCalculatorTab: React.FC<QuickCalculatorTabProps> = ({ isOpen, 
     setTimeout(() => {
       setSelectedService(newServiceId);
       setTransitionState('entering');
+
+      // Force recalculation when switching to service to ensure fresh material data
+      if (newServiceId === 'paver_patio_sqft') {
+        setTimeout(() => paverPatioStore.forceRecalculate(), 100);
+      }
     }, 200);
 
     setTimeout(() => {

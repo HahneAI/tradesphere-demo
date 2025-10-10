@@ -14,6 +14,9 @@ import paverPatioConfigJson from '../../config/paver-patio-formula.json';
 import { getSupabase } from '../../../services/supabase';
 // Import excavation integration for bundled service calculations
 import { calculateExcavationHours, calculateExcavationCost } from './excavation-integration';
+// Import materials database calculation engine (Phase B)
+import { calculateAllMaterialCosts, calculatePatioExcavationDepth } from '../../../services/materialCalculations';
+import type { MaterialCalculationResult } from '../../../types/materials';
 // REMOVED: Hardcoded helpers that bypass database
 // All values now read directly from config.variables
 
@@ -64,6 +67,9 @@ export interface Tier2Results {
   profit: number;
   total: number;
   pricePerSqft: number;
+  // NEW FIELDS for materials database system:
+  materialCostPerSqft?: number;           // Cost per sqft from new system
+  materialBreakdown?: MaterialCalculationResult;  // Detailed breakdown with purchasing units
 }
 
 export interface CalculationResult {
@@ -189,21 +195,6 @@ export class MasterPricingEngine {
       // Cache the result
       this.configCache.set(cacheKey, configRow);
 
-      console.log('✅ [MASTER ENGINE] Config loaded from Supabase:', {
-        profitMargin: configRow.profit_margin,
-        hourlyRate: configRow.hourly_labor_rate,
-        lastUpdated: configRow.updated_at,
-        source: 'Supabase Database'
-      });
-
-      // 🔍 DEBUG: Log variables_config from database
-      console.log('🔍 [MASTER ENGINE DEBUG] variables_config from DB:', {
-        hasVariablesConfig: !!configRow.variables_config,
-        variableKeys: Object.keys(configRow.variables_config || {}),
-        premiumMaterialValue: configRow.variables_config?.materials?.paverStyle?.options?.premium?.value,
-        premiumMultiplier: configRow.variables_config?.materials?.paverStyle?.options?.premium?.multiplier
-      });
-
       return this.convertRowToConfig(configRow);
 
     } catch (error) {
@@ -227,29 +218,11 @@ export class MasterPricingEngine {
       this.subscriptions.get(subscriptionKey).unsubscribe();
     }
 
-    // CRITICAL: Check if we're authenticated before subscribing (async check, log results when ready)
+    // CRITICAL: Check if we're authenticated before subscribing
     this.supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔧 [MASTER ENGINE] Auth check for subscription:', {
-        channelName: `pricing_config_${subscriptionKey}`,
-        isAuthenticated: !!session,
-        userId: session?.user?.id,
-        userEmail: session?.user?.email,
-        accessToken: session?.access_token ? `${session.access_token.substring(0, 20)}...` : 'NONE'
-      });
-
       if (!session) {
-        console.error('❌ [MASTER ENGINE] CRITICAL: No auth session found! Real-time will NOT work with RLS!');
-        console.error('❌ [MASTER ENGINE] Subscription will appear SUBSCRIBED but events will never fire!');
-      } else {
-        console.log('✅ [MASTER ENGINE] Auth session found - real-time should work');
+        console.error('❌ [MASTER ENGINE] No auth session - real-time subscriptions will fail!');
       }
-    });
-
-    console.log('🔧 [MASTER ENGINE] Creating subscription channel:', {
-      channelName: `pricing_config_${subscriptionKey}`,
-      companyId,
-      serviceName,
-      table: 'service_pricing_configs'
     });
 
     // Create new subscription
@@ -264,18 +237,9 @@ export class MasterPricingEngine {
           filter: `company_id=eq.${companyId}`
         },
         async (payload) => {
-          console.log('🎯🎯🎯 [MASTER ENGINE] ========== REAL-TIME EVENT RECEIVED ==========', {
-            timestamp: new Date().toISOString(),
-            event: payload.eventType,
-            serviceName: payload.new?.service_name || payload.old?.service_name,
-            targetService: serviceName,
-            willProcess: (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName),
-            payload: payload
-          });
-
           // Only process updates for matching service
           if (payload.new?.service_name === serviceName || payload.old?.service_name === serviceName) {
-            console.log('🔄 [MASTER ENGINE] Real-time config update:', payload);
+            console.log('🔄 [MASTER ENGINE] Real-time config update received');
 
             // CRITICAL: Force reload from database to bypass cache entirely
             // Using loadPricingConfig() could still use cached data even after delete
@@ -290,43 +254,19 @@ export class MasterPricingEngine {
               _updateSource: 'real-time-subscription'
             };
 
-            console.log('🔄 [MASTER ENGINE] Triggering config update with timestamp:', configWithTimestamp._lastUpdated);
             onUpdate(configWithTimestamp as any);
           }
         }
       )
       .subscribe((status, error) => {
-        console.log('📡 [MASTER ENGINE] Subscription status change:', {
-          status,
-          error,
-          subscriptionKey,
-          timestamp: new Date().toISOString()
-        });
-
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ [MASTER ENGINE] Real-time subscription ACTIVE and ready', {
-            channel: `pricing_config_${subscriptionKey}`,
-            table: 'service_pricing_configs',
-            filter: `company_id=eq.${companyId}`
-          });
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [MASTER ENGINE] Subscription FAILED:', error);
+        if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [MASTER ENGINE] Subscription failed:', error);
         } else if (status === 'TIMED_OUT') {
-          console.error('⏱️ [MASTER ENGINE] Subscription TIMED OUT - WebSocket connection failed');
-        } else if (status === 'CLOSED') {
-          console.warn('🔌 [MASTER ENGINE] Subscription CLOSED (component unmounted or StrictMode cleanup)');
+          console.error('⏱️ [MASTER ENGINE] Subscription timed out');
         }
       });
 
     this.subscriptions.set(subscriptionKey, subscription);
-
-    console.log('👂 [MASTER ENGINE] Subscription setup complete:', {
-      subscriptionKey,
-      channelName: `pricing_config_${subscriptionKey}`,
-      table: 'service_pricing_configs',
-      filter: `company_id=eq.${companyId}`,
-      serviceName
-    });
 
     // Return cleanup function
     return () => {
@@ -441,7 +381,8 @@ export class MasterPricingEngine {
     values: PaverPatioValues,
     sqft: number = 100,
     serviceName: string = 'paver_patio_sqft',
-    companyId?: string
+    companyId?: string,
+    configId?: string
   ): Promise<CalculationResult> {
     // Load live config from Supabase
     const config = await this.loadPricingConfig(serviceName, companyId);
@@ -450,7 +391,7 @@ export class MasterPricingEngine {
     const tier1Results = this.calculateTier1(config, values, sqft);
 
     // Calculate Tier 2 (costs) - now async to support excavation cost calculation
-    const tier2Results = await this.calculateTier2(config, values, tier1Results, sqft, companyId);
+    const tier2Results = await this.calculateTier2(config, values, tier1Results, sqft, companyId, configId);
 
     return {
       tier1Results,
@@ -549,7 +490,8 @@ export class MasterPricingEngine {
     values: PaverPatioValues,
     tier1Results: Tier1Results,
     sqft: number,
-    companyId?: string
+    companyId?: string,
+    configId?: string
   ): Promise<Tier2Results> {
     const hourlyRate = config?.baseSettings?.laborSettings?.hourlyLaborRate?.value ?? 25;
     const baseMaterialCost = config?.baseSettings?.materialSettings?.baseMaterialCost?.value ?? 5.84;
@@ -559,31 +501,57 @@ export class MasterPricingEngine {
     // 1. Labor costs
     const laborCost = tier1Results.totalManHours * hourlyRate;
 
-    // 2. Material costs with waste
-    // CRITICAL FIX: Read multiplier from config.variables_config instead of hardcoded helper
-    const paverVar = config?.variables_config?.materials?.paverStyle;
-    const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
-    const paverOption = paverVar?.options?.[paverStyleValue];
-    const materialMultiplier = paverOption?.multiplier ?? 1.0;
+    // 2. Material costs with waste - NEW vs OLD system
+    let useMaterialsDatabase = values?.materials?.useMaterialsDatabase ?? true;
+    let totalMaterialCost = 0;
+    let materialCostBase = 0;
+    let materialWasteCost = 0;
+    let materialCostPerSqft: number | undefined;
+    let materialBreakdown: MaterialCalculationResult | undefined;
 
-    // 🔍 DEBUG: Log what material multiplier is being used
-    console.log('🔍 [MASTER ENGINE DEBUG] Material multiplier from DATABASE:', {
-      selectedPaverStyle: paverStyleValue,
-      paverStyleOptions: paverVar?.options,
-      selectedOption: paverOption,
-      multiplierFromDB: materialMultiplier,
-      premiumOption: paverVar?.options?.premium,
-      premiumValue: paverVar?.options?.premium?.value,
-      premiumMultiplier: paverVar?.options?.premium?.multiplier
-    });
+    if (useMaterialsDatabase && companyId) {
+      // NEW SYSTEM: Database-driven material calculations
+      try {
+        const result = await calculateAllMaterialCosts(
+          {
+            squareFootage: sqft,
+            selectedMaterials: values?.selectedMaterials,
+            customPerimeter: values?.customPerimeter
+          },
+          companyId,
+          config.id  // serviceConfigId
+        );
 
-    const materialCostBase = baseMaterialCost * sqft * materialMultiplier;
+        totalMaterialCost = result.totalMaterialCost;
+        materialCostPerSqft = result.costPerSquareFoot;
+        materialBreakdown = result;
 
-    const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
-    const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
-    const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
-    const materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
-    const totalMaterialCost = materialCostBase + materialWasteCost;
+        // Set legacy fields for backward compatibility
+        materialCostBase = totalMaterialCost;
+        materialWasteCost = 0;  // Waste already included in new system
+
+      } catch (error) {
+        console.error('❌ Error calculating materials from database, falling back to old system:', error);
+        // Fall through to old system on error
+        useMaterialsDatabase = false;
+      }
+    }
+
+    if (!useMaterialsDatabase) {
+      // OLD SYSTEM: Simple multiplier-based calculations (LEGACY)
+      const paverVar = config?.variables_config?.materials?.paverStyle;
+      const paverStyleValue = values?.materials?.paverStyle ?? 'standard';
+      const paverOption = paverVar?.options?.[paverStyleValue];
+      const materialMultiplier = paverOption?.multiplier ?? 1.0;
+
+      materialCostBase = baseMaterialCost * sqft * materialMultiplier;
+
+      const cuttingVar = config?.variables_config?.materials?.cuttingComplexity;
+      const cuttingOption = cuttingVar?.options?.[values?.materials?.cuttingComplexity ?? 'minimal'];
+      const cuttingWastePercent = cuttingOption?.materialWaste ?? 0;
+      materialWasteCost = materialCostBase * (cuttingWastePercent / 100);
+      totalMaterialCost = materialCostBase + materialWasteCost;
+    }
 
     // 3. Excavation costs (bundled service)
     // ONLY check toggle value - respects user's choice to enable/disable
@@ -594,7 +562,27 @@ export class MasterPricingEngine {
 
     if (excavationEnabled) {
       try {
-        const details = await calculateExcavationCost(sqft, companyId);
+        // Calculate material-based excavation depth if materials database is enabled
+        let customDepth: number | undefined = undefined;
+
+        if (useMaterialsDatabase && companyId && configId) {
+          try {
+            const depthResult = await calculatePatioExcavationDepth(
+              values?.selectedMaterials || {},
+              companyId,
+              configId
+            );
+            customDepth = depthResult.depth;
+            console.log('✅ [MASTER ENGINE] Material-based excavation depth:', {
+              depth: customDepth,
+              breakdown: depthResult.breakdown
+            });
+          } catch (depthError) {
+            console.error('❌ [MASTER ENGINE] Failed to calculate material-based depth:', depthError);
+          }
+        }
+
+        const details = await calculateExcavationCost(sqft, companyId, customDepth);
         excavationCost = details.cost;
         excavationDetails = {
           cubicYards: details.cubicYards,
@@ -603,11 +591,6 @@ export class MasterPricingEngine {
           baseRate: details.baseRate,
           profit: details.profit
         };
-        console.log('💰 [MASTER ENGINE] Excavation cost calculated:', {
-          enabled: excavationEnabled,
-          cost: excavationCost,
-          details: excavationDetails
-        });
       } catch (error) {
         console.error('❌ [MASTER ENGINE] Failed to calculate excavation cost:', error);
       }
@@ -696,7 +679,9 @@ export class MasterPricingEngine {
       subtotal: Math.round(subtotal * 100) / 100,
       profit: Math.round(profit * 100) / 100,
       total: Math.round(total * 100) / 100,
-      pricePerSqft: Math.round((total / sqft) * 100) / 100
+      pricePerSqft: Math.round((total / sqft) * 100) / 100,
+      materialCostPerSqft: materialCostPerSqft ? Math.round(materialCostPerSqft * 100) / 100 : undefined,
+      materialBreakdown: materialBreakdown
     };
   }
 
@@ -850,6 +835,7 @@ export class MasterPricingEngine {
       : row.profit_margin;
 
     const config = {
+      id: row.id,  // Database UUID for service_pricing_configs record (required for materials database)
       service: row.service_name,
       serviceId: row.service_name,
       category: "Hardscaping",

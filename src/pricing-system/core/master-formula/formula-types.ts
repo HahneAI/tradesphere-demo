@@ -38,6 +38,7 @@ export interface PaverPatioVariable {
 }
 
 export interface PaverPatioConfig {
+  id?: string;  // Database UUID for service_pricing_configs record (required for materials database)
   service: string;
   serviceId: string;
   category: string;
@@ -75,6 +76,7 @@ export interface PaverPatioValues {
   materials: {
     paverStyle: string;
     cuttingComplexity: string;
+    useMaterialsDatabase?: boolean;  // NEW: Toggle for database system
   };
   labor: {
     teamSize: string;
@@ -85,6 +87,9 @@ export interface PaverPatioValues {
   serviceIntegrations?: {
     includeExcavation?: boolean;
   };
+  // NEW: Material selections (future enhancement for material overrides)
+  selectedMaterials?: Record<string, string>;  // categoryKey → materialId
+  customPerimeter?: number;  // Linear feet override for edging calculations
 }
 
 export interface PaverPatioCalculationResult {

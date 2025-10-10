@@ -7,7 +7,11 @@ import { useServiceBaseSettings } from '../stores/serviceBaseSettingsStore';
 import { ServiceSpecificsModal } from './services/ServiceSpecificsModal';
 import { serviceConfigManager } from '../services/ServiceConfigManager';
 
-export const ServicesPage: React.FC = () => {
+interface ServicesPageProps {
+  onBackClick: () => void;
+}
+
+export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -212,6 +216,22 @@ export const ServicesPage: React.FC = () => {
       <div className="flex items-center justify-between p-6 border-b"
            style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
         <div className="flex items-center gap-4">
+          {/* Back button with breadcrumb */}
+          <button
+            onClick={onBackClick}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors hover:bg-opacity-80"
+            style={{
+              color: visualConfig.colors.text.secondary,
+              backgroundColor: 'transparent'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.ArrowLeft className="h-4 w-4" />
+            <span className="text-sm">Dashboard</span>
+          </button>
+          <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
+
           <h1 className="text-2xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
             Services Configuration
           </h1>
