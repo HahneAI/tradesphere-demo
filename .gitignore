@@ -24,3 +24,6 @@ dev-dist/
 *.sln
 *.sw?
 .env
+
+# Claude AI files
+CLAUDE.md
