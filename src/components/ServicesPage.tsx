@@ -214,54 +214,54 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-6 border-b gap-4"
+      <div className="flex flex-col gap-3 p-4 md:p-6 border-b"
            style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>
-        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 min-w-0">
-          {/* Back button with breadcrumb */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onBackClick}
-              className="flex items-center gap-2 px-3 h-11 min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95"
-              style={{
-                color: visualConfig.colors.text.secondary,
-                backgroundColor: 'transparent'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <Icons.ArrowLeft className="h-5 w-5" />
-              <span className="text-sm">Dashboard</span>
-            </button>
-            <Icons.ChevronRight className="h-4 w-4 hidden md:block" style={{ color: visualConfig.colors.text.secondary }} />
-          </div>
+        {/* Title Row - Always horizontal */}
+        <div className="flex items-center gap-2 md:gap-4 min-w-0">
+          {/* Back button - inline with title */}
+          <button
+            onClick={onBackClick}
+            className="flex items-center gap-1.5 px-2 md:px-3 h-10 md:h-11 min-h-[40px] md:min-h-[44px] rounded-lg transition-all duration-150 hover:bg-opacity-80 active:scale-95 flex-shrink-0"
+            style={{
+              color: visualConfig.colors.text.secondary,
+              backgroundColor: 'transparent'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+            <span className="text-xs md:text-sm">Dashboard</span>
+          </button>
 
-          <div className="flex flex-col gap-1 min-w-0">
-            <h1 className="text-xl md:text-2xl font-bold truncate" style={{ color: visualConfig.colors.text.primary }}>
+          <Icons.ChevronRight className="h-4 w-4 hidden md:block flex-shrink-0" style={{ color: visualConfig.colors.text.secondary }} />
+
+          {/* Title and info */}
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <h1 className="text-lg md:text-2xl font-bold truncate" style={{ color: visualConfig.colors.text.primary }}>
               <span className="md:hidden">Services Config</span>
               <span className="hidden md:inline">Services Configuration</span>
             </h1>
-            <div className="flex items-center gap-2 text-xs md:text-sm flex-wrap" style={{ color: visualConfig.colors.text.secondary }}>
-              <div className="flex items-center gap-1">
-                <Icons.Database className="h-4 w-4" />
-                <span>{filteredServices.length} services</span>
-              </div>
+            <div className="flex items-center gap-2 text-xs md:text-sm" style={{ color: visualConfig.colors.text.secondary }}>
+              <Icons.Database className="h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span>{filteredServices.length} services</span>
               <span className="hidden md:inline">•</span>
               <span className="hidden md:inline">Edit baseline values for your company</span>
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-3">
+
+        {/* Action Buttons Row - Horizontal scroll on mobile */}
+        <div className="flex items-center gap-2 md:gap-3 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
           {/* Filter Input */}
-          <div className="relative">
-            <Icons.Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" 
+          <div className="relative flex-shrink-0 w-40 md:w-auto">
+            <Icons.Search className="absolute left-2 md:left-3 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 md:h-4 md:w-4"
                           style={{ color: visualConfig.colors.text.secondary }} />
             <input
               type="text"
-              placeholder="Search services..."
+              placeholder="Search..."
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="pl-10 pr-4 h-11 min-h-[44px] border rounded-lg focus:outline-none focus:ring-2 transition-all"
+              className="pl-8 md:pl-10 pr-3 md:pr-4 h-10 md:h-11 min-h-[40px] md:min-h-[44px] border rounded-lg focus:outline-none focus:ring-2 transition-all text-xs md:text-sm w-full"
               style={{
                 backgroundColor: visualConfig.colors.surface,
                 borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
@@ -270,30 +270,30 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
               }}
             />
           </div>
-          
+
           {/* Insert Button */}
           <button
             onClick={handleInsertService}
             disabled={!user?.company_id || !isAdmin}
-            className="flex items-center gap-2 px-4 h-11 min-h-[44px] rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97]"
+            className="flex items-center gap-1.5 px-3 md:px-4 h-10 md:h-11 min-h-[40px] md:min-h-[44px] rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] flex-shrink-0"
             style={{
               backgroundColor: visualConfig.colors.primary,
               color: 'white'
             }}
             title={!isAdmin ? 'Admin access required' : !user?.company_id ? 'Please log in' : 'Create test service'}
           >
-            <Icons.Plus className="h-5 w-5" />
-            Insert (Test)
+            <Icons.Plus className="h-4 w-4 md:h-5 md:w-5" />
+            <span className="text-xs md:text-sm">Insert</span>
           </button>
 
           {/* Sort Button */}
-          <button className="flex items-center gap-2 px-4 h-11 min-h-[44px] border rounded-lg transition-all duration-150 active:scale-95"
+          <button className="flex items-center gap-1.5 px-3 md:px-4 h-10 md:h-11 min-h-[40px] md:min-h-[44px] border rounded-lg transition-all duration-150 active:scale-95 flex-shrink-0"
                   style={{
                     borderColor: theme === 'light' ? '#e5e7eb' : '#374151',
                     color: visualConfig.colors.text.primary
                   }}>
             <Icons.ArrowUpDown className="h-4 w-4" />
-            Sort
+            <span className="hidden md:inline text-sm">Sort</span>
           </button>
         </div>
       </div>
