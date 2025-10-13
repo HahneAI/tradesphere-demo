@@ -4,19 +4,32 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getSupabase } from '../services/supabase';
 import { getSmartVisualThemeConfig } from '../config/industry';
-import { 
-  debounce, 
-  hapticFeedback, 
-  getTouchTargetSize, 
-  isMobileDevice, 
+import {
+  debounce,
+  hapticFeedback,
+  getTouchTargetSize,
+  isMobileDevice,
   SwipeGestureDetector,
   LongPressDetector
 } from '../utils/mobile-gestures';
 import { customerService } from '../services/customerService';
 import { useCustomerContext } from '../hooks/useCustomerContext';
 import { Message } from '../types/message';
+// Phase 3 New Imports
+import { CustomerRepository } from '../services/CustomerRepository';
+import { CustomerLifecycleService } from '../services/CustomerLifecycleService';
+import { CustomerMergeService } from '../services/CustomerMergeService';
+import { CustomerProfile, CustomerSearchFilters } from '../types/customer';
+import { LifecycleBadge } from './customers/LifecycleBadge';
+import { SourceBadge } from './customers/SourceBadge';
+import { TagChip } from './customers/TagChip';
+import { CustomerMetrics } from './customers/CustomerMetrics';
+import { CustomerDetailModal } from './customers/CustomerDetailModal';
+import { CustomerCreateWizard } from './customers/CustomerCreateWizard';
+import { CustomerFilterPanel } from './customers/CustomerFilterPanel';
 
 interface Customer {
+  // Legacy fields (for backward compatibility)
   session_id: string;
   customer_name: string | null;
   customer_address: string | null;
@@ -24,6 +37,19 @@ interface Customer {
   customer_phone: string | null;
   interaction_summary: string | null;
   created_at: string;
+  // Phase 3 new fields
+  id?: string;
+  company_id?: string;
+  lifecycle_stage?: 'prospect' | 'lead' | 'customer' | 'churned';
+  tags?: string[];
+  source?: 'chat' | 'manual' | 'import';
+  status?: 'active' | 'inactive' | 'merged' | 'deleted';
+  total_conversations?: number;
+  total_interactions?: number;
+  total_views?: number;
+  first_interaction_at?: string;
+  last_interaction_at?: string;
+  deleted_at?: string | null;
 }
 
 interface EditCustomerData {
@@ -60,9 +86,21 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
     customer_phone: ''
   });
 
+  // Phase 3 New State
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [useNewSystem, setUseNewSystem] = useState(true); // Feature flag for gradual rollout
+  const [filters, setFilters] = useState<CustomerSearchFilters>({});
+
   const visualConfig = getSmartVisualThemeConfig(theme);
   const customerContext = useCustomerContext();
   const isMobile = useMemo(() => isMobileDevice(), []);
+
+  // Phase 3 Service Instances
+  const customerRepo = useMemo(() => new CustomerRepository(), []);
+  const lifecycleService = useMemo(() => new CustomerLifecycleService(), []);
+  const mergeService = useMemo(() => new CustomerMergeService(), []);
 
   // Recently viewed tracking state with localStorage persistence
   const [recentlyViewedCustomers, setRecentlyViewedCustomers] = useState<Set<string>>(() => {
@@ -147,7 +185,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
   }, [customers, debouncedSearchQuery, recentlyViewedCustomers]);
 
   const fetchCustomers = async (isRefresh = false) => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.company_id) return;
 
     if (isRefresh) {
       setIsRefreshing(true);
@@ -157,30 +195,78 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
     }
 
     try {
-      const { customers: customerData, error } = await customerService.getCustomerList(
-        user.id,
-        { limit: 100 }
-      );
+      if (useNewSystem) {
+        // Phase 3: Use new CustomerRepository
+        const customerFilters: CustomerSearchFilters = {
+          ...filters,
+          searchQuery: debouncedSearchQuery || undefined,
+          limit: 100,
+          sort_by: 'last_interaction_at',
+          sort_order: 'desc'
+        };
 
-      if (error) {
-        console.error('Error fetching customers:', error);
-        hapticFeedback.notification('error');
-        return;
+        const { customers: customerProfiles, error } = await customerRepo.getCustomers(
+          user.company_id,
+          customerFilters
+        );
+
+        if (error) {
+          console.error('Error fetching customers (new system):', error);
+          hapticFeedback.notification('error');
+          return;
+        }
+
+        // Convert CustomerProfile to Customer interface for backward compatibility
+        const formattedCustomers: Customer[] = customerProfiles.map(profile => ({
+          id: profile.id,
+          session_id: profile.id || '', // Use customer ID as session fallback
+          customer_name: profile.customer_name,
+          customer_address: profile.customer_address || null,
+          customer_email: profile.customer_email || null,
+          customer_phone: profile.customer_phone || null,
+          interaction_summary: profile.customer_notes || null,
+          created_at: profile.created_at,
+          company_id: profile.company_id,
+          lifecycle_stage: profile.lifecycle_stage,
+          tags: profile.tags,
+          source: profile.source,
+          status: profile.status,
+          total_conversations: profile.total_conversations,
+          total_interactions: profile.total_interactions,
+          total_views: profile.total_views,
+          first_interaction_at: profile.first_interaction_at,
+          last_interaction_at: profile.last_interaction_at,
+          deleted_at: profile.deleted_at
+        }));
+
+        setCustomers(formattedCustomers);
+      } else {
+        // Legacy: Use old customerService
+        const { customers: customerData, error } = await customerService.getCustomerList(
+          user.id,
+          { limit: 100 }
+        );
+
+        if (error) {
+          console.error('Error fetching customers (legacy):', error);
+          hapticFeedback.notification('error');
+          return;
+        }
+
+        // Convert CustomerSummary to Customer interface
+        const formattedCustomers: Customer[] = customerData.map(customer => ({
+          session_id: customer.latest_session_id,
+          customer_name: customer.customer_name,
+          customer_address: customer.customer_address,
+          customer_email: customer.customer_email,
+          customer_phone: customer.customer_phone,
+          interaction_summary: customer.interaction_summary,
+          created_at: customer.last_interaction_at
+        }));
+
+        setCustomers(formattedCustomers);
       }
 
-      // Convert CustomerSummary to Customer interface
-      const formattedCustomers: Customer[] = customerData.map(customer => ({
-        session_id: customer.latest_session_id,
-        customer_name: customer.customer_name,
-        customer_address: customer.customer_address,
-        customer_email: customer.customer_email,
-        customer_phone: customer.customer_phone,
-        interaction_summary: customer.interaction_summary,
-        created_at: customer.last_interaction_at
-      }));
-
-      setCustomers(formattedCustomers);
-      
       if (isRefresh) {
         hapticFeedback.notification('success');
       }
@@ -197,7 +283,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
 
   const handleCustomerClick = async (customer: Customer) => {
     hapticFeedback.selection();
-    
+
     if (isEditMode) {
       setSelectedCustomer(customer);
       setEditData({
@@ -207,8 +293,17 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
         customer_phone: customer.customer_phone || ''
       });
       setShowEditModal(true);
+    } else if (useNewSystem) {
+      // Phase 3: Open CustomerDetailModal
+      setSelectedCustomer(customer);
+      setShowDetailModal(true);
+
+      // Update recently viewed
+      if (customer.customer_name) {
+        setRecentlyViewedCustomers(prev => new Set([customer.customer_name!, ...Array.from(prev)]));
+      }
     } else if (onLoadCustomer && customer.customer_name && user?.id) {
-      // Load customer context and conversation history
+      // Legacy: Load customer context and conversation history
       try {
         // Track customer interaction for smart ordering
         await customerService.trackCustomerInteraction(
@@ -226,7 +321,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
           customer.customer_name,
           customer.session_id
         );
-        
+
         if (customerContext.hasContext()) {
           const messages = customerContext.getMessagesForChat();
           onLoadCustomer(customer, messages);
