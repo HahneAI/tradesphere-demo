@@ -201,7 +201,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
           ...filters,
           searchQuery: debouncedSearchQuery || undefined,
           limit: 100,
-          sort_by: 'last_interaction_at',
+          sort_by: 'created_at', // Use customers table column (not metrics)
           sort_order: 'desc'
         };
 

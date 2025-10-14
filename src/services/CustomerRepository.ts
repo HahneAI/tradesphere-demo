@@ -34,11 +34,12 @@ export class CustomerRepository {
   ): Promise<PaginatedResponse<CustomerListItem>> {
     try {
       // Start with base query using customer_metrics view
+      // Use LEFT JOIN (no !inner) so customers without metrics still appear
       let query = this.supabase
         .from('customers')
         .select(`
           *,
-          customer_metrics!inner (
+          customer_metrics (
             total_conversations,
             total_interactions,
             total_views,
@@ -114,17 +115,10 @@ export class CustomerRepository {
         throw new RepositoryError('Failed to count customers', countError);
       }
 
-      // Apply sorting
+      // Apply sorting (only on customers table columns, not joined metrics)
       const sortBy = filters.sort_by || 'created_at';
       const sortOrder = filters.sort_order || 'desc';
-
-      if (sortBy === 'last_interaction_at' || sortBy === 'total_conversations') {
-        // Sort by metrics fields
-        query = query.order(`customer_metrics.${sortBy}`, { ascending: sortOrder === 'asc' });
-      } else {
-        // Sort by customer fields
-        query = query.order(sortBy, { ascending: sortOrder === 'asc' });
-      }
+      query = query.order(sortBy, { ascending: sortOrder === 'asc' });
 
       // Apply pagination
       const limit = filters.limit || 50;

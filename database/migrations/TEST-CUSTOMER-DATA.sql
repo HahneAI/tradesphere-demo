@@ -5,13 +5,11 @@
 -- Purpose: Create 3 test customers to verify CustomersTab integration
 -- Status: Test data for development/staging only
 --
--- IMPORTANT: Replace the UUIDs below with your actual values:
--- - Replace 'YOUR_COMPANY_ID' with your company's UUID
--- - Replace 'YOUR_USER_ID' with your user's UUID
+-- ✅ READY TO RUN - UUIDs Already Populated!
+-- Company ID: 08f0827a-608f-485a-a19f-e0c55ecf6484
+-- User ID: cd7ad550-37f3-477a-975e-a34b226b7332
 --
--- To find your IDs, run these queries first:
--- SELECT id, name FROM companies LIMIT 1;
--- SELECT id, email FROM users LIMIT 1;
+-- Simply copy the 3 INSERT statements below and run in Supabase SQL Editor
 -- ============================================================================
 
 -- ============================================================================
@@ -35,13 +33,13 @@ INSERT INTO customers (
   created_at,
   updated_at
 ) VALUES (
-  'YOUR_COMPANY_ID'::uuid,  -- Replace with your company_id
+  '08f0827a-608f-485a-a19f-e0c55ecf6484'::uuid,  -- Your company_id
   'Sarah Johnson',
   'sarah.johnson@email.com',
   '(555) 123-4567',
   '123 Maple Street, Springfield, IL 62701',
   'Interested in 500 sq ft paver patio with outdoor kitchen. Budget: $15,000-$20,000',
-  'YOUR_USER_ID'::uuid,  -- Replace with your user_id
+  'cd7ad550-37f3-477a-975e-a34b226b7332'::uuid,  -- Your user_id
   'Test User',
   'active',
   'prospect',
@@ -73,13 +71,13 @@ INSERT INTO customers (
   created_at,
   updated_at
 ) VALUES (
-  'YOUR_COMPANY_ID'::uuid,  -- Replace with your company_id
+  '08f0827a-608f-485a-a19f-e0c55ecf6484'::uuid,  -- Your company_id
   'Michael Chen',
   'mchen@business.com',
   '(555) 987-6543',
   '456 Oak Avenue, Unit 12, Chicago, IL 60601',
   'Commercial property manager. Needs retaining wall repair (100 linear feet). Follow up next week.',
-  'YOUR_USER_ID'::uuid,  -- Replace with your user_id
+  'cd7ad550-37f3-477a-975e-a34b226b7332'::uuid,  -- Your user_id
   'Test User',
   'active',
   'lead',
@@ -111,13 +109,13 @@ INSERT INTO customers (
   created_at,
   updated_at
 ) VALUES (
-  'YOUR_COMPANY_ID'::uuid,  -- Replace with your company_id
+  '08f0827a-608f-485a-a19f-e0c55ecf6484'::uuid,  -- Your company_id
   'Emily Rodriguez',
   'emily.r@homemail.com',
   '(555) 246-8135',
   '789 Pine Drive, Naperville, IL 60540',
   'Completed paver patio last year (2024). Very satisfied. Now wants pool deck (400 sq ft) and walkway.',
-  'YOUR_USER_ID'::uuid,  -- Replace with your user_id
+  'cd7ad550-37f3-477a-975e-a34b226b7332'::uuid,  -- Your user_id
   'Test User',
   'active',
   'customer',
