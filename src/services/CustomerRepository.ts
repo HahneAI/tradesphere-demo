@@ -211,7 +211,8 @@ export class CustomerRepository {
       }
 
       // Map to CustomerWithMetrics
-      const metrics = data.customer_metrics?.[0] || {};
+      // customer_metrics is returned as an object from the LEFT JOIN, not an array
+      const metrics = data.customer_metrics || {};
       return {
         ...data,
         total_conversations: metrics.total_conversations || 0,
