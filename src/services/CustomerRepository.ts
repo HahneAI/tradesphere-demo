@@ -178,7 +178,7 @@ export class CustomerRepository {
   /**
    * Get a single customer by ID with full metrics
    */
-  async getCustomerById(customerId: string): Promise<CustomerWithMetrics> {
+  async getCustomerById(customerId: string, companyId: string): Promise<CustomerWithMetrics> {
     try {
       const { data, error } = await this.supabase
         .from('customers')
@@ -195,6 +195,7 @@ export class CustomerRepository {
           )
         `)
         .eq('id', customerId)
+        .eq('company_id', companyId)
         .is('deleted_at', null)
         .single();
 
@@ -319,11 +320,12 @@ export class CustomerRepository {
    */
   async updateCustomer(
     customerId: string,
+    companyId: string,
     updates: UpdateCustomerInput
   ): Promise<CustomerProfile> {
     try {
       // Ensure customer exists and is not deleted
-      await this.getCustomerById(customerId);
+      await this.getCustomerById(customerId, companyId);
 
       // Prepare update data (filter out undefined values)
       const updateData: any = {};
@@ -359,11 +361,12 @@ export class CustomerRepository {
 
       updateData.updated_at = new Date().toISOString();
 
-      // Update customer
+      // Update customer (with company_id filter for multi-tenancy)
       const { data, error } = await this.supabase
         .from('customers')
         .update(updateData)
         .eq('id', customerId)
+        .eq('company_id', companyId)
         .select()
         .single();
 
@@ -389,10 +392,10 @@ export class CustomerRepository {
    * Sets deleted_at timestamp and status to 'deleted'
    * Customer will be filtered out of normal queries
    */
-  async softDeleteCustomer(customerId: string): Promise<void> {
+  async softDeleteCustomer(customerId: string, companyId: string): Promise<void> {
     try {
       // Ensure customer exists and is not already deleted
-      await this.getCustomerById(customerId);
+      await this.getCustomerById(customerId, companyId);
 
       const { error } = await this.supabase
         .from('customers')
@@ -401,7 +404,8 @@ export class CustomerRepository {
           status: 'deleted',
           updated_at: new Date().toISOString()
         })
-        .eq('id', customerId);
+        .eq('id', customerId)
+        .eq('company_id', companyId);
 
       if (error) {
         console.error('CustomerRepository: Error deleting customer:', error);
@@ -417,6 +421,14 @@ export class CustomerRepository {
       console.error('CustomerRepository: Unexpected error in softDeleteCustomer:', error);
       throw new RepositoryError('Failed to delete customer', error);
     }
+  }
+
+  /**
+   * Alias for softDeleteCustomer
+   * Provides more intuitive API for callers
+   */
+  async deleteCustomer(customerId: string, companyId: string): Promise<void> {
+    return this.softDeleteCustomer(customerId, companyId);
   }
 
   /**
@@ -545,7 +557,7 @@ export class CustomerRepository {
         return null;
       }
 
-      return await this.getCustomerById(data.customer_id);
+      return await this.getCustomerById(data.customer_id, companyId);
 
     } catch (error) {
       if (error instanceof NotFoundError) return null;
@@ -573,7 +585,7 @@ export class CustomerRepository {
         return null;
       }
 
-      return await this.getCustomerById(data.customer_id);
+      return await this.getCustomerById(data.customer_id, companyId);
 
     } catch (error) {
       if (error instanceof NotFoundError) return null;
