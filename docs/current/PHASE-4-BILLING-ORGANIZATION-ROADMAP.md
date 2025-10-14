@@ -12,12 +12,12 @@ Phase 4 implements a complete billing and organization management system for Tra
 
 **Key Deliverables**:
 - Payment-gated company signup flow
-- Stripe/Dwolla payment integration
+- Dwolla payment integration (ACH bank transfers)
 - Token-based team invitation system
 - Owner billing management UI
 - Organization settings & team management UI
 - 7-tier role-based access control enforcement
-- PCI-compliant payment handling
+- Secure ACH payment handling
 
 ---
 
@@ -34,7 +34,7 @@ Phase 4 implements a complete billing and organization management system for Tra
 **Responsibilities**:
 - ✅ Marketing content, pricing pages
 - ✅ Owner signup/registration form
-- ✅ Payment processing (Stripe Checkout)
+- ✅ Payment processing (Dwolla ACH Setup)
 - ✅ Company creation in shared database
 - ✅ Owner account creation in Supabase Auth
 - ✅ Send email with link to APP
@@ -76,19 +76,19 @@ Step 3: Owner Fills Registration Form
    ├─ Company name
    ├─ Owner email
    ├─ Owner password
-   ├─ Payment information (Stripe card input)
+   ├─ Payment information (Dwolla bank account verification)
    └─ Submits form
 
 Step 4: Website Processes Payment
    ├─ Website calls: /.netlify/functions/signup-with-payment
-   ├─ Creates Stripe customer + subscription
-   ├─ IF PAYMENT FAILS → Show error, stop
-   └─ IF PAYMENT SUCCEEDS → Continue
+   ├─ Creates Dwolla customer + funding source
+   ├─ IF PAYMENT SETUP FAILS → Show error, stop
+   └─ IF PAYMENT SETUP SUCCEEDS → Continue
 
 Step 5: Website Creates Company + Owner Account
    ├─ INSERT INTO companies (via shared Supabase database)
    │   ├─ name, email, subscription_status='trial'
-   │   ├─ stripe_customer_id, stripe_subscription_id
+   │   ├─ dwolla_customer_url, dwolla_funding_source_id
    │   └─ Get new company_id
    │
    ├─ Supabase Auth: createUser() (via Supabase Admin API)
@@ -186,19 +186,19 @@ SUPABASE DATABASE (Shared)
 **Duration**: 4-6 hours
 **Files Created** (in website repo):
 - Registration form component
-- Stripe payment form
+- Dwolla bank account verification UI
 - API call to `signup-with-payment` function
 - Email sending logic (magic link to app)
 
 **Deliverables** (website team):
-- [ ] Registration form with Stripe Checkout
+- [ ] Registration form with Dwolla ACH setup
 - [ ] Call to shared `signup-with-payment` Netlify function
 - [ ] Email template with link to APP onboarding
 - [ ] Success page: "Check your email to access your dashboard"
 
 **⚠️ IMPORTANT**: Website team needs:
 - Shared Supabase credentials (same project)
-- Shared Stripe credentials (same account)
+- Shared Dwolla credentials (same account)
 - Shared `signup-with-payment` function URL
 - Email template with APP URL
 
@@ -209,7 +209,7 @@ SUPABASE DATABASE (Shared)
 **All 7 phases (4A-4G) are implemented in THIS repo:**
 
 ✅ **Phase 4A**: Database Architecture (shared tables)
-✅ **Phase 4B**: Payment Gateway Integration (shared Stripe service)
+✅ **Phase 4B**: Payment Gateway Integration (shared Dwolla service)
 ✅ **Phase 4C**: App-Side Onboarding Flow (welcome modal, team invites)
 ✅ **Phase 4D**: Billing UI (BillingTab in app)
 ✅ **Phase 4E**: Organization UI (OrganizationTab in app)
@@ -227,14 +227,14 @@ SUPABASE DATABASE (Shared)
    - Supabase URL and Anon Key
    - Service Role Key (for user creation)
 
-2. **Stripe Account** (same for both website and app)
-   - API keys
+2. **Dwolla Account** (same for both website and app)
+   - API keys (key + secret)
    - Webhook endpoint (can be hosted with either website or app)
-   - Product/Price IDs
+   - Environment (sandbox vs production)
 
 3. **Netlify Functions** (can be duplicated or shared)
    - `signup-with-payment.ts` - Called by website
-   - `stripe-webhook.ts` - Shared webhook handler
+   - `dwolla-webhook.ts` - Shared webhook handler
    - `invite-team-member.ts` - Called by app only
 
 ### Communication Protocol
@@ -257,7 +257,7 @@ SUPABASE DATABASE (Shared)
   email: string;
   password: string;
   companyName: string;
-  paymentMethodId: string;  // From Stripe.js on website
+  fundingSourceUrl: string;  // From Dwolla bank verification on website
 }
 
 // Response to website
@@ -412,8 +412,8 @@ Step 1: Owner Signup Page
    └─ Submits to: /api/signup-with-payment
 
 Step 2: Payment Processing
-   ├─ Create Stripe/Dwolla customer
-   ├─ Process initial payment (first month or trial)
+   ├─ Create Dwolla customer
+   ├─ Verify bank account (micro-deposits or instant verification)
    ├─ IF SUCCESS → Continue
    └─ IF FAIL → Show error, do NOT create account
 
@@ -494,25 +494,25 @@ Step 6: Team Member Dashboard
 │ SUBSCRIPTION BILLING WEBHOOK                                    │
 └─────────────────────────────────────────────────────────────────┘
 
-Stripe/Dwolla sends webhook to: /api/webhooks/payment
+Dwolla sends webhook to: /api/webhooks/payment
 
 Event Types:
-├─ payment.succeeded
+├─ transfer.completed
 │  ├─ Update companies.next_billing_date (+30 days)
 │  ├─ INSERT INTO payments (status='succeeded', ...)
 │  └─ Ensure companies.subscription_status='active'
 │
-├─ payment.failed
+├─ transfer.failed
 │  ├─ INSERT INTO payments (status='failed', ...)
 │  ├─ Update companies.subscription_status='past_due'
 │  └─ Send email: "Payment failed, please update"
 │
-├─ subscription.canceled
-│  ├─ Update companies.subscription_status='canceled'
-│  ├─ Set companies.next_billing_date=NULL
-│  └─ Disable access after grace period
+├─ customer.funding_source_removed
+│  ├─ Update companies.subscription_status='past_due'
+│  ├─ Send email: "Please add new bank account"
+│  └─ Block access if not resolved within grace period
 │
-└─ trial.ending_soon
+└─ trial.ending_soon (custom event)
    ├─ Send email: "Trial ends in 3 days"
    └─ companies.subscription_status='trial'
 ```
@@ -728,185 +728,217 @@ CREATE INDEX idx_companies_next_billing ON companies(next_billing_date);
 **Priority**: CRITICAL - Revenue infrastructure
 
 **Objectives**:
-1. Integrate Stripe Checkout for payment processing
-2. Create Stripe/Dwolla customer records
-3. Handle subscription webhooks (payment.succeeded, payment.failed, etc.)
+1. Integrate Dwolla API for ACH payment processing
+2. Create Dwolla customer records
+3. Handle subscription webhooks (transfer.completed, transfer.failed, etc.)
 4. Implement trial period automation
 5. Create payment verification API endpoint
 
-**Stripe Integration**:
+**Dwolla Integration**:
 
-**StripeService.ts**:
+**DwollaService.ts**:
 ```typescript
-import Stripe from 'stripe';
+import { Client } from 'dwolla-v2';
 
-export class StripeService {
-  private stripe: Stripe;
+export class DwollaService {
+  private dwolla: Client;
 
   constructor() {
-    this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2024-10-28.acacia'
+    this.dwolla = new Client({
+      key: process.env.DWOLLA_APP_KEY!,
+      secret: process.env.DWOLLA_APP_SECRET!,
+      environment: process.env.DWOLLA_ENVIRONMENT as 'production' | 'sandbox'
     });
   }
 
   /**
-   * Create Stripe customer and subscription for new company
+   * Create Dwolla customer for new company
    */
-  async createSubscription(params: {
+  async createCustomer(params: {
     email: string;
     companyName: string;
-    paymentMethodId: string;
-    priceId: string;  // Stripe price ID for subscription tier
-    trialDays?: number;
-  }): Promise<{
-    customerId: string;
-    subscriptionId: string;
-    clientSecret: string;
-  }> {
-    // Create Stripe customer
-    const customer = await this.stripe.customers.create({
+    firstName: string;
+    lastName: string;
+  }): Promise<string> {
+    const requestBody = {
+      firstName: params.firstName,
+      lastName: params.lastName,
       email: params.email,
-      name: params.companyName,
-      payment_method: params.paymentMethodId,
-      invoice_settings: {
-        default_payment_method: params.paymentMethodId
-      },
-      metadata: {
-        company_name: params.companyName
-      }
-    });
-
-    // Create subscription
-    const subscription = await this.stripe.subscriptions.create({
-      customer: customer.id,
-      items: [{ price: params.priceId }],
-      payment_behavior: 'default_incomplete',
-      payment_settings: {
-        payment_method_types: ['card'],
-        save_default_payment_method: 'on_subscription'
-      },
-      expand: ['latest_invoice.payment_intent'],
-      trial_period_days: params.trialDays || 14,
-      metadata: {
-        company_name: params.companyName
-      }
-    });
-
-    const invoice = subscription.latest_invoice as Stripe.Invoice;
-    const paymentIntent = invoice.payment_intent as Stripe.PaymentIntent;
-
-    return {
-      customerId: customer.id,
-      subscriptionId: subscription.id,
-      clientSecret: paymentIntent.client_secret!
+      type: 'business',
+      businessName: params.companyName,
+      businessType: 'llc', // or get from signup form
+      businessClassification: '9ed3f670-7d6f-11e3-b1ce-5404a6144203', // Default classification
     };
+
+    const customer = await this.dwolla.post('customers', requestBody);
+    return customer.headers.get('location'); // Returns customer URL
   }
 
   /**
-   * Update payment method
+   * Create funding source (bank account) for customer
    */
-  async updatePaymentMethod(
-    customerId: string,
-    paymentMethodId: string
+  async createFundingSource(params: {
+    customerUrl: string;
+    routingNumber: string;
+    accountNumber: string;
+    bankAccountType: 'checking' | 'savings';
+    name: string;
+  }): Promise<string> {
+    const requestBody = {
+      routingNumber: params.routingNumber,
+      accountNumber: params.accountNumber,
+      bankAccountType: params.bankAccountType,
+      name: params.name
+    };
+
+    const fundingSource = await this.dwolla.post(
+      `${params.customerUrl}/funding-sources`,
+      requestBody
+    );
+    return fundingSource.headers.get('location'); // Returns funding source URL
+  }
+
+  /**
+   * Initiate micro-deposit verification
+   */
+  async initiateMicroDeposits(fundingSourceUrl: string): Promise<void> {
+    await this.dwolla.post(`${fundingSourceUrl}/micro-deposits`);
+  }
+
+  /**
+   * Verify micro-deposits
+   */
+  async verifyMicroDeposits(
+    fundingSourceUrl: string,
+    amount1: number,
+    amount2: number
   ): Promise<void> {
-    await this.stripe.paymentMethods.attach(paymentMethodId, {
-      customer: customerId
-    });
-
-    await this.stripe.customers.update(customerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId
-      }
+    await this.dwolla.post(`${fundingSourceUrl}/micro-deposits`, {
+      amount1: { value: amount1.toString(), currency: 'USD' },
+      amount2: { value: amount2.toString(), currency: 'USD' }
     });
   }
 
   /**
-   * Cancel subscription
+   * Create transfer (subscription payment)
    */
-  async cancelSubscription(
-    subscriptionId: string,
-    immediately: boolean = false
-  ): Promise<void> {
-    await this.stripe.subscriptions.update(subscriptionId, {
-      cancel_at_period_end: !immediately
-    });
+  async createTransfer(params: {
+    sourceFundingSourceUrl: string; // Customer's bank account
+    destinationFundingSourceUrl: string; // TradeSphere's account
+    amount: number;
+    metadata?: Record<string, string>;
+  }): Promise<string> {
+    const requestBody = {
+      _links: {
+        source: { href: params.sourceFundingSourceUrl },
+        destination: { href: params.destinationFundingSourceUrl }
+      },
+      amount: {
+        currency: 'USD',
+        value: params.amount.toFixed(2)
+      },
+      metadata: params.metadata || {}
+    };
 
-    if (immediately) {
-      await this.stripe.subscriptions.cancel(subscriptionId);
-    }
+    const transfer = await this.dwolla.post('transfers', requestBody);
+    return transfer.headers.get('location'); // Returns transfer URL
   }
 
   /**
-   * Get payment history
+   * Get transfer status
    */
-  async getPaymentHistory(customerId: string): Promise<Stripe.Charge[]> {
-    const charges = await this.stripe.charges.list({
-      customer: customerId,
+  async getTransfer(transferUrl: string): Promise<any> {
+    const transfer = await this.dwolla.get(transferUrl);
+    return transfer.body;
+  }
+
+  /**
+   * Cancel transfer (if still pending)
+   */
+  async cancelTransfer(transferUrl: string): Promise<void> {
+    await this.dwolla.post(`${transferUrl}`, { status: 'cancelled' });
+  }
+
+  /**
+   * Get customer funding sources
+   */
+  async getFundingSources(customerUrl: string): Promise<any[]> {
+    const response = await this.dwolla.get(`${customerUrl}/funding-sources`);
+    return response.body._embedded['funding-sources'];
+  }
+
+  /**
+   * Remove funding source
+   */
+  async removeFundingSource(fundingSourceUrl: string): Promise<void> {
+    await this.dwolla.post(`${fundingSourceUrl}`, { removed: true });
+  }
+
+  /**
+   * Get customer transfers (payment history)
+   */
+  async getTransfers(customerUrl: string): Promise<any[]> {
+    const response = await this.dwolla.get(`${customerUrl}/transfers`, {
       limit: 100
     });
-
-    return charges.data;
+    return response.body._embedded.transfers;
   }
 }
 ```
 
-**Webhook Handler** (`netlify/functions/stripe-webhook.ts`):
+**Webhook Handler** (`netlify/functions/dwolla-webhook.ts`):
 ```typescript
 import { Handler } from '@netlify/functions';
-import Stripe from 'stripe';
+import crypto from 'crypto';
 import { getSupabase } from '../../src/services/supabase';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const webhookSecret = process.env.DWOLLA_WEBHOOK_SECRET!;
 
 export const handler: Handler = async (event) => {
-  const sig = event.headers['stripe-signature']!;
+  // Verify webhook signature
+  const signature = event.headers['x-dwolla-signature'];
 
-  let stripeEvent: Stripe.Event;
+  const hmac = crypto.createHmac('sha256', webhookSecret);
+  const computedSignature = hmac.update(event.body!).digest('hex');
 
-  try {
-    stripeEvent = stripe.webhooks.constructEvent(
-      event.body!,
-      sig,
-      webhookSecret
-    );
-  } catch (err: any) {
+  if (signature !== computedSignature) {
     return {
-      statusCode: 400,
-      body: JSON.stringify({ error: `Webhook Error: ${err.message}` })
+      statusCode: 401,
+      body: JSON.stringify({ error: 'Invalid webhook signature' })
     };
   }
 
+  const dwollaEvent = JSON.parse(event.body!);
   const supabase = getSupabase();
 
   // Log webhook event
   await supabase.from('payment_webhooks').insert({
-    event_type: stripeEvent.type,
-    payload: stripeEvent.data.object,
+    event_type: dwollaEvent.topic,
+    payload: dwollaEvent,
     created_at: new Date().toISOString()
   });
 
   // Handle event types
-  switch (stripeEvent.type) {
-    case 'payment_intent.succeeded': {
-      const paymentIntent = stripeEvent.data.object as Stripe.PaymentIntent;
+  switch (dwollaEvent.topic) {
+    case 'transfer_completed': {
+      const transferUrl = dwollaEvent._links.resource.href;
 
-      // Get company from customer ID
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('stripe_customer_id', paymentIntent.customer)
+      // Extract transfer ID from metadata to find company
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('company_id, amount')
+        .eq('dwolla_transfer_id', transferUrl)
         .single();
 
-      if (company) {
-        // Record successful payment
-        await supabase.from('payments').insert({
-          company_id: company.id,
-          amount: paymentIntent.amount / 100,  // Convert cents to dollars
-          status: 'succeeded',
-          payment_type: 'monthly_subscription',
-          processed_at: new Date().toISOString()
-        });
+      if (payment) {
+        // Update payment status
+        await supabase
+          .from('payments')
+          .update({
+            status: 'succeeded',
+            processed_at: new Date().toISOString()
+          })
+          .eq('dwolla_transfer_id', transferUrl);
 
         // Update company subscription status
         await supabase
@@ -915,58 +947,57 @@ export const handler: Handler = async (event) => {
             subscription_status: 'active',
             next_billing_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
           })
-          .eq('id', company.id);
+          .eq('id', payment.company_id);
       }
       break;
     }
 
-    case 'payment_intent.payment_failed': {
-      const paymentIntent = stripeEvent.data.object as Stripe.PaymentIntent;
+    case 'transfer_failed': {
+      const transferUrl = dwollaEvent._links.resource.href;
 
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('stripe_customer_id', paymentIntent.customer)
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('company_id')
+        .eq('dwolla_transfer_id', transferUrl)
         .single();
 
-      if (company) {
-        await supabase.from('payments').insert({
-          company_id: company.id,
-          amount: paymentIntent.amount / 100,
-          status: 'failed',
-          payment_type: 'monthly_subscription',
-          processed_at: new Date().toISOString()
-        });
+      if (payment) {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'failed',
+            processed_at: new Date().toISOString()
+          })
+          .eq('dwolla_transfer_id', transferUrl);
 
         await supabase
           .from('companies')
           .update({ subscription_status: 'past_due' })
-          .eq('id', company.id);
+          .eq('id', payment.company_id);
 
         // TODO: Send email notification to company owner
       }
       break;
     }
 
-    case 'customer.subscription.deleted': {
-      const subscription = stripeEvent.data.object as Stripe.Subscription;
+    case 'customer_funding_source_removed': {
+      const customerUrl = dwollaEvent._links.customer.href;
 
-      await supabase
+      // Find company by Dwolla customer URL
+      const { data: company } = await supabase
         .from('companies')
-        .update({
-          subscription_status: 'canceled',
-          canceled_at: new Date().toISOString(),
-          next_billing_date: null
-        })
-        .eq('stripe_subscription_id', subscription.id);
+        .select('id')
+        .eq('dwolla_customer_url', customerUrl)
+        .single();
 
-      break;
-    }
+      if (company) {
+        await supabase
+          .from('companies')
+          .update({ subscription_status: 'past_due' })
+          .eq('id', company.id);
 
-    case 'customer.subscription.trial_will_end': {
-      const subscription = stripeEvent.data.object as Stripe.Subscription;
-
-      // TODO: Send "trial ending soon" email to company owner
+        // TODO: Send email to add new funding source
+      }
       break;
     }
   }
@@ -979,16 +1010,14 @@ export const handler: Handler = async (event) => {
 ```
 
 **Deliverables**:
-- `src/services/StripeService.ts` - Stripe API wrapper
-- `src/services/DwollaService.ts` - Dwolla API wrapper (optional, for ACH)
-- `netlify/functions/stripe-webhook.ts` - Webhook handler
+- `src/services/DwollaService.ts` - Dwolla API wrapper for ACH payments
+- `netlify/functions/dwolla-webhook.ts` - Webhook handler
 - `src/types/payment.ts` - Payment type definitions
 - Environment variables documentation
 
 **Files Created**:
-- `src/services/StripeService.ts`
 - `src/services/DwollaService.ts`
-- `netlify/functions/stripe-webhook.ts`
+- `netlify/functions/dwolla-webhook.ts`
 - `src/types/payment.ts`
 
 ---
