@@ -570,7 +570,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
         )}
       </div>
           
-          {/* Edit Modal */}
+          {/* Legacy Edit Modal */}
           {showEditModal && selectedCustomer && (
             <EditCustomerModal
               customer={selectedCustomer}
@@ -580,6 +580,68 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
               theme={theme}
               onSave={handleSaveCustomer}
               onClose={closeEditModal}
+            />
+          )}
+
+          {/* Phase 3 Customer Detail Modal */}
+          {showDetailModal && selectedCustomer && selectedCustomer.id && (
+            <CustomerDetailModal
+              customer={{
+                id: selectedCustomer.id,
+                company_id: selectedCustomer.company_id || user?.company_id || '',
+                customer_name: selectedCustomer.customer_name || '',
+                customer_email: selectedCustomer.customer_email,
+                customer_phone: selectedCustomer.customer_phone,
+                customer_address: selectedCustomer.customer_address,
+                customer_notes: selectedCustomer.interaction_summary,
+                lifecycle_stage: selectedCustomer.lifecycle_stage || 'prospect',
+                tags: selectedCustomer.tags || [],
+                source: selectedCustomer.source || 'chat',
+                status: selectedCustomer.status || 'active',
+                total_conversations: selectedCustomer.total_conversations || 0,
+                total_interactions: selectedCustomer.total_interactions || 0,
+                total_views: selectedCustomer.total_views || 0,
+                view_count: selectedCustomer.total_views || 0,
+                first_interaction_at: selectedCustomer.first_interaction_at,
+                last_interaction_at: selectedCustomer.last_interaction_at,
+                created_at: selectedCustomer.created_at,
+                updated_at: selectedCustomer.created_at,
+                deleted_at: selectedCustomer.deleted_at || null,
+                merged_into_customer_id: null,
+                created_by_user_id: user?.id,
+                created_by_user_name: user?.display_name || null
+              }}
+              isOpen={showDetailModal}
+              onClose={() => {
+                setShowDetailModal(false);
+                setSelectedCustomer(null);
+              }}
+              onUpdate={async (updates) => {
+                if (!selectedCustomer.id || !user?.company_id) return;
+
+                // Use CustomerRepository to update
+                await customerRepo.updateCustomer(selectedCustomer.id, user.company_id, updates);
+
+                // Refresh customer list
+                await fetchCustomers();
+
+                // Close modal
+                setShowDetailModal(false);
+                setSelectedCustomer(null);
+              }}
+              onDelete={async (customerId) => {
+                if (!user?.company_id) return;
+
+                // Use CustomerRepository to soft delete
+                await customerRepo.deleteCustomer(customerId, user.company_id);
+
+                // Refresh customer list
+                await fetchCustomers();
+
+                // Close modal
+                setShowDetailModal(false);
+                setSelectedCustomer(null);
+              }}
             />
           )}
           </div>
