@@ -27,6 +27,7 @@ import { CustomerMetrics } from './customers/CustomerMetrics';
 import { CustomerDetailModal } from './customers/CustomerDetailModal';
 import { CustomerCreateWizard } from './customers/CustomerCreateWizard';
 import { CustomerFilterPanel } from './customers/CustomerFilterPanel';
+import { CustomerSyncPanel } from './customer/CustomerSyncPanel';
 
 interface Customer {
   // Legacy fields (for backward compatibility)
@@ -90,6 +91,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showSyncPanel, setShowSyncPanel] = useState(false);
   const [useNewSystem, setUseNewSystem] = useState(true); // Feature flag for gradual rollout
   const [filters, setFilters] = useState<CustomerSearchFilters>({});
 
@@ -442,11 +444,27 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
                   </div>
                 )}
           <div className="flex items-center gap-3">
+            {/* Sync Panel Button */}
+            <button
+              onClick={() => setShowSyncPanel(true)}
+              className="px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2"
+              style={{
+                backgroundColor: visualConfig.colors.primary + '10',
+                color: visualConfig.colors.primary
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.primary + '20'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.primary + '10'}
+              title="Customer Data Sync"
+            >
+              <Icons.RefreshCcw className="h-4 w-4" />
+              <span className="text-sm font-medium">Sync</span>
+            </button>
+
             {/* Refresh Button */}
             <button
               onClick={fetchCustomers}
               className="p-2 rounded-lg transition-colors duration-200"
-              style={{ 
+              style={{
                 backgroundColor: 'transparent',
                 color: visualConfig.colors.text.secondary
               }}
@@ -460,7 +478,7 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
             <button
               onClick={() => setIsEditMode(!isEditMode)}
               className={`p-2 rounded-lg transition-colors duration-200 ${isEditMode ? 'opacity-100' : 'opacity-60'}`}
-              style={{ 
+              style={{
                 backgroundColor: isEditMode ? visualConfig.colors.primary + '20' : 'transparent',
                 color: isEditMode ? visualConfig.colors.primary : visualConfig.colors.text.secondary
               }}
@@ -647,6 +665,43 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
           </div>
         </div>
       </div>
+
+      {/* Phase 3E Customer Sync Panel Modal */}
+      {showSyncPanel && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-[60] animate-overlay-fade-in"
+            onClick={() => setShowSyncPanel(false)}
+          />
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowSyncPanel(false)}
+          >
+            <div
+              className="w-full max-w-6xl max-h-[90vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl animate-scale-in overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6 flex items-center justify-between z-10">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Customer Data Sync
+                </h2>
+                <button
+                  onClick={() => setShowSyncPanel(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Icons.X className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6">
+                <CustomerSyncPanel />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 };

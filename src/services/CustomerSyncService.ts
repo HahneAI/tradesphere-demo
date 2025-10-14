@@ -20,7 +20,8 @@ import {
 interface VCUsageRecord {
   id: string;
   session_id: string;
-  user_id: string;
+  company_id: string;  // Required for multi-tenancy
+  user_id: string | null;  // Made nullable
   customer_id?: string | null;
   customer_name?: string | null;
   customer_email?: string | null;
@@ -52,22 +53,8 @@ export class CustomerSyncService {
         };
       }
 
-      // Get company_id from user
-      const { data: userData, error: userError } = await this.supabase
-        .from('users')
-        .select('company_id')
-        .eq('id', vcUsageRecord.user_id)
-        .single();
-
-      if (userError || !userData?.company_id) {
-        return {
-          success: false,
-          action: 'error',
-          error: 'Could not determine company for user'
-        };
-      }
-
-      const companyId = userData.company_id;
+      // Use company_id from record (passed directly in Phase 3E)
+      const companyId = vcUsageRecord.company_id;
 
       // Check if already linked
       if (vcUsageRecord.customer_id) {
