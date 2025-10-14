@@ -353,6 +353,53 @@ Expert prompt engineer specializing in advanced prompting techniques, LLM optimi
 
 ---
 
+## 14. Mobile Developer
+
+**File**: [`agents/mobile-developer.md`](agents/mobile-developer.md)
+**Model**: Sonnet
+**Use Case**: PWA optimization, mobile-responsive implementation, app store preparation
+
+### What It Does
+Expert mobile developer specializing in cross-platform development, PWA optimization, and mobile-first design. Masters React Native, Flutter, and native iOS/Android development with modern architecture patterns.
+
+### Key Capabilities
+- **PWA Excellence**: Service workers, offline functionality, install prompts, responsive design
+- **Mobile Optimization**: Touch interfaces, performance on mobile networks, battery efficiency
+- **Cross-Platform**: React Native, Flutter, Ionic with Capacitor for web-to-mobile transitions
+- **Responsive Design**: Mobile-first layouts, touch targets, viewport optimization, gesture handling
+- **Performance**: Startup time optimization, lazy loading, image optimization, code splitting
+- **Testing**: Mobile device testing, responsive testing, performance profiling on mobile
+
+### When to Use
+- Optimizing Tradesphere web app for mobile browsers
+- Implementing PWA features (offline mode, install prompts, push notifications)
+- Ensuring responsive design works smoothly on all mobile devices
+- Testing mobile performance and user experience
+- Preparing codebase for future iOS/Android app store deployment
+- Creating documentation for future native app conversion
+
+### ⚠️ Tradesphere Context
+
+**Current State**: Tradesphere is a web application with PWA functionality. Focus on ensuring all operations work smoothly on mobile browsers.
+
+**Future State**: Will be adapted to full native apps for iOS App Store and Google Play Store.
+
+**Agent Behavior**:
+- **Implement mobile-optimized code** for current PWA functionality
+- **Add code comments** when encountering code that will need iOS/Play Store specific adaptations
+- **Create standalone documentation** noting future pivot points for native app conversion
+- **Work with ui-ux-designer** for mobile-responsive design implementation
+- **Tag technical debt** related to web-specific patterns that won't work in native apps
+
+**Documentation Format**:
+```
+// TODO: [NATIVE-APP] This implementation uses web-specific APIs
+// For iOS/Android: Replace with platform-specific alternative
+// See: docs/native-app-migration.md
+```
+
+---
+
 ## Quick Reference Table
 
 | Agent | Model | Primary Use Case | Key Strength |
@@ -370,6 +417,7 @@ Expert prompt engineer specializing in advanced prompting techniques, LLM optimi
 | **debugger** | Sonnet | Error Resolution | Root cause analysis |
 | **error-detective** | Sonnet | Log Analysis | Pattern recognition & correlation |
 | **prompt-engineer** | Opus | AI Integration | Chain-of-thought & constitutional AI |
+| **mobile-developer** | Sonnet | PWA & Mobile | Mobile-first optimization & native prep |
 
 ---
 
@@ -380,3 +428,12 @@ Expert prompt engineer specializing in advanced prompting techniques, LLM optimi
 3. **Respect Agent Boundaries**: Each agent defers to others for specialized work
 4. **Model Selection**: Opus for complex architecture/strategy, Sonnet for implementation
 5. **File Paths**: All agents live in `agents/` directory with `.md` extension
+
+---
+
+## See Also
+
+- [CLAUDE.md](CLAUDE.md) - Safety guide and configuration instructions
+- [agents/README.md](agents/README.md) - Complete agent documentation
+- [tools/](tools/) - Reusable tool definitions
+- [workflows/](workflows/) - Multi-step workflow orchestrations
