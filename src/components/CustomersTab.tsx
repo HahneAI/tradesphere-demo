@@ -205,16 +205,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ isOpen, onClose, onL
           sort_order: 'desc'
         };
 
-        const { customers: customerProfiles, error } = await customerRepo.getCustomers(
+        const response = await customerRepo.getCustomers(
           user.company_id,
           customerFilters
         );
 
-        if (error) {
-          console.error('Error fetching customers (new system):', error);
-          hapticFeedback.notification('error');
-          return;
-        }
+        // CustomerRepository returns PaginatedResponse with items, not customers
+        const customerProfiles = response.items;
 
         // Convert CustomerProfile to Customer interface for backward compatibility
         const formattedCustomers: Customer[] = customerProfiles.map(profile => ({
