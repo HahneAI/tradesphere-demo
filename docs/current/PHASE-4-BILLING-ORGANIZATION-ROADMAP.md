@@ -21,6 +21,281 @@ Phase 4 implements a complete billing and organization management system for Tra
 
 ---
 
+## 🚨 CRITICAL: Website vs App Architecture
+
+**TradeSphere has TWO separate React applications:**
+
+### 1. **Company Website** (Marketing Site - Separate GitHub Repo)
+**Repository**: Separate React repo (not this one)
+**Purpose**: Public marketing site, landing pages, owner signup
+**Tech Stack**: React (separate codebase)
+**URL**: `https://tradesphere.com` (example)
+
+**Responsibilities**:
+- ✅ Marketing content, pricing pages
+- ✅ Owner signup/registration form
+- ✅ Payment processing (Stripe Checkout)
+- ✅ Company creation in shared database
+- ✅ Owner account creation in Supabase Auth
+- ✅ Send email with link to APP
+- ❌ NO team invitations (handled by app)
+- ❌ NO billing management (handled by app)
+- ❌ NO organization settings (handled by app)
+
+### 2. **TradeSphere App** (Product - THIS Repo)
+**Repository**: `tradesphere-no-code-migration` (this repo)
+**Purpose**: SaaS product, pricing calculator, customer management
+**Tech Stack**: React + TypeScript + Vite + Supabase
+**URL**: `https://app.tradesphere.com` (example)
+
+**Responsibilities**:
+- ✅ App-side onboarding flow (after owner clicks email link from website)
+- ✅ Team invitation system
+- ✅ Billing management UI (BillingTab)
+- ✅ Organization settings UI (OrganizationTab)
+- ✅ Pricing calculator, customer management, etc.
+- ❌ NO initial owner signup (handled by website)
+- ❌ NO marketing content (handled by website)
+
+---
+
+## Complete Onboarding Flow (Website → App)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 1-5: COMPANY WEBSITE (Marketing Site)                     │
+└─────────────────────────────────────────────────────────────────┘
+
+Step 1: Potential Customer Visits Website
+   └─ URL: https://tradesphere.com
+
+Step 2: Clicks "Get Started" → Registration Tab
+   └─ Website shows registration form
+
+Step 3: Owner Fills Registration Form
+   ├─ Company name
+   ├─ Owner email
+   ├─ Owner password
+   ├─ Payment information (Stripe card input)
+   └─ Submits form
+
+Step 4: Website Processes Payment
+   ├─ Website calls: /.netlify/functions/signup-with-payment
+   ├─ Creates Stripe customer + subscription
+   ├─ IF PAYMENT FAILS → Show error, stop
+   └─ IF PAYMENT SUCCEEDS → Continue
+
+Step 5: Website Creates Company + Owner Account
+   ├─ INSERT INTO companies (via shared Supabase database)
+   │   ├─ name, email, subscription_status='trial'
+   │   ├─ stripe_customer_id, stripe_subscription_id
+   │   └─ Get new company_id
+   │
+   ├─ Supabase Auth: createUser() (via Supabase Admin API)
+   │   ├─ email, password
+   │   ├─ metadata: { company_id: NEW_COMPANY_ID }
+   │   └─ Trigger: handle_new_user() creates users record
+   │
+   └─ Send email to owner:
+       Subject: "Welcome to TradeSphere!"
+       Body: "Click here to access your dashboard:
+              https://app.tradesphere.com/onboarding?token=AUTO_LOGIN_TOKEN"
+
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 6-9: TRADESPHERE APP (Product - THIS REPO)                │
+└─────────────────────────────────────────────────────────────────┘
+
+Step 6: Owner Clicks Email Link
+   ├─ URL: https://app.tradesphere.com/onboarding?token=AUTO_LOGIN_TOKEN
+   ├─ App validates token
+   └─ Auto-authenticates owner via Supabase session
+
+Step 7: APP-SIDE ONBOARDING FLOW (Phase 4C)
+   ├─ Welcome screen: "Welcome to TradeSphere!"
+   ├─ Company settings:
+   │   ├─ AI personality configuration
+   │   ├─ Branding (logo, colors)
+   │   └─ Industry selection
+   │
+   └─ Team invitation screen:
+       ├─ "Invite your employees"
+       ├─ Form: email + role (manager/analyst/sales/field_tech)
+       └─ Owner can send invites from here
+
+Step 8: Owner Sends Team Invites (from APP, not website)
+   ├─ App calls: /.netlify/functions/invite-team-member
+   ├─ Creates invitation record in database
+   ├─ Sends email to team member:
+   │   "You've been invited to join [Company Name] on TradeSphere!"
+   │   "Click here: https://app.tradesphere.com/signup?invite=TOKEN123"
+   └─ Owner completes onboarding → Redirected to dashboard
+
+Step 9: Owner Lands in Dashboard
+   └─ URL: https://app.tradesphere.com/dashboard
+
+┌─────────────────────────────────────────────────────────────────┐
+│ STEP 10-12: TEAM MEMBER SIGNUP (APP)                           │
+└─────────────────────────────────────────────────────────────────┘
+
+Step 10: Team Member Receives Invite Email
+   └─ Email from app (not website)
+
+Step 11: Team Member Clicks Invite Link
+   ├─ URL: https://app.tradesphere.com/signup?invite=TOKEN123
+   ├─ App validates token
+   └─ Shows signup form (email pre-filled, only needs password)
+
+Step 12: Team Member Creates Account
+   ├─ Supabase Auth: signUp() with invitation_token in metadata
+   ├─ Trigger: handle_new_user() validates token → assigns role
+   └─ Redirected to dashboard (scoped to their company)
+```
+
+---
+
+## Shared Database Architecture
+
+**Both Website and App connect to the SAME Supabase database:**
+
+```
+SUPABASE DATABASE (Shared)
+├─ companies table
+│   └─ Used by both website (create) and app (read/update)
+│
+├─ users table (via Supabase Auth)
+│   └─ Used by both website (create owner) and app (read/update/create team)
+│
+├─ invitations table
+│   └─ Used by app only (website doesn't send team invites)
+│
+├─ payments table
+│   └─ Used by both website (initial payment) and app (billing history)
+│
+└─ payment_webhooks table
+    └─ Used by shared webhook endpoint (can be either website or app)
+```
+
+---
+
+## Phase 4 Implementation Split
+
+### Website-Side Implementation (Separate Repo)
+
+**Phase 4W: Website Owner Signup** (Not in this repo)
+**Agent**: frontend-developer (in website repo)
+**Duration**: 4-6 hours
+**Files Created** (in website repo):
+- Registration form component
+- Stripe payment form
+- API call to `signup-with-payment` function
+- Email sending logic (magic link to app)
+
+**Deliverables** (website team):
+- [ ] Registration form with Stripe Checkout
+- [ ] Call to shared `signup-with-payment` Netlify function
+- [ ] Email template with link to APP onboarding
+- [ ] Success page: "Check your email to access your dashboard"
+
+**⚠️ IMPORTANT**: Website team needs:
+- Shared Supabase credentials (same project)
+- Shared Stripe credentials (same account)
+- Shared `signup-with-payment` function URL
+- Email template with APP URL
+
+---
+
+### App-Side Implementation (THIS Repo)
+
+**All 7 phases (4A-4G) are implemented in THIS repo:**
+
+✅ **Phase 4A**: Database Architecture (shared tables)
+✅ **Phase 4B**: Payment Gateway Integration (shared Stripe service)
+✅ **Phase 4C**: App-Side Onboarding Flow (welcome modal, team invites)
+✅ **Phase 4D**: Billing UI (BillingTab in app)
+✅ **Phase 4E**: Organization UI (OrganizationTab in app)
+✅ **Phase 4F**: RBAC Enforcement (app permissions)
+✅ **Phase 4G**: Testing & Security Audit (full stack)
+
+---
+
+## Coordination Required
+
+### Shared Resources
+
+1. **Supabase Project** (same for both website and app)
+   - Database connection string
+   - Supabase URL and Anon Key
+   - Service Role Key (for user creation)
+
+2. **Stripe Account** (same for both website and app)
+   - API keys
+   - Webhook endpoint (can be hosted with either website or app)
+   - Product/Price IDs
+
+3. **Netlify Functions** (can be duplicated or shared)
+   - `signup-with-payment.ts` - Called by website
+   - `stripe-webhook.ts` - Shared webhook handler
+   - `invite-team-member.ts` - Called by app only
+
+### Communication Protocol
+
+**Website → App**:
+- Website creates company + owner → Sends email with magic link to app
+- Magic link format: `https://app.tradesphere.com/onboarding?token=AUTO_LOGIN_TOKEN`
+- Token should be a Supabase session token or JWT
+
+**App → Website**:
+- No direct communication needed
+- App assumes owner already exists (created by website)
+
+### Payload Contracts
+
+**signup-with-payment function** (called by website):
+```typescript
+// Request from website
+{
+  email: string;
+  password: string;
+  companyName: string;
+  paymentMethodId: string;  // From Stripe.js on website
+}
+
+// Response to website
+{
+  success: boolean;
+  company: { id, name, email };
+  session: { access_token, refresh_token };
+  message: string;
+}
+```
+
+**Email sent by website** (after signup):
+```
+To: owner@company.com
+Subject: Welcome to TradeSphere!
+Body:
+  Hi {ownerName},
+
+  Your TradeSphere account is ready!
+
+  Click here to complete your setup and invite your team:
+  https://app.tradesphere.com/onboarding?token={SESSION_TOKEN}
+
+  Your 14-day free trial has started. You won't be charged until {trialEndDate}.
+
+  Questions? Reply to this email.
+
+  - The TradeSphere Team
+```
+
+**App onboarding route** (/onboarding?token=...):
+- Validates session token
+- Auto-authenticates user
+- Shows onboarding wizard (company settings, team invites)
+- On completion → Redirect to /dashboard
+
+---
+
 ## Current State Analysis
 
 ### Database Schema
