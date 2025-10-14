@@ -54,8 +54,12 @@ CREATE TABLE public.VC Usage (
   updated_at timestamp with time zone DEFAULT now(),
   company_id uuid,
   user_id uuid,
+  customer_id uuid,
+  customer_linked_at timestamp with time zone,
+  customer_link_source character varying,
   CONSTRAINT VC Usage_pkey PRIMARY KEY (id),
   CONSTRAINT vc_usage_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT VC Usage_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
   CONSTRAINT fk_vc_usage_user FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.beta_codes (
@@ -113,6 +117,44 @@ CREATE TABLE public.company_notes (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT company_notes_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.customer_audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_name character varying NOT NULL,
+  record_id uuid NOT NULL,
+  company_id uuid NOT NULL,
+  action character varying NOT NULL CHECK (action::text = ANY (ARRAY['INSERT'::character varying, 'UPDATE'::character varying, 'DELETE'::character varying]::text[])),
+  old_values jsonb,
+  new_values jsonb,
+  changed_by_user_id uuid,
+  changed_at timestamp with time zone DEFAULT now(),
+  ip_address inet,
+  user_agent text,
+  CONSTRAINT customer_audit_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.customer_conversation_summaries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  session_id text NOT NULL,
+  summary text,
+  extracted_topics jsonb DEFAULT '[]'::jsonb,
+  conversation_date timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT customer_conversation_summaries_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_conversation_summaries_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
+);
+CREATE TABLE public.customer_events (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  company_id uuid NOT NULL,
+  event_type character varying NOT NULL CHECK (event_type::text = ANY (ARRAY['created'::character varying, 'updated'::character varying, 'merged'::character varying, 'deleted'::character varying, 'stage_changed'::character varying, 'tag_added'::character varying, 'tag_removed'::character varying, 'note_added'::character varying]::text[])),
+  event_data jsonb,
+  created_by_user_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT customer_events_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_events_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customer_events_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT customer_events_created_by_user_id_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id)
+);
 CREATE TABLE public.customer_interactions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   customer_name text NOT NULL,
@@ -126,6 +168,27 @@ CREATE TABLE public.customer_interactions (
   CONSTRAINT fk_customer_interactions_user FOREIGN KEY (user_id) REFERENCES public.users(id),
   CONSTRAINT customer_interactions_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id)
 );
+CREATE TABLE public.customer_matching_keys (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  customer_id uuid NOT NULL,
+  key_type character varying NOT NULL CHECK (key_type::text = ANY (ARRAY['email'::character varying, 'phone'::character varying, 'name'::character varying]::text[])),
+  key_value character varying NOT NULL,
+  normalized_value character varying NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT customer_matching_keys_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_matching_keys_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id)
+);
+CREATE TABLE public.customer_merge_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  source_customer_id uuid NOT NULL,
+  target_customer_id uuid NOT NULL,
+  merged_by_user_id uuid,
+  merge_details jsonb,
+  merged_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT customer_merge_log_pkey PRIMARY KEY (id),
+  CONSTRAINT customer_merge_log_target_customer_id_fkey FOREIGN KEY (target_customer_id) REFERENCES public.customers(id),
+  CONSTRAINT customer_merge_log_merged_by_user_id_fkey FOREIGN KEY (merged_by_user_id) REFERENCES public.users(id)
+);
 CREATE TABLE public.customers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   company_id uuid NOT NULL,
@@ -138,9 +201,19 @@ CREATE TABLE public.customers (
   created_by_user_name character varying,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  deleted_at timestamp with time zone,
+  merged_into_customer_id uuid,
+  status character varying DEFAULT 'active'::character varying CHECK (status::text = ANY (ARRAY['active'::character varying, 'inactive'::character varying, 'merged'::character varying, 'deleted'::character varying]::text[])),
+  metadata jsonb DEFAULT '{}'::jsonb,
+  lifecycle_stage character varying DEFAULT 'prospect'::character varying CHECK (lifecycle_stage::text = ANY (ARRAY['prospect'::character varying, 'lead'::character varying, 'customer'::character varying, 'churned'::character varying]::text[])),
+  lifecycle_updated_at timestamp with time zone DEFAULT now(),
+  tags ARRAY DEFAULT '{}'::text[],
+  source character varying,
+  source_campaign character varying,
   CONSTRAINT customers_pkey PRIMARY KEY (id),
   CONSTRAINT customers_company_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
-  CONSTRAINT customers_created_by_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id)
+  CONSTRAINT customers_created_by_fkey FOREIGN KEY (created_by_user_id) REFERENCES public.users(id),
+  CONSTRAINT customers_merged_into_customer_id_fkey FOREIGN KEY (merged_into_customer_id) REFERENCES public.customers(id)
 );
 CREATE TABLE public.demo_messages (
   id bigint NOT NULL DEFAULT nextval('demo_messages_id_seq'::regclass),

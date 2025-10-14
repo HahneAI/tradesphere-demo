@@ -5,9 +5,11 @@
  * Handles environment variables, error logging, and data structure consistency
  *
  * MIGRATED: Now uses Supabase client for consistent database access and 406 error prevention
+ * PHASE 3E: Integrated with CustomerSyncService for automatic customer record creation
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { customerSyncService } from '../services/CustomerSyncService';
 
 export interface WebhookPayload {
   sessionId: string;
@@ -320,6 +322,62 @@ export class MessageStorageService {
       }
 
       console.log('✅ [VC_USAGE] Permanent record stored successfully');
+
+      // 🔄 PHASE 3E: Auto-sync to customer record after successful VC Usage insert
+      if (data && data.length > 0) {
+        const vcRecord = data[0];
+
+        // Only attempt sync if we have customer identifying information
+        const hasCustomerInfo = payload.customerName || payload.customerEmail || payload.customerPhone;
+
+        if (hasCustomerInfo && payload.companyId) {
+          try {
+            console.log('🔄 [CUSTOMER_SYNC] Starting auto-sync from chat...');
+            console.log('📋 [CUSTOMER_SYNC] Customer info:', {
+              name: payload.customerName,
+              email: payload.customerEmail,
+              phone: payload.customerPhone,
+              companyId: payload.companyId
+            });
+
+            const syncResult = await customerSyncService.syncFromChat({
+              id: vcRecord.id,
+              session_id: vcRecord.session_id,
+              company_id: payload.companyId,
+              user_id: vcRecord.user_tech_id || null,
+              customer_name: vcRecord.customer_name || null,
+              customer_email: vcRecord.customer_email || null,
+              customer_phone: vcRecord.customer_phone || null,
+              customer_address: vcRecord.customer_address || null,
+              user_input: vcRecord.user_input,
+              ai_response: vcRecord.ai_response,
+              interaction_number: vcRecord.interaction_number,
+              interaction_summary: vcRecord.interaction_summary,
+              created_at: vcRecord.created_at
+            });
+
+            if (syncResult.success) {
+              console.log('✅ [CUSTOMER_SYNC] Auto-synced to customer:', {
+                customerId: syncResult.customer_id,
+                isNew: syncResult.created,
+                matchedBy: syncResult.matched_by
+              });
+            } else {
+              console.warn('⚠️ [CUSTOMER_SYNC] Sync completed but returned failure:', syncResult.error);
+            }
+          } catch (syncError: any) {
+            // Don't break chat if sync fails - this is a non-critical enhancement
+            console.warn('⚠️ [CUSTOMER_SYNC] Sync failed (non-blocking):', {
+              name: syncError?.name,
+              message: syncError?.message,
+              stack: syncError?.stack
+            });
+            console.log('💡 [CUSTOMER_SYNC] Chat will continue normally. Customer can be synced later via Sync Panel.');
+          }
+        } else {
+          console.log('ℹ️ [CUSTOMER_SYNC] Skipping auto-sync - no customer info or company_id in payload');
+        }
+      }
 
     } catch (error) {
       console.error('❌ [VC_USAGE] Storage failed:', {
