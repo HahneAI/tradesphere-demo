@@ -23,13 +23,33 @@ export class CustomerMergeService {
   private supabase = getSupabase();
 
   /**
+   * Helper to get company_id for a customer (needed for multi-tenancy)
+   */
+  private async getCustomerCompanyId(customerId: string): Promise<string> {
+    const { data, error } = await this.supabase
+      .from('customers')
+      .select('company_id')
+      .eq('id', customerId)
+      .single();
+
+    if (error || !data) {
+      throw new NotFoundError(`Customer ${customerId} not found`);
+    }
+
+    return data.company_id;
+  }
+
+  /**
    * Find potential duplicate customers for a given customer
    * Uses customer_matching_keys for fuzzy matching
    */
   async findDuplicates(customerId: string): Promise<DuplicateCustomer[]> {
     try {
+      // Get company_id first (needed for multi-tenancy)
+      const companyId = await this.getCustomerCompanyId(customerId);
+
       // Get the customer and their matching keys
-      const customer = await customerRepository.getCustomerById(customerId);
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       const { data: matchingKeys, error: keysError } = await this.supabase
         .from('customer_matching_keys')
@@ -59,7 +79,8 @@ export class CustomerMergeService {
           for (const match of matches) {
             if (!duplicates.has(match.customer_id)) {
               try {
-                const duplicateCustomer = await customerRepository.getCustomerById(match.customer_id);
+                const dupCompanyId = await this.getCustomerCompanyId(match.customer_id);
+                const duplicateCustomer = await customerRepository.getCustomerById(match.customer_id, dupCompanyId);
 
                 // Skip if deleted or already merged
                 if (duplicateCustomer.deleted_at || duplicateCustomer.merged_into_customer_id) {
@@ -121,10 +142,16 @@ export class CustomerMergeService {
     targetId: string
   ): Promise<CustomerMergePreview> {
     try {
+      // Get company_id for both customers (needed for multi-tenancy)
+      const [sourceCompanyId, targetCompanyId] = await Promise.all([
+        this.getCustomerCompanyId(sourceId),
+        this.getCustomerCompanyId(targetId)
+      ]);
+
       // Fetch both customers
       const [source, target] = await Promise.all([
-        customerRepository.getCustomerById(sourceId),
-        customerRepository.getCustomerById(targetId)
+        customerRepository.getCustomerById(sourceId, sourceCompanyId),
+        customerRepository.getCustomerById(targetId, targetCompanyId)
       ]);
 
       // Check if customers can be merged
@@ -283,7 +310,8 @@ export class CustomerMergeService {
       }
 
       if (Object.keys(updates).length > 0) {
-        await customerRepository.updateCustomer(targetId, updates);
+        const targetCompanyId = await this.getCustomerCompanyId(targetId);
+        await customerRepository.updateCustomer(targetId, targetCompanyId, updates);
       }
 
       // 5. Create merge log entry
@@ -347,7 +375,8 @@ export class CustomerMergeService {
         ]);
 
       // Get final merged customer
-      const mergedCustomer = await customerRepository.getCustomerById(targetId);
+      const targetCompanyId = await this.getCustomerCompanyId(targetId);
+      const mergedCustomer = await customerRepository.getCustomerById(targetId, targetCompanyId);
 
       return {
         success: true,
@@ -449,7 +478,8 @@ export class CustomerMergeService {
           let totalInteractions = 0;
 
           for (const dup of duplicates) {
-            const metrics = await customerRepository.getCustomerById(dup.customer.id);
+            const dupCompanyId = await this.getCustomerCompanyId(dup.customer.id);
+            const metrics = await customerRepository.getCustomerById(dup.customer.id, dupCompanyId);
             totalConversations += metrics.total_conversations || 0;
             totalInteractions += metrics.total_interactions || 0;
           }

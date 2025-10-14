@@ -70,8 +70,21 @@ export class CustomerEnrichmentService {
       // Generate conversation summary
       const summary = await this.generateConversationSummary(customerId, conversations);
 
+      // First get company_id (needed for multi-tenancy)
+      const { data: customerData, error: fetchError } = await this.supabase
+        .from('customers')
+        .select('company_id')
+        .eq('id', customerId)
+        .single();
+
+      if (fetchError || !customerData) {
+        throw new NotFoundError(`Customer ${customerId} not found`);
+      }
+
+      const companyId = customerData.company_id;
+
       // Get current customer
-      const customer = await customerRepository.getCustomerById(customerId);
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       // Prepare updates
       const updates: any = {};
@@ -112,7 +125,7 @@ export class CustomerEnrichmentService {
 
       // Update customer if we have changes
       if (Object.keys(updates).length > 0) {
-        await customerRepository.updateCustomer(customerId, updates);
+        await customerRepository.updateCustomer(customerId, companyId, updates);
       }
 
       // Log enrichment event
@@ -339,13 +352,26 @@ export class CustomerEnrichmentService {
         return;
       }
 
-      const customer = await customerRepository.getCustomerById(customerId);
+      // First get company_id (needed for multi-tenancy)
+      const { data: customerData, error: fetchError } = await this.supabase
+        .from('customers')
+        .select('company_id')
+        .eq('id', customerId)
+        .single();
+
+      if (fetchError || !customerData) {
+        throw new NotFoundError(`Customer ${customerId} not found`);
+      }
+
+      const companyId = customerData.company_id;
+
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       const updatedNotes = append
         ? (customer.customer_notes || '') + '\n\n' + notes
         : notes;
 
-      await customerRepository.updateCustomer(customerId, {
+      await customerRepository.updateCustomer(customerId, companyId, {
         customer_notes: updatedNotes
       });
 

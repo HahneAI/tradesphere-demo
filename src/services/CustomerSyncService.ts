@@ -148,7 +148,7 @@ export class CustomerSyncService {
         }
 
         if (Object.keys(updates).length > 0) {
-          await customerRepository.updateCustomer(existingCustomer.id, updates);
+          await customerRepository.updateCustomer(existingCustomer.id, existingCustomer.company_id, updates);
         }
 
         return {
@@ -276,8 +276,21 @@ export class CustomerSyncService {
         }
       });
 
+      // First get company_id (needed for multi-tenancy)
+      const { data: customerData, error: fetchError } = await this.supabase
+        .from('customers')
+        .select('company_id')
+        .eq('id', customerId)
+        .single();
+
+      if (fetchError || !customerData) {
+        throw new NotFoundError(`Customer ${customerId} not found`);
+      }
+
+      const companyId = customerData.company_id;
+
       // Get current customer
-      const customer = await customerRepository.getCustomerById(customerId);
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       // Prepare updates
       const updates: any = {};
@@ -314,7 +327,7 @@ export class CustomerSyncService {
 
       // Update customer if we have changes
       if (Object.keys(updates).length > 0) {
-        await customerRepository.updateCustomer(customerId, updates);
+        await customerRepository.updateCustomer(customerId, companyId, updates);
         console.log('CustomerSyncService: Enriched customer profile with', Object.keys(updates));
       }
 

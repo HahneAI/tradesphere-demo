@@ -32,8 +32,21 @@ export class CustomerLifecycleService {
     reason?: string
   ): Promise<void> {
     try {
-      // Get current customer
-      const customer = await customerRepository.getCustomerById(customerId);
+      // First get company_id (needed for multi-tenancy)
+      const { data: customerData, error: fetchError } = await this.supabase
+        .from('customers')
+        .select('company_id, lifecycle_stage')
+        .eq('id', customerId)
+        .single();
+
+      if (fetchError || !customerData) {
+        throw new NotFoundError(`Customer ${customerId} not found`);
+      }
+
+      const companyId = customerData.company_id;
+
+      // Get full customer details
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       if (customer.lifecycle_stage === stage) {
         console.log('CustomerLifecycleService: Stage unchanged');
@@ -43,7 +56,7 @@ export class CustomerLifecycleService {
       const previousStage = customer.lifecycle_stage;
 
       // Update customer
-      await customerRepository.updateCustomer(customerId, {
+      await customerRepository.updateCustomer(customerId, companyId, {
         lifecycle_stage: stage
       });
 
@@ -84,8 +97,21 @@ export class CustomerLifecycleService {
         throw new ValidationError('No tags provided');
       }
 
+      // First get company_id (needed for multi-tenancy)
+      const { data: customerData, error: fetchError } = await this.supabase
+        .from('customers')
+        .select('company_id, tags')
+        .eq('id', customerId)
+        .single();
+
+      if (fetchError || !customerData) {
+        throw new NotFoundError(`Customer ${customerId} not found`);
+      }
+
+      const companyId = customerData.company_id;
+
       // Get current customer
-      const customer = await customerRepository.getCustomerById(customerId);
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       // Merge tags
       const existingTags = customer.tags || [];
@@ -99,7 +125,7 @@ export class CustomerLifecycleService {
       const mergedTags = [...existingTags, ...newTags];
 
       // Update customer
-      await customerRepository.updateCustomer(customerId, {
+      await customerRepository.updateCustomer(customerId, companyId, {
         tags: mergedTags
       });
 
@@ -138,8 +164,21 @@ export class CustomerLifecycleService {
         throw new ValidationError('No tags provided');
       }
 
+      // First get company_id (needed for multi-tenancy)
+      const { data: customerData, error: fetchError } = await this.supabase
+        .from('customers')
+        .select('company_id, tags')
+        .eq('id', customerId)
+        .single();
+
+      if (fetchError || !customerData) {
+        throw new NotFoundError(`Customer ${customerId} not found`);
+      }
+
+      const companyId = customerData.company_id;
+
       // Get current customer
-      const customer = await customerRepository.getCustomerById(customerId);
+      const customer = await customerRepository.getCustomerById(customerId, companyId);
 
       // Remove tags
       const existingTags = customer.tags || [];
@@ -152,7 +191,7 @@ export class CustomerLifecycleService {
       }
 
       // Update customer
-      await customerRepository.updateCustomer(customerId, {
+      await customerRepository.updateCustomer(customerId, companyId, {
         tags: remainingTags
       });
 
