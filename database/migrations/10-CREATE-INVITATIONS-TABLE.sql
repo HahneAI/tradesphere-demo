@@ -42,16 +42,18 @@ COMMENT ON COLUMN invitations.used_at IS 'Timestamp when invitation was accepted
 -- ============================================================================
 
 -- Partial unique index: only one active invitation per email per company
+-- Note: Cannot include expires_at > NOW() in index predicate (NOW() is not immutable)
+-- Expiration validation happens in application logic and validate_invitation_token() function
 CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_unique_company_email_active
 ON invitations(company_id, email)
-WHERE used = false AND expires_at > NOW();
+WHERE used = false;
 
-COMMENT ON INDEX idx_invitations_unique_company_email_active IS 'Ensures only one active (unused and not expired) invitation per email per company';
+COMMENT ON INDEX idx_invitations_unique_company_email_active IS 'Ensures only one unused invitation per email per company. Expiration checked in app logic.';
 
 -- Token lookup (most common query during signup)
 CREATE INDEX IF NOT EXISTS idx_invitations_token
 ON invitations(token)
-WHERE used = false AND expires_at > NOW();
+WHERE used = false;
 
 COMMENT ON INDEX idx_invitations_token IS 'Fast lookup of active invitation tokens during signup flow';
 
