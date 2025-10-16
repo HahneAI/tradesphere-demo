@@ -24,11 +24,7 @@ CREATE TABLE IF NOT EXISTS invitations (
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
     used BOOLEAN NOT NULL DEFAULT false,
     used_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-
-    -- Ensure only one active invitation per email per company
-    CONSTRAINT unique_company_email_active UNIQUE(company_id, email)
-        WHERE used = false AND expires_at > NOW()
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 COMMENT ON TABLE invitations IS 'Team invitation system. Tokens are 32-byte hex strings, expire in 7 days, and are single-use.';
@@ -44,6 +40,13 @@ COMMENT ON COLUMN invitations.used_at IS 'Timestamp when invitation was accepted
 -- ============================================================================
 -- STEP 2: CREATE INDEXES FOR INVITATION LOOKUPS
 -- ============================================================================
+
+-- Partial unique index: only one active invitation per email per company
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_unique_company_email_active
+ON invitations(company_id, email)
+WHERE used = false AND expires_at > NOW();
+
+COMMENT ON INDEX idx_invitations_unique_company_email_active IS 'Ensures only one active (unused and not expired) invitation per email per company';
 
 -- Token lookup (most common query during signup)
 CREATE INDEX IF NOT EXISTS idx_invitations_token
