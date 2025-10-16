@@ -14,14 +14,9 @@
 -- ============================================================================
 
 -- ============================================================================
--- STEP 1: DROP EXISTING HANDLE_NEW_USER() FUNCTION
+-- STEP 1: CREATE OR REPLACE HANDLE_NEW_USER() FUNCTION
 -- ============================================================================
-
-DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
-
--- ============================================================================
--- STEP 2: CREATE NEW DUAL-FLOW HANDLE_NEW_USER() FUNCTION
--- ============================================================================
+-- Note: Using CREATE OR REPLACE instead of DROP to avoid ownership issues
 
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS trigger
@@ -178,10 +173,11 @@ $$;
 COMMENT ON FUNCTION handle_new_user IS 'Dual-flow user creation: (1) Owner signup from website with company_id metadata, (2) Invited user signup from app with invitation_token metadata. Validates tokens and assigns roles dynamically.';
 
 -- ============================================================================
--- STEP 3: RECREATE TRIGGER ON AUTH.USERS
+-- STEP 2: RECREATE TRIGGER ON AUTH.USERS
 -- ============================================================================
+-- Note: Trigger already exists from initial setup, but recreating ensures it uses updated function
 
--- Drop existing trigger if it exists
+-- Drop and recreate trigger (PostgreSQL doesn't support CREATE OR REPLACE for triggers)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 -- Create trigger to call handle_new_user() on new auth signups
