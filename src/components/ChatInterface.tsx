@@ -31,6 +31,7 @@ import { ServicesTab } from './ServicesTab';
 import { ServicesPage } from './ServicesPage';
 import QuickCalculatorTab from '../pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
 import { MaterialsPage } from './materials/MaterialsPage';
+import { BillingTab } from './billing/BillingTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -253,7 +254,7 @@ const ChatInterface = () => {
   const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
 
   // Full-page navigation system
-  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers' | 'materials'>('chat');
+  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers' | 'materials' | 'billing'>('chat');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1728,6 +1729,7 @@ const ChatInterface = () => {
         onCustomersClick={() => setCurrentPage('customers')}
         onServicesClick={() => setCurrentPage('services')}
         onMaterialsClick={() => setCurrentPage('materials')}
+        onBillingClick={() => setCurrentPage('billing')}
         onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
         visualConfig={visualConfig}
         theme={theme}
@@ -2212,6 +2214,12 @@ const ChatInterface = () => {
 
       {currentPage === 'materials' && (
         <MaterialsPage onBackClick={() => setCurrentPage('chat')} />
+      )}
+
+      {currentPage === 'billing' && (
+        <div className="flex-1 overflow-y-auto p-4">
+          <BillingTab />
+        </div>
       )}
 
       {currentPage === 'chat' && (

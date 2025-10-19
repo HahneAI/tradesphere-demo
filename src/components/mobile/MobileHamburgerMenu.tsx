@@ -18,6 +18,7 @@ interface MobileHamburgerMenuProps {
   onCustomersClick: () => void;
   onServicesClick: () => void;
   onMaterialsClick: () => void;
+  onBillingClick: () => void;
   onQuickCalculatorClick: () => void;
   visualConfig: SmartVisualTheme;
   theme: 'light' | 'dark';
@@ -33,6 +34,7 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
   onCustomersClick,
   onServicesClick,
   onMaterialsClick,
+  onBillingClick,
   onQuickCalculatorClick,
   visualConfig,
   onAvatarClick,
@@ -203,6 +205,26 @@ export const MobileHamburgerMenu: React.FC<MobileHamburgerMenuProps> = ({
             <Icons.Users className="h-6 w-6" />
             <span className="font-medium">Customers</span>
           </button>
+
+          {/* Billing - Top Level (Owner Only) */}
+          {user?.is_owner && (
+            <button
+              onClick={() => {
+                onBillingClick();
+                onClose();
+              }}
+              className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+              style={{
+                color: visualConfig.colors.text.primary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Icons.CreditCard className="h-6 w-6" />
+              <span className="font-medium">Billing & Subscription</span>
+            </button>
+          )}
 
           {/* Miscellaneous Section - Collapsible */}
           <div>
