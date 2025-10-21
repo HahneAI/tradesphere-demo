@@ -68,7 +68,7 @@ export const AIPersonalityStep: React.FC = () => {
     {
       value: 'informal',
       label: 'Informal',
-      description: 'Everyday language that's easy to understand and natural'
+      description: 'Everyday language that\'s easy to understand and natural'
     }
   ];
 

@@ -10,8 +10,8 @@ import { EnvironmentManager } from './config/defaults';
 import { masterPricingEngine } from './pricing-system/core/calculations/master-pricing-engine';
 import { useServiceBaseSettings } from './stores/serviceBaseSettingsStore';
 import { getSupabase } from './services/supabase';
-import OnboardingLanding from './pages/OnboardingLanding';
-import OnboardingWizard from './components/onboarding/OnboardingWizard';
+import { OnboardingLanding } from './pages/OnboardingLanding';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 
 // 🎯 DEBUG: Using centralized environment manager for debug logging
 console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
