@@ -20,7 +20,6 @@
 
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import jwt from 'jsonwebtoken';
 
 // Initialize Supabase clients
 const supabaseAdmin = createClient(
@@ -28,16 +27,10 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // Service role for bypassing RLS
 );
 
-/**
- * JWT payload structure from Supabase
- */
-interface SupabaseJWTPayload {
-  sub: string; // User ID
-  email?: string;
-  role?: string;
-  aud?: string;
-  exp?: number;
-}
+const supabaseClient = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.VITE_SUPABASE_ANON_KEY! // Anon key for JWT verification
+);
 
 /**
  * Cancel subscription request body
@@ -87,22 +80,22 @@ export const handler: Handler = async (
 
   try {
     // ==================================================================
-    // STEP 1: VERIFY JWT TOKEN
+    // STEP 1: VERIFY JWT TOKEN USING SUPABASE
     // ==================================================================
 
-    // Decode and verify JWT token
-    const decoded = jwt.decode(token) as SupabaseJWTPayload;
+    // Verify JWT token using Supabase client
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
-    if (!decoded || !decoded.sub) {
-      console.error('[CancelSubscription] Invalid JWT token structure');
+    if (authError || !user) {
+      console.error('[CancelSubscription] Auth verification failed:', authError);
       return {
         statusCode: 401,
         body: JSON.stringify({ error: 'Invalid authentication token' })
       };
     }
 
-    const userId = decoded.sub;
-    const userEmail = decoded.email;
+    const userId = user.id;
+    const userEmail = user.email;
     console.log('[CancelSubscription] Request from user:', userId, userEmail);
 
     // ==================================================================

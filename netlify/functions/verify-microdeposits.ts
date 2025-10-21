@@ -20,7 +20,6 @@
 
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import jwt from 'jsonwebtoken';
 import { verifyMicroDeposits, parseDwollaError } from './shared/dwolla-client';
 
 // Initialize Supabase clients
@@ -33,17 +32,6 @@ const supabaseClient = createClient(
   process.env.VITE_SUPABASE_URL!,
   process.env.VITE_SUPABASE_ANON_KEY! // Anon key for JWT verification
 );
-
-/**
- * JWT payload structure from Supabase
- */
-interface SupabaseJWTPayload {
-  sub: string; // User ID
-  email?: string;
-  role?: string;
-  aud?: string;
-  exp?: number;
-}
 
 /**
  * Verify micro-deposits request body
@@ -81,21 +69,21 @@ export const handler: Handler = async (
 
   try {
     // ==================================================================
-    // STEP 1: VERIFY JWT TOKEN
+    // STEP 1: VERIFY JWT TOKEN USING SUPABASE
     // ==================================================================
 
-    // Decode and verify JWT token
-    const decoded = jwt.decode(token) as SupabaseJWTPayload;
+    // Verify JWT token using Supabase client
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
-    if (!decoded || !decoded.sub) {
-      console.error('[VerifyMicroDeposits] Invalid JWT token structure');
+    if (authError || !user) {
+      console.error('[VerifyMicroDeposits] Auth verification failed:', authError);
       return {
         statusCode: 401,
         body: JSON.stringify({ error: 'Invalid authentication token' })
       };
     }
 
-    const userId = decoded.sub;
+    const userId = user.id;
     console.log('[VerifyMicroDeposits] Request from user:', userId);
 
     // ==================================================================
