@@ -13,13 +13,11 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Loader, AlertCircle, CheckCircle } from 'lucide-react';
 import { useOnboardingStore } from '../stores/onboardingStore';
 import { getSupabase } from '../services/supabase';
 
 export const OnboardingLanding: React.FC = () => {
-  const navigate = useNavigate();
   const setCompanyInfo = useOnboardingStore(state => state.setCompanyInfo);
 
   const [status, setStatus] = useState<'validating' | 'success' | 'error'>('validating');
@@ -108,8 +106,9 @@ export const OnboardingLanding: React.FC = () => {
         setStatus('success');
 
         // Redirect to wizard after brief success message
+        // App.tsx will detect authenticated user and check onboarding_completed status
         setTimeout(() => {
-          navigate('/onboarding/wizard');
+          window.location.reload();
         }, 1000);
 
       } catch (err: any) {

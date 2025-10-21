@@ -18,7 +18,6 @@
  */
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useOnboardingStore, STEP_NAMES } from '../../stores/onboardingStore';
 import { WelcomeStep } from './WelcomeStep';
@@ -27,8 +26,6 @@ import { BrandingStep } from './BrandingStep';
 import { TeamInviteStep } from './TeamInviteStep';
 
 export const OnboardingWizard: React.FC = () => {
-  const navigate = useNavigate();
-
   const currentStep = useOnboardingStore(state => state.currentStep);
   const nextStep = useOnboardingStore(state => state.nextStep);
   const prevStep = useOnboardingStore(state => state.prevStep);
@@ -37,10 +34,10 @@ export const OnboardingWizard: React.FC = () => {
   // Redirect if no company info (should come from OnboardingLanding)
   React.useEffect(() => {
     if (!companyName) {
-      console.warn('[OnboardingWizard] No company info found, redirecting to login');
-      navigate('/');
+      console.warn('[OnboardingWizard] No company info found, reloading to login');
+      window.location.href = '/';
     }
-  }, [companyName, navigate]);
+  }, [companyName]);
 
   // Calculate progress percentage
   const progressPercent = ((currentStep + 1) / 4) * 100;

@@ -16,11 +16,9 @@
 
 import React, { useState } from 'react';
 import { Users, Mail, UserPlus, X, Loader, CheckCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useOnboardingStore } from '../../stores/onboardingStore';
 
 export const TeamInviteStep: React.FC = () => {
-  const navigate = useNavigate();
 
   const teamInvites = useOnboardingStore(state => state.teamInvites);
   const addTeamInvite = useOnboardingStore(state => state.addTeamInvite);
@@ -70,9 +68,9 @@ export const TeamInviteStep: React.FC = () => {
     const success = await completeOnboarding();
 
     if (success) {
-      // Redirect to dashboard
+      // Redirect to dashboard - App.tsx will detect onboarding_completed and show authenticated state
       setTimeout(() => {
-        navigate('/dashboard');
+        window.location.reload();
       }, 1500);
     }
   };
@@ -83,7 +81,7 @@ export const TeamInviteStep: React.FC = () => {
 
     if (success) {
       setTimeout(() => {
-        navigate('/dashboard');
+        window.location.reload();
       }, 1500);
     }
   };
