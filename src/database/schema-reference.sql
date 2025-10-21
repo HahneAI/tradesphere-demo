@@ -1,22 +1,3 @@
--- ============================================================================
--- SUPABASE DATABASE SCHEMA REFERENCE
--- ============================================================================
---
--- THIS IS A REFERENCE FILE - DO NOT EXECUTE
---
--- Purpose: Document current Supabase database structure for AI agent reference
--- Last Updated: [User will update when pasting]
--- Source: Supabase Database SQL export
---
--- This file provides a complete reference of:
--- - All table schemas with column types and constraints
--- - All RLS (Row Level Security) policies
--- - Foreign key relationships
--- - Indexes
--- - Functions and triggers
---
--- ============================================================================
-
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
@@ -102,11 +83,23 @@ CREATE TABLE public.companies (
   color_theme jsonb,
   created_at timestamp without time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
-  subscription_status character varying DEFAULT 'trial'::character varying,
+  subscription_status character varying DEFAULT 'trial'::character varying CHECK (subscription_status::text = ANY (ARRAY['trial'::character varying, 'active'::character varying, 'past_due'::character varying, 'suspended'::character varying, 'cancelled'::character varying]::text[])),
   next_billing_date date,
   trial_end_date date DEFAULT (CURRENT_DATE + '14 days'::interval),
   dwolla_customer_url character varying,
   monthly_amount numeric DEFAULT 2000.00,
+  dwolla_funding_source_id text,
+  payment_method_status text DEFAULT 'pending'::text CHECK (payment_method_status = ANY (ARRAY['pending'::text, 'verified'::text, 'failed'::text, 'suspended'::text])),
+  payment_method_verified_at timestamp with time zone,
+  billing_email text,
+  billing_name text,
+  subscription_tier text DEFAULT 'standard'::text CHECK (subscription_tier = ANY (ARRAY['trial'::text, 'standard'::text, 'pro'::text, 'enterprise'::text])),
+  subscription_started_at timestamp with time zone,
+  billing_cycle_day integer DEFAULT 1 CHECK (billing_cycle_day >= 1 AND billing_cycle_day <= 28),
+  last_payment_failed_at timestamp with time zone,
+  payment_failure_count integer DEFAULT 0,
+  cancelled_at timestamp with time zone,
+  cancellation_reason text,
   CONSTRAINT companies_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.company_notes (
@@ -234,6 +227,36 @@ CREATE TABLE public.feedback (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT feedback_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.invitations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  company_id uuid NOT NULL,
+  email text NOT NULL,
+  role_type text NOT NULL CHECK (role_type = ANY (ARRAY['manager'::text, 'analyst'::text, 'sales'::text, 'field_tech'::text])),
+  invited_by uuid NOT NULL,
+  token text NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex'::text) UNIQUE,
+  expires_at timestamp with time zone NOT NULL DEFAULT (now() + '7 days'::interval),
+  used boolean NOT NULL DEFAULT false,
+  used_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT invitations_pkey PRIMARY KEY (id),
+  CONSTRAINT invitations_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT invitations_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.payment_webhooks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_type text NOT NULL,
+  payload jsonb NOT NULL,
+  company_id uuid,
+  payment_id uuid,
+  processed boolean DEFAULT false,
+  processed_at timestamp with time zone,
+  error text,
+  retry_count integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT payment_webhooks_pkey PRIMARY KEY (id),
+  CONSTRAINT payment_webhooks_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(id),
+  CONSTRAINT payment_webhooks_payment_id_fkey FOREIGN KEY (payment_id) REFERENCES public.payments(id)
 );
 CREATE TABLE public.payments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
