@@ -19,6 +19,7 @@ import {
   CompanyBilling,
   CancelSubscriptionRequest
 } from '../../types/billing';
+import { VisualThemeConfig } from '../../config/industry';
 
 interface CancelSubscriptionModalProps {
   /** Whether modal is open */
@@ -29,13 +30,19 @@ interface CancelSubscriptionModalProps {
   billing: CompanyBilling;
   /** Callback when subscription canceled successfully */
   onSuccess: () => void;
+  /** Visual theme configuration */
+  visualConfig: VisualThemeConfig;
+  /** Theme mode (light/dark) */
+  theme: 'light' | 'dark';
 }
 
 export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = ({
   isOpen,
   onClose,
   billing,
-  onSuccess
+  onSuccess,
+  visualConfig,
+  theme
 }) => {
   const [reason, setReason] = useState<CancellationReason | ''>('');
   const [feedback, setFeedback] = useState('');
@@ -141,24 +148,40 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 animate-scale-in"
+        className="rounded-lg shadow-2xl max-w-md w-full mx-4 animate-scale-in"
+        style={{ backgroundColor: visualConfig.colors.surface }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-4 md:p-6 border-b border-gray-200">
-          <h3 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2">
+        <div
+          className="flex justify-between items-center p-4 md:p-6 border-b"
+          style={{ borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(229, 231, 235)' }}
+        >
+          <h3 className="text-lg md:text-xl font-bold flex items-center gap-2" style={{ color: visualConfig.colors.text.primary }}>
             <Icons.AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-red-600" />
             Cancel Subscription
           </h3>
           <button
             onClick={onClose}
             disabled={loading}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
-            style={{ minHeight: '44px', minWidth: '44px' }}
+            className="p-2 rounded-full hover:opacity-80 transition-colors disabled:opacity-50"
+            style={{
+              minHeight: '44px',
+              minWidth: '44px',
+              backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(243, 244, 246)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent';
+            }}
             aria-label="Close subscription cancellation modal"
             type="button"
           >
-            <Icons.X className="h-5 w-5 text-gray-600" />
+            <Icons.X className="h-5 w-5" style={{ color: visualConfig.colors.text.secondary }} />
           </button>
         </div>
 
@@ -170,8 +193,10 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
               <div className="relative inline-block mb-4">
                 <Icons.CheckCircle className="h-16 w-16 text-green-600 animate-bounce" />
               </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Subscription Canceled</h4>
-              <p className="text-sm text-gray-600">
+              <h4 className="text-xl font-bold mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                Subscription Canceled
+              </h4>
+              <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
                 Your subscription has been canceled. You'll continue to have access until {endDate ? new Date(endDate).toLocaleDateString() : 'the end of your billing period'}.
               </p>
             </div>
@@ -179,14 +204,17 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
             // Form State
             <div className="space-y-4">
               {/* Warning Message */}
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 md:p-4 rounded-r">
+              <div
+                className="border-l-4 border-yellow-400 p-3 md:p-4 rounded-r"
+                style={{ backgroundColor: theme === 'dark' ? 'rgba(251, 191, 36, 0.1)' : 'rgb(254, 252, 232)' }}
+              >
                 <div className="flex items-start gap-2">
                   <Icons.AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm text-yellow-700 font-medium mb-1">
+                    <p className="text-sm font-medium mb-1" style={{ color: theme === 'dark' ? '#fbbf24' : '#a16207' }}>
                       Your subscription will remain active until {endDate ? new Date(endDate).toLocaleDateString() : 'the end of your billing period'}
                     </p>
-                    <p className="text-xs text-yellow-600">
+                    <p className="text-xs" style={{ color: theme === 'dark' ? '#fcd34d' : '#ca8a04' }}>
                       You will not be charged after this date. You can reactivate your subscription anytime.
                     </p>
                   </div>
@@ -195,15 +223,21 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
 
               {/* Reason Dropdown */}
               <div>
-                <label htmlFor="cancellation-reason" className="block text-sm font-medium text-gray-700 mb-2">
-                  Why are you canceling? <span className="text-gray-500">(Optional)</span>
+                <label htmlFor="cancellation-reason" className="block text-sm font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                  Why are you canceling? <span style={{ color: visualConfig.colors.text.secondary }}>(Optional)</span>
                 </label>
                 <select
                   id="cancellation-reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value as CancellationReason)}
-                  className="w-full border border-gray-300 rounded-md py-2.5 px-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  style={{ minHeight: '44px', fontSize: '16px' }}
+                  className="w-full border rounded-md py-2.5 px-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  style={{
+                    minHeight: '44px',
+                    fontSize: '16px',
+                    backgroundColor: visualConfig.colors.surface,
+                    borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgb(209, 213, 219)',
+                    color: visualConfig.colors.text.primary
+                  }}
                   disabled={loading}
                   aria-label="Select cancellation reason"
                 >
@@ -220,15 +254,20 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
 
               {/* Optional Feedback */}
               <div>
-                <label htmlFor="cancellation-feedback" className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional feedback <span className="text-gray-500">(Optional)</span>
+                <label htmlFor="cancellation-feedback" className="block text-sm font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                  Additional feedback <span style={{ color: visualConfig.colors.text.secondary }}>(Optional)</span>
                 </label>
                 <textarea
                   id="cancellation-feedback"
                   value={feedback}
                   onChange={(e) => setFeedback(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md py-2.5 px-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  style={{ fontSize: '16px' }}
+                  className="w-full border rounded-md py-2.5 px-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  style={{
+                    fontSize: '16px',
+                    backgroundColor: visualConfig.colors.surface,
+                    borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgb(209, 213, 219)',
+                    color: visualConfig.colors.text.primary
+                  }}
                   rows={3}
                   placeholder="Tell us more about your decision..."
                   disabled={loading}
@@ -238,10 +277,15 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded-r">
+                <div
+                  className="border-l-4 border-red-400 p-3 rounded-r"
+                  style={{ backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgb(254, 242, 242)' }}
+                >
                   <div className="flex items-start gap-2">
                     <Icons.XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-700">{error}</p>
+                    <p className="text-sm" style={{ color: theme === 'dark' ? '#fca5a5' : '#b91c1c' }}>
+                      {error}
+                    </p>
                   </div>
                 </div>
               )}
@@ -269,8 +313,13 @@ export const CancelSubscriptionModal: React.FC<CancelSubscriptionModalProps> = (
                 <button
                   onClick={onClose}
                   disabled={loading}
-                  className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-medium text-sm"
-                  style={{ minHeight: '44px' }}
+                  className="flex-1 py-3 px-4 rounded-md hover:opacity-80 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+                  style={{
+                    minHeight: '44px',
+                    backgroundColor: visualConfig.colors.elevated,
+                    color: visualConfig.colors.text.primary,
+                    opacity: loading ? 0.5 : 1
+                  }}
                 >
                   Keep Subscription
                 </button>

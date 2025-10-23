@@ -158,12 +158,14 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
   // Loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: visualConfig.colors.background }}>
         <div className="text-center">
           <div className="relative inline-block mb-4">
             <Icons.Loader className="h-12 w-12 text-blue-600 animate-spin" />
           </div>
-          <p className="text-gray-600 font-medium">Loading billing information...</p>
+          <p className="font-medium" style={{ color: visualConfig.colors.text.secondary }}>
+            Loading billing information...
+          </p>
         </div>
       </div>
     );
@@ -172,13 +174,17 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
   // Error state
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-        <div className="bg-white rounded-lg shadow-md p-6 md:p-8 max-w-md w-full">
+      <div className="flex items-center justify-center min-h-screen p-4" style={{ backgroundColor: visualConfig.colors.background }}>
+        <div className="rounded-lg shadow-md p-6 md:p-8 max-w-md w-full" style={{ backgroundColor: visualConfig.colors.surface }}>
           <div className="flex items-center gap-3 mb-4">
             <Icons.AlertCircle className="h-8 w-8 text-red-600 flex-shrink-0" />
-            <h2 className="text-xl font-bold text-gray-900">Access Denied</h2>
+            <h2 className="text-xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
+              Access Denied
+            </h2>
           </div>
-          <p className="text-gray-700 mb-6">{error}</p>
+          <p className="mb-6" style={{ color: visualConfig.colors.text.primary }}>
+            {error}
+          </p>
           {/* TODO: [NATIVE-APP] window.location.reload() is web-only
               Current: Hard page reload via browser API
               Native React Native: Use soft reload (setError(null); loadBillingData();)
@@ -200,11 +206,15 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
   // No billing data
   if (!billing) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
-        <div className="bg-white rounded-lg shadow-md p-6 md:p-8 max-w-md w-full text-center">
-          <Icons.CreditCard className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">No Billing Information</h2>
-          <p className="text-gray-600">Unable to load billing data. Please contact support.</p>
+      <div className="flex items-center justify-center min-h-screen p-4" style={{ backgroundColor: visualConfig.colors.background }}>
+        <div className="rounded-lg shadow-md p-6 md:p-8 max-w-md w-full text-center" style={{ backgroundColor: visualConfig.colors.surface }}>
+          <Icons.CreditCard className="h-16 w-16 mx-auto mb-4" style={{ color: visualConfig.colors.text.secondary }} />
+          <h2 className="text-xl font-bold mb-2" style={{ color: visualConfig.colors.text.primary }}>
+            No Billing Information
+          </h2>
+          <p style={{ color: visualConfig.colors.text.secondary }}>
+            Unable to load billing data. Please contact support.
+          </p>
         </div>
       </div>
     );
@@ -256,6 +266,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
           onUpdatePayment={() => setShowVerifyModal(true)}
           onCancelSubscription={() => setShowCancelModal(true)}
           isLoading={loading}
+          visualConfig={visualConfig}
+          theme={theme}
         />
 
         {/* Payment Method Card */}
@@ -264,6 +276,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
             paymentMethod={paymentMethod}
             onUpdatePaymentMethod={() => setShowVerifyModal(true)}
             isLoading={loading}
+            visualConfig={visualConfig}
+            theme={theme}
           />
         )}
 
@@ -271,6 +285,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
         <PaymentHistoryTable
           payments={payments}
           isLoading={loading}
+          visualConfig={visualConfig}
+          theme={theme}
         />
 
         {/* Refresh Button */}
@@ -278,8 +294,14 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
           <button
             onClick={loadBillingData}
             disabled={loading}
-            className="bg-white text-gray-700 border border-gray-300 py-2 px-4 rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center gap-2"
-            style={{ minHeight: '44px' }}
+            className="border py-2 px-4 rounded-md hover:opacity-80 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center gap-2"
+            style={{
+              minHeight: '44px',
+              backgroundColor: visualConfig.colors.surface,
+              color: visualConfig.colors.text.primary,
+              borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgb(209, 213, 219)',
+              opacity: loading ? 0.5 : 1
+            }}
           >
             <Icons.RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh Billing Data
@@ -292,6 +314,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
           onClose={() => setShowVerifyModal(false)}
           billing={billing}
           onSuccess={handleVerifySuccess}
+          visualConfig={visualConfig}
+          theme={theme}
         />
 
         <CancelSubscriptionModal
@@ -299,6 +323,8 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
           onClose={() => setShowCancelModal(false)}
           billing={billing}
           onSuccess={handleCancelSuccess}
+          visualConfig={visualConfig}
+          theme={theme}
         />
       </div>
     </div>

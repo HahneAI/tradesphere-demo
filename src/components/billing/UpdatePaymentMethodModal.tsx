@@ -19,6 +19,7 @@ import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { getSupabase } from '../../services/supabase';
 import { CompanyBilling } from '../../types/billing';
+import { VisualThemeConfig } from '../../config/industry';
 
 interface UpdatePaymentMethodModalProps {
   /** Whether modal is open */
@@ -29,13 +30,19 @@ interface UpdatePaymentMethodModalProps {
   billing: CompanyBilling;
   /** Callback when payment method updated successfully */
   onSuccess: () => void;
+  /** Visual theme configuration */
+  visualConfig: VisualThemeConfig;
+  /** Theme mode (light/dark) */
+  theme: 'light' | 'dark';
 }
 
 export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> = ({
   isOpen,
   onClose,
   billing,
-  onSuccess
+  onSuccess,
+  visualConfig,
+  theme
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,23 +163,37 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
       onClick={handleBackdropClick}
     >
       <div
-        className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 animate-scale-in"
+        className="rounded-lg shadow-2xl max-w-md w-full mx-4 animate-scale-in"
+        style={{ backgroundColor: visualConfig.colors.surface }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex justify-between items-center p-4 md:p-6 border-b border-gray-200">
-          <h3 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2">
+        <div
+          className="flex justify-between items-center p-4 md:p-6 border-b"
+          style={{ borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(229, 231, 235)' }}
+        >
+          <h3 className="text-lg md:text-xl font-bold flex items-center gap-2" style={{ color: visualConfig.colors.text.primary }}>
             <Icons.Building2 className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
             Update Payment Method
           </h3>
           <button
             onClick={onClose}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
-            style={{ minHeight: '44px', minWidth: '44px' }}
+            className="p-2 rounded-full hover:opacity-80 transition-colors"
+            style={{
+              minHeight: '44px',
+              minWidth: '44px',
+              backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(243, 244, 246)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'transparent';
+            }}
             aria-label="Close payment method update modal"
             type="button"
           >
-            <Icons.X className="h-5 w-5 text-gray-600" />
+            <Icons.X className="h-5 w-5" style={{ color: visualConfig.colors.text.secondary }} />
           </button>
         </div>
 
@@ -184,8 +205,10 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
               <div className="relative inline-block mb-4">
                 <Icons.CheckCircle className="h-16 w-16 text-green-600 animate-bounce" />
               </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Payment Method Updated!</h4>
-              <p className="text-sm text-gray-600">
+              <h4 className="text-xl font-bold mb-2" style={{ color: visualConfig.colors.text.primary }}>
+                Payment Method Updated!
+              </h4>
+              <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
                 Your bank account has been verified and is ready for payments.
               </p>
             </div>
@@ -193,11 +216,14 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
             // Form State
             <div className="space-y-4">
               {/* Instructions */}
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-3 md:p-4 rounded-r">
+              <div
+                className="border-l-4 border-blue-400 p-3 md:p-4 rounded-r"
+                style={{ backgroundColor: theme === 'dark' ? 'rgba(37, 99, 235, 0.1)' : 'rgb(239, 246, 255)' }}
+              >
                 <div className="flex items-start gap-2">
                   <Icons.Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm text-blue-700">
+                    <p className="text-sm" style={{ color: theme === 'dark' ? '#93c5fd' : '#1e40af' }}>
                       You'll securely connect your bank account via Plaid. Your bank credentials are never shared with us - all verification happens through your bank's secure portal.
                     </p>
                   </div>
@@ -205,22 +231,36 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
               </div>
 
               {/* Security Badge */}
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-600 bg-gray-50 py-3 rounded-lg">
+              <div
+                className="flex items-center justify-center gap-2 text-sm py-3 rounded-lg"
+                style={{
+                  backgroundColor: visualConfig.colors.elevated,
+                  color: visualConfig.colors.text.secondary
+                }}
+              >
                 <Icons.Shield className="h-5 w-5 text-green-600" />
                 <span>Bank-level security with Plaid + Stripe</span>
               </div>
 
               {/* Current Payment Method (if exists) */}
               {billing.stripe_payment_method_id && billing.bank_account_last4 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 mb-1">Current Payment Method</p>
+                <div
+                  className="border rounded-lg p-3"
+                  style={{
+                    backgroundColor: visualConfig.colors.elevated,
+                    borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(229, 231, 235)'
+                  }}
+                >
+                  <p className="text-xs mb-1" style={{ color: visualConfig.colors.text.secondary }}>
+                    Current Payment Method
+                  </p>
                   <div className="flex items-center gap-2">
-                    <Icons.Building2 className="h-4 w-4 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">
+                    <Icons.Building2 className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
+                    <span className="text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
                       •••• {billing.bank_account_last4}
                     </span>
                     {billing.bank_account_type && (
-                      <span className="text-xs text-gray-500 capitalize">
+                      <span className="text-xs capitalize" style={{ color: visualConfig.colors.text.secondary }}>
                         ({billing.bank_account_type})
                       </span>
                     )}
@@ -230,10 +270,15 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
 
               {/* Error Message */}
               {error && (
-                <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded-r">
+                <div
+                  className="border-l-4 border-red-400 p-3 rounded-r"
+                  style={{ backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgb(254, 242, 242)' }}
+                >
                   <div className="flex items-start gap-2">
                     <Icons.AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-700">{error}</p>
+                    <p className="text-sm" style={{ color: theme === 'dark' ? '#fca5a5' : '#b91c1c' }}>
+                      {error}
+                    </p>
                   </div>
                 </div>
               )}
@@ -261,8 +306,13 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
                 <button
                   onClick={onClose}
                   disabled={loading}
-                  className="flex-1 bg-gray-200 text-gray-700 py-3 px-4 rounded-md hover:bg-gray-300 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-medium text-sm"
-                  style={{ minHeight: '44px' }}
+                  className="flex-1 py-3 px-4 rounded-md hover:opacity-80 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+                  style={{
+                    minHeight: '44px',
+                    backgroundColor: visualConfig.colors.elevated,
+                    color: visualConfig.colors.text.primary,
+                    opacity: loading ? 0.5 : 1
+                  }}
                 >
                   Cancel
                 </button>
@@ -270,7 +320,7 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
 
               {/* Help Text */}
               <div className="text-center pt-2">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs" style={{ color: visualConfig.colors.text.secondary }}>
                   Need help? Contact support at support@tradesphere.com
                 </p>
               </div>

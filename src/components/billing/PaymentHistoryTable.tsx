@@ -23,6 +23,7 @@ import {
   getACHFailureMessage
 } from '../../types/billing';
 import { StatusBadge } from './StatusBadge';
+import { VisualThemeConfig } from '../../config/industry';
 
 interface PaymentHistoryTableProps {
   /** List of payment transactions */
@@ -31,6 +32,10 @@ interface PaymentHistoryTableProps {
   onPaymentClick?: (payment: Payment) => void;
   /** Whether component is in loading state */
   isLoading?: boolean;
+  /** Visual theme configuration */
+  visualConfig: VisualThemeConfig;
+  /** Theme mode (light/dark) */
+  theme: 'light' | 'dark';
 }
 
 /**
@@ -54,7 +59,9 @@ const getStatusLabel = (status: PaymentStatus): string => {
 export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
   payments,
   onPaymentClick,
-  isLoading = false
+  isLoading = false,
+  visualConfig,
+  theme
 }) => {
   // TODO: [NATIVE-APP] Expandable table rows use HTML table elements
   // Current: <tr> with colSpan for full-width expansion
@@ -78,8 +85,10 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
   // Empty state
   if (!isLoading && payments.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6 md:p-8">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h3>
+      <div className="rounded-lg shadow-md p-6 md:p-8" style={{ backgroundColor: visualConfig.colors.surface }}>
+        <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
+          Payment History
+        </h3>
         <div className="text-center py-16 px-4">
           <div className="relative inline-block mb-6">
             <div className="absolute inset-0 bg-blue-100 rounded-full blur-xl opacity-30 animate-pulse"></div>
@@ -87,11 +96,13 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
               <Icons.CreditCard className="w-16 h-16 mx-auto text-blue-600" />
             </div>
           </div>
-          <h4 className="text-xl font-bold text-gray-900 mb-2">No payment history yet</h4>
-          <p className="text-base text-gray-600 max-w-md mx-auto mb-6">
+          <h4 className="text-xl font-bold mb-2" style={{ color: visualConfig.colors.text.primary }}>
+            No payment history yet
+          </h4>
+          <p className="text-base max-w-md mx-auto mb-6" style={{ color: visualConfig.colors.text.secondary }}>
             Your first payment will appear here after your trial ends. We'll keep a detailed record of all transactions.
           </p>
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
             <Icons.Shield className="h-4 w-4" />
             <span>Bank-level security with Stripe ACH</span>
           </div>
@@ -101,8 +112,10 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment History</h3>
+    <div className="rounded-lg shadow-md p-4 md:p-6" style={{ backgroundColor: visualConfig.colors.surface }}>
+      <h3 className="text-lg font-semibold mb-4" style={{ color: visualConfig.colors.text.primary }}>
+        Payment History
+      </h3>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -122,39 +135,47 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Amount</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Period</th>
+                <tr style={{ borderBottom: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(229, 231, 235)'}` }}>
+                  <th className="text-left py-3 px-4 font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>Date</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>Amount</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm" style={{ color: visualConfig.colors.text.primary }}>Period</th>
                 </tr>
               </thead>
               <tbody>
                 {payments.map((payment) => (
                   <React.Fragment key={payment.id}>
                     <tr
-                      className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                        payment.status === PaymentStatus.FAILED ? 'cursor-pointer' : ''
-                      }`}
+                      className={`transition-colors ${payment.status === PaymentStatus.FAILED ? 'cursor-pointer' : ''}`}
+                      style={{
+                        borderBottom: `1px solid ${theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgb(243, 244, 246)'}`,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgb(249, 250, 251)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
                       onClick={() => handleRowClick(payment)}
                     >
-                      <td className="py-3 px-4 text-sm text-gray-900">
+                      <td className="py-3 px-4 text-sm" style={{ color: visualConfig.colors.text.primary }}>
                         {new Date(payment.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
                           year: 'numeric'
                         })}
                       </td>
-                      <td className="py-3 px-4 text-sm font-medium text-gray-900">
+                      <td className="py-3 px-4 text-sm font-medium" style={{ color: visualConfig.colors.text.primary }}>
                         {formatCurrency(payment.amount)}
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge
                           status={getStatusLabel(payment.status)}
                           color={getPaymentStatusColor(payment.status)}
+                          theme={theme}
                         />
                       </td>
-                      <td className="py-3 px-4 text-sm text-gray-600">
+                      <td className="py-3 px-4 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
                         {payment.subscription_period_start && payment.subscription_period_end
                           ? formatBillingPeriod(payment.subscription_period_start, payment.subscription_period_end)
                           : 'N/A'}
@@ -162,17 +183,26 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                     </tr>
                     {/* Expandable failure details row */}
                     {expandedPaymentId === payment.id && payment.status === PaymentStatus.FAILED && (
-                      <tr className="bg-red-50 border-b border-red-100">
+                      <tr
+                        style={{
+                          backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgb(254, 242, 242)',
+                          borderBottom: `1px solid ${theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : 'rgb(254, 226, 226)'}`
+                        }}
+                      >
                         <td colSpan={4} className="py-3 px-4">
                           <div className="flex items-start gap-2">
                             <Icons.AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
                             <div className="flex-1">
-                              <p className="text-xs font-medium text-red-700">Failure Reason</p>
-                              <p className="text-sm text-red-600 mt-1">
+                              <p className="text-xs font-medium" style={{ color: theme === 'dark' ? '#fca5a5' : '#b91c1c' }}>
+                                Failure Reason
+                              </p>
+                              <p className="text-sm mt-1" style={{ color: theme === 'dark' ? '#f87171' : '#dc2626' }}>
                                 {payment.failure_message || getACHFailureMessage(payment.failure_code)}
                               </p>
                               {payment.failure_code && (
-                                <p className="text-xs text-red-500 mt-1">Code: {payment.failure_code}</p>
+                                <p className="text-xs mt-1" style={{ color: theme === 'dark' ? '#ef4444' : '#ef4444' }}>
+                                  Code: {payment.failure_code}
+                                </p>
                               )}
                             </div>
                           </div>
@@ -190,24 +220,37 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
             {payments.map((payment) => (
               <div
                 key={payment.id}
-                className={`border border-gray-200 rounded-lg p-4 bg-white ${
-                  payment.status === PaymentStatus.FAILED ? 'cursor-pointer hover:border-gray-300' : ''
+                className={`border rounded-lg p-4 ${
+                  payment.status === PaymentStatus.FAILED ? 'cursor-pointer' : ''
                 }`}
+                style={{
+                  minHeight: '44px',
+                  backgroundColor: visualConfig.colors.surface,
+                  borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(229, 231, 235)'
+                }}
+                onMouseEnter={(e) => {
+                  if (payment.status === PaymentStatus.FAILED) {
+                    e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgb(209, 213, 219)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgb(229, 231, 235)';
+                }}
                 onClick={() => handleRowClick(payment)}
-                style={{ minHeight: '44px' }}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-lg font-semibold text-gray-900">
+                  <span className="text-lg font-semibold" style={{ color: visualConfig.colors.text.primary }}>
                     {formatCurrency(payment.amount)}
                   </span>
                   <StatusBadge
                     status={getStatusLabel(payment.status)}
                     color={getPaymentStatusColor(payment.status)}
+                    theme={theme}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex items-center gap-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
                     <Icons.Calendar className="h-3.5 w-3.5" />
                     <span>{new Date(payment.created_at).toLocaleDateString('en-US', {
                       month: 'short',
@@ -217,7 +260,7 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                   </div>
 
                   {payment.subscription_period_start && payment.subscription_period_end && (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm" style={{ color: visualConfig.colors.text.secondary }}>
                       <Icons.Clock className="h-3.5 w-3.5" />
                       <span>Period: {formatBillingPeriod(payment.subscription_period_start, payment.subscription_period_end)}</span>
                     </div>
@@ -226,16 +269,26 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
 
                 {/* Expandable failure details */}
                 {expandedPaymentId === payment.id && payment.status === PaymentStatus.FAILED && (
-                  <div className="mt-3 pt-3 border-t border-red-200 bg-red-50 -mx-4 -mb-4 p-4 rounded-b-lg">
+                  <div
+                    className="mt-3 pt-3 -mx-4 -mb-4 p-4 rounded-b-lg"
+                    style={{
+                      borderTop: `1px solid ${theme === 'dark' ? 'rgba(239, 68, 68, 0.2)' : 'rgb(254, 226, 226)'}`,
+                      backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgb(254, 242, 242)'
+                    }}
+                  >
                     <div className="flex items-start gap-2">
                       <Icons.AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="text-xs font-medium text-red-700 mb-1">Failure Reason</p>
-                        <p className="text-sm text-red-600">
+                        <p className="text-xs font-medium mb-1" style={{ color: theme === 'dark' ? '#fca5a5' : '#b91c1c' }}>
+                          Failure Reason
+                        </p>
+                        <p className="text-sm" style={{ color: theme === 'dark' ? '#f87171' : '#dc2626' }}>
                           {payment.failure_message || getACHFailureMessage(payment.failure_code)}
                         </p>
                         {payment.failure_code && (
-                          <p className="text-xs text-red-500 mt-1">Code: {payment.failure_code}</p>
+                          <p className="text-xs mt-1" style={{ color: theme === 'dark' ? '#ef4444' : '#ef4444' }}>
+                            Code: {payment.failure_code}
+                          </p>
                         )}
                       </div>
                     </div>
