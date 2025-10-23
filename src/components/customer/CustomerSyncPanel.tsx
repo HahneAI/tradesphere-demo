@@ -53,6 +53,15 @@ export function CustomerSyncPanel() {
       // Get orphaned conversations count
       const orphaned = await customerSyncService.findOrphanedConversations(user.company_id);
 
+      // TODO: [NATIVE-APP] Using localStorage for lastSyncTime
+      // Current: localStorage.getItem('last_customer_sync')
+      // Native React Native: Use AsyncStorage or SecureStore
+      //   - AsyncStorage.getItem('last_customer_sync')
+      //   - Or persist in database (customers_sync_log table)
+      // Native iOS: UserDefaults or Keychain for secure storage
+      // Native Android: SharedPreferences or EncryptedSharedPreferences
+      // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-11
+      // MIGRATION RISK: LOW (1 hour - replace all localStorage calls with AsyncStorage)
       setSyncStats({
         totalCustomers: customers.length,
         orphanedConversations: orphaned.length,
@@ -95,6 +104,12 @@ export function CustomerSyncPanel() {
       });
 
       // Update last sync time
+      // TODO: [NATIVE-APP] Using localStorage.setItem()
+      // Current: localStorage.setItem('last_customer_sync', timestamp)
+      // Native React Native: AsyncStorage.setItem() - returns Promise
+      //   await AsyncStorage.setItem('last_customer_sync', new Date().toISOString())
+      // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-11
+      // MIGRATION RISK: LOW (same as above localStorage replacement)
       localStorage.setItem('last_customer_sync', new Date().toISOString());
 
       // Refresh stats
@@ -195,6 +210,17 @@ export function CustomerSyncPanel() {
       </div>
 
       {/* Sync Statistics */}
+      {/* TODO: [NATIVE-APP] Dashboard stats cards with inline SVG icons
+          Current: Inline SVG paths for icons, CSS grid layout
+          Native React Native: Replace with icon libraries + card components
+            - Use Ionicons: "people-outline", "warning-outline", "time-outline"
+            - Grid layout with flexbox (flex-direction: row, flexWrap: wrap)
+            - Cards as touchable to show more details (optional enhancement)
+          Native iOS: SF Symbols for icons (person.3, exclamationmark.triangle, clock)
+          Native Android: Material Icons vector drawables
+          See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-11
+          MIGRATION RISK: LOW (2 hours - icon library + card layout)
+      */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
@@ -276,6 +302,16 @@ export function CustomerSyncPanel() {
                 </p>
               )}
             </div>
+            {/* TODO: [NATIVE-APP] Button with disabled:cursor-not-allowed
+                Current: CSS cursor property (web-only)
+                Native React Native: Use TouchableOpacity with disabled prop
+                  - Automatically reduces opacity when disabled
+                  - No cursor styling needed (touch targets don't have cursors)
+                Native iOS: UIButton with isEnabled property
+                Native Android: Button with enabled property
+                See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-11
+                MIGRATION RISK: LOW (remove cursor styles, use native disabled states)
+            */}
             <button
               onClick={handleSyncOrphaned}
               disabled={syncStats.syncInProgress || syncStats.orphanedConversations === 0}
@@ -326,6 +362,17 @@ export function CustomerSyncPanel() {
       </div>
 
       {/* Progress Indicator */}
+      {/* TODO: [NATIVE-APP] Progress bar with live region updates
+          Current: Visual progress bar with no aria-live announcement
+          Native React Native: Combine ProgressBar + AccessibilityInfo announcements
+            - ProgressBarAndroid / ProgressViewIOS for visual progress
+            - AccessibilityInfo.announceForAccessibility() for status updates
+            - Announce at intervals (e.g., every 10% or every 5 items)
+          Native iOS: UIProgressView with VoiceOver announcements
+          Native Android: ProgressBar with announceForAccessibility()
+          See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-11
+          MIGRATION RISK: LOW (2 hours - add progress components + accessibility)
+      */}
       {syncProgress && (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">
           <div className="flex items-center justify-between mb-2">

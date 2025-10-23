@@ -688,24 +688,26 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 **companies table enhancements**:
 ```sql
--- Add payment verification fields
+-- Add payment verification fields (DWOLLA ACH INTEGRATION)
 ALTER TABLE companies
-ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR,
-ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR,
-ADD COLUMN IF NOT EXISTS payment_method_last4 VARCHAR(4),
-ADD COLUMN IF NOT EXISTS payment_method_type VARCHAR(20),
-ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(50) DEFAULT 'basic',
-ADD COLUMN IF NOT EXISTS mrr_amount NUMERIC DEFAULT 2000.00,
-ADD COLUMN IF NOT EXISTS annual_discount_percent NUMERIC DEFAULT 0,
-ADD COLUMN IF NOT EXISTS grace_period_days INTEGER DEFAULT 3,
-ADD COLUMN IF NOT EXISTS auto_cancel_on_failed_payment BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMP,
+ADD COLUMN IF NOT EXISTS dwolla_customer_url TEXT,
+ADD COLUMN IF NOT EXISTS dwolla_funding_source_id TEXT,
+ADD COLUMN IF NOT EXISTS payment_method_status TEXT DEFAULT 'pending',
+ADD COLUMN IF NOT EXISTS payment_method_verified_at TIMESTAMP,
+ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(50) DEFAULT 'standard',
+ADD COLUMN IF NOT EXISTS billing_email TEXT,
+ADD COLUMN IF NOT EXISTS billing_name TEXT,
+ADD COLUMN IF NOT EXISTS billing_cycle_day INTEGER DEFAULT 1,
+ADD COLUMN IF NOT EXISTS last_payment_failed_at TIMESTAMP,
+ADD COLUMN IF NOT EXISTS payment_failure_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP,
 ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
 
 -- Index for payment lookups
-CREATE INDEX idx_companies_stripe_customer ON companies(stripe_customer_id);
+CREATE INDEX idx_companies_dwolla_customer ON companies(dwolla_customer_url);
 CREATE INDEX idx_companies_subscription_status ON companies(subscription_status);
 CREATE INDEX idx_companies_next_billing ON companies(next_billing_date);
+CREATE INDEX idx_companies_billing_cycle ON companies(billing_cycle_day, subscription_status);
 ```
 
 **Deliverables**:

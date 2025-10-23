@@ -95,6 +95,13 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     }
   };
 
+  // TODO: [NATIVE-APP] Using window.confirm() for delete confirmation
+  // Current: Browser confirm() dialog (blocking, native browser UI)
+  // Native React Native: Use Alert.alert() with Cancel/Delete buttons
+  // Native iOS: UIAlertController with destructive action style
+  // Native Android: AlertDialog with negative/positive buttons
+  // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-9
+  // MIGRATION RISK: LOW (1 hour - replace with Alert.alert API)
   const handleDelete = async () => {
     if (!onDelete) return;
 
@@ -120,6 +127,13 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
     }
   };
 
+  // TODO: [NATIVE-APP] Using window.prompt() for tag input
+  // Current: Browser prompt() dialog (blocking, modal)
+  // Native React Native: Use custom TextInput modal or bottom sheet with validation
+  // Native iOS: UIAlertController with textField style
+  // Native Android: AlertDialog with EditText
+  // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-9
+  // MIGRATION RISK: LOW (2 hours - create reusable TextInputModal component)
   const handleAddTag = () => {
     const newTag = prompt('Enter tag name:');
     if (newTag?.trim()) {
@@ -139,6 +153,18 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
 
   return (
     <>
+      {/* TODO: [NATIVE-APP] Fixed position modal with overlay
+          Current: position:fixed, z-index layering, onClick for backdrop dismiss
+          Native React Native: Use Modal component with transparent={true}
+            - <Modal visible={isOpen} animationType="slide" presentationStyle="pageSheet">
+            - Modal handles backdrop, animation, and close gestures automatically
+            - On iOS: native bottom sheet with pull-down gesture
+            - On Android: full-screen modal with back button handling
+          Native iOS: presentationStyle .pageSheet or .formSheet for bottom sheet
+          Native Android: BottomSheetDialogFragment or Dialog
+          See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-9
+          MIGRATION RISK: MEDIUM (3 hours - convert to Modal API, test gestures)
+      */}
       {/* Background Overlay */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-50 animate-overlay-fade-in"
@@ -192,6 +218,16 @@ export const CustomerDetailModal: React.FC<CustomerDetailModalProps> = ({
           </div>
 
           {/* Tabs */}
+          {/* TODO: [NATIVE-APP] Tab navigation with role="tablist", aria-selected
+              Current: HTML div with border-bottom styling to indicate active tab
+              Native React Native: Use @react-navigation/material-top-tabs or custom TabBar
+                - MaterialTopTabNavigator with swipeable tabs
+                - Custom badge rendering in tabBarBadge prop
+              Native iOS: UISegmentedControl or custom tab bar in SwiftUI
+              Native Android: TabLayout with ViewPager2 for swipeable tabs
+              See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-9
+              MIGRATION RISK: MEDIUM (4 hours - integrate tab navigator, handle badge counts)
+          */}
           <div
             className="flex items-center gap-1 px-6 border-b flex-shrink-0 overflow-x-auto"
             style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}
@@ -427,6 +463,14 @@ const ProfileTab: React.FC<{
         <label className="block text-sm font-medium mb-2" style={{ color: visualConfig.colors.text.primary }}>
           Email
         </label>
+        {/* TODO: [NATIVE-APP] HTML input type="email" for keyboard optimization
+            Current: type="email" triggers email keyboard in mobile browsers
+            Native React Native: Use <TextInput keyboardType="email-address" autoCapitalize="none" />
+            Native iOS: emailAddress keyboard type, disables auto-capitalization
+            Native Android: email keyboard variant (@ and . accessible)
+            See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-9
+            MIGRATION RISK: LOW (1 hour - replace all input types with TextInput props)
+        */}
         <input
           type="email"
           value={editedCustomer.customer_email || ''}

@@ -147,6 +147,13 @@ export const CustomerCreateWizard: React.FC<CustomerCreateWizardProps> = ({
       return;
     }
 
+    // TODO: [NATIVE-APP] Using window.confirm() for duplicate warning
+    // Current: Browser confirm() dialog (blocking, synchronous)
+    // Native React Native: Use Alert.alert() with Continue/Cancel buttons
+    // Native iOS: UIAlertController with default and cancel actions
+    // Native Android: AlertDialog with positive/negative buttons
+    // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-10
+    // MIGRATION RISK: LOW (1 hour - consistent with other confirm() replacements)
     if (duplicates.length > 0 && currentStep === 1) {
       const confirmed = confirm(
         `Found ${duplicates.length} similar customer(s). Continue creating new customer?`
@@ -205,6 +212,13 @@ export const CustomerCreateWizard: React.FC<CustomerCreateWizardProps> = ({
   };
 
   // Tag management
+  // TODO: [NATIVE-APP] Using window.prompt() for tag input
+  // Current: Browser prompt() dialog (blocking, modal)
+  // Native React Native: Use custom TextInput modal or bottom sheet with validation
+  // Native iOS: UIAlertController with textField style
+  // Native Android: AlertDialog with EditText
+  // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-10
+  // MIGRATION RISK: LOW (reuse TextInputModal from CustomerDetailModal)
   const handleAddTag = () => {
     const newTag = prompt('Enter tag name:');
     if (newTag?.trim() && !tags.includes(newTag.trim())) {
@@ -262,6 +276,16 @@ export const CustomerCreateWizard: React.FC<CustomerCreateWizardProps> = ({
           </div>
 
           {/* Progress Bar */}
+          {/* TODO: [NATIVE-APP] Progress indicator with role="progressbar", aria-valuenow
+              Current: Visual progress bar with CSS transitions (no ARIA for screen readers)
+              Native React Native: Use ProgressBarAndroid / ProgressViewIOS or custom View
+                - Track progress state (currentStep / totalSteps)
+                - Announce progress changes with AccessibilityInfo
+              Native iOS: UIProgressView with progress property (0.0 to 1.0)
+              Native Android: ProgressBar (horizontal style) with progress attribute
+              See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-10
+              MIGRATION RISK: LOW (2 hours - add progress component + accessibility)
+          */}
           <div className="px-6 pt-4 flex-shrink-0">
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4].map((step) => (
@@ -455,6 +479,16 @@ const Step1BasicInfo: React.FC<any> = ({
           minHeight: `${touchTargetSize.recommendedSize}px`
         }}
       />
+      {/* TODO: [NATIVE-APP] Form validation error announcements
+          Current: Visual error text only (no screen reader announcement)
+          Native React Native: Use AccessibilityInfo.announceForAccessibility()
+            - Announce errors immediately when validation fails
+            - Set accessibilityLiveRegion="polite" on error Text
+          Native iOS: Post .announcement notification to UIAccessibility
+          Native Android: Use announceForAccessibility on error view
+          See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-10
+          MIGRATION RISK: LOW (1 hour - add accessibility announcements)
+      */}
       {errors.customerName && (
         <p className="text-sm mt-1" style={{ color: '#ef4444' }}>{errors.customerName}</p>
       )}
@@ -522,6 +556,17 @@ const Step1BasicInfo: React.FC<any> = ({
       </div>
     )}
 
+    {/* TODO: [NATIVE-APP] Duplicate detection alert UI
+        Current: Static alert box with inline duplicate list
+        Native React Native: Consider actionable UI patterns:
+          - Bottom sheet showing duplicate list with "View" and "Create Anyway" buttons
+          - Alert.alert() with "View Duplicates" button opening modal
+          - Inline cards with touchable actions to view each duplicate
+        Native iOS: Consider UIAlertController with custom view or action sheet
+        Native Android: Consider bottom sheet or full-screen dialog for better UX
+        See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-3h-10
+        MIGRATION RISK: MEDIUM (3 hours - redesign for mobile interaction patterns)
+    */}
     {duplicates.length > 0 && !isDuplicateChecking && (
       <div className="p-4 rounded-lg border-2"
            style={{
