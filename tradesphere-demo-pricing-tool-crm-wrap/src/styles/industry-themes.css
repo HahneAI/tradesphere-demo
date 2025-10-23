@@ -1,0 +1,16 @@
+:root {
+  /* Green Tones */
+  --landscape-primary: var(--vite-primary-color, #2e8b57); /* Forest Green */
+  --landscape-growth: var(--vite-success-color, #32cd32);  /* Lime Green */
+
+  /* Earth Tones */
+  --landscape-secondary: var(--vite-secondary-color, #8b4513); /* Earth Brown */
+  --landscape-accent: var(--vite-accent-color, #f4a460);     /* Sandy Brown */
+
+  /* Neutral & Supporting Tones */
+  --landscape-neutral: var(--vite-neutral-color, #696969); /* Stone Gray */
+
+  /* Gradients */
+  --gradient-earth-to-growth: linear-gradient(45deg, var(--landscape-secondary), var(--landscape-growth));
+  --gradient-forest-to-sand: linear-gradient(to right, var(--landscape-primary), var(--landscape-accent));
+}

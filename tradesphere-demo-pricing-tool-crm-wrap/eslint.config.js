@@ -1,0 +1,50 @@
+import js from '@eslint/js';
+import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import tseslint from 'typescript-eslint';
+
+export default tseslint.config(
+  { ignores: ['dist', 'node_modules'] },
+  {
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['**/*.{ts,tsx}'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+    plugins: {
+      'react-hooks': reactHooks,
+      'react-refresh': reactRefresh,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true },
+      ],
+
+      // JULES-FRIENDLY LINTING RULES
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        ignoreRestSiblings: true
+      }],
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-empty-function': 'off',
+      'no-console': ['warn', { allow: ['warn', 'error', 'log'] }],
+      'react-hooks/exhaustive-deps': 'warn',
+
+      // STYLE CONSISTENCY
+      'quotes': ['warn', 'single', { avoidEscape: true }],
+      'semi': ['warn', 'always'],
+      'comma-dangle': ['warn', 'only-multiline'],
+
+      // HELPFUL WARNINGS (not errors)
+      'no-debugger': 'warn',
+      'no-alert': 'warn',
+      'prefer-const': 'warn',
+      'no-case-declarations': 'warn',
+    },
+  }
+);

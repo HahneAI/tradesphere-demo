@@ -1,0 +1,204 @@
+{
+  "_comment": "⚠️ TEMPLATE/REFERENCE ONLY - NOT LOADED AT RUNTIME ⚠️",
+  "_notice": "This file serves as a TEMPLATE and DOCUMENTATION for the excavation service structure.",
+  "_usage": [
+    "This JSON file is NO LONGER loaded at runtime.",
+    "Excavation service configuration is stored in Supabase 'service_pricing_configs' table.",
+    "The runtime structure uses variables_config JSONB with calculationSettings category.",
+    "See: src/database/migrations/init-excavation-calculationSettings.sql for initialization.",
+    "This file may be used for seeding new companies or as developer reference only."
+  ],
+  "_deprecated_structure": "The 'variables' structure below is from the old system and is no longer used.",
+
+  "service": "Excavation & Debris Removal",
+  "serviceId": "excavation_removal",
+  "category": "Excavation",
+  "version": "1.0.0",
+  "lastModified": "2025-01-31",
+  "modifiedBy": "system",
+  "description": "Professional excavation and debris removal pricing with equipment and disposal cost calculations",
+
+  "baseSettings": {
+    "laborSettings": {
+      "hourlyLaborRate": {
+        "value": 30,
+        "unit": "$/hour/person",
+        "label": "Labor Price Per Hour (Per Person)",
+        "description": "Dollar charge per 1 person per 1 hour of work",
+        "adminEditable": true,
+        "validation": { "min": 20, "max": 60, "step": 1 }
+      },
+      "optimalTeamSize": {
+        "value": 2,
+        "unit": "people",
+        "label": "Optimal Team Size",
+        "description": "Most efficient crew size for productivity",
+        "adminEditable": true,
+        "validation": { "min": 1, "max": 4, "step": 1 }
+      },
+      "baseProductivity": {
+        "value": 15,
+        "unit": "cubic yards/day",
+        "label": "Base Productivity Rate",
+        "description": "Cubic yards excavated per day by optimal team",
+        "adminEditable": true,
+        "validation": { "min": 10, "max": 50, "step": 5 }
+      }
+    },
+    "materialSettings": {
+      "baseDisposalCost": {
+        "value": 45,
+        "unit": "$/cubic yard",
+        "label": "Base Disposal Cost",
+        "description": "Cost to dispose of debris per cubic yard",
+        "adminEditable": true,
+        "validation": { "min": 20.00, "max": 100.00, "step": 5.00 }
+      }
+    },
+    "businessSettings": {
+      "profitMarginTarget": {
+        "value": 0.20,
+        "unit": "percentage",
+        "label": "Profit Margin Target",
+        "description": "Target profit margin percentage",
+        "adminEditable": true,
+        "validation": { "min": 0.10, "max": 0.40, "step": 0.05 }
+      }
+    }
+  },
+
+  "calculationSystem": {
+    "type": "two_tier",
+    "description": "Tier 1: Calculate man hours and volume, Tier 2: Calculate costs with equipment and disposal",
+    "tier1": "man_hours_volume_calculation",
+    "tier2": "cost_calculation"
+  },
+
+  "variables": {
+    "soilType": {
+      "label": "Soil & Material Type",
+      "description": "Type of material being excavated affects labor time",
+
+      "excavationType": {
+        "label": "Excavation Type",
+        "description": "Multiplier based on soil/material difficulty",
+        "type": "select",
+        "default": "topsoil",
+        "calculationTier": 1,
+        "effectType": "labor_time_percentage",
+        "options": {
+          "topsoil": { "label": "Topsoil Removal (Easy)", "value": 0, "multiplier": 1.0 },
+          "clay": { "label": "Clay/Rocky Soil (Moderate)", "value": 30, "multiplier": 1.3 },
+          "ledge": { "label": "Ledge/Bedrock (Difficult)", "value": 100, "multiplier": 2.0 }
+        }
+      }
+    },
+    "depth": {
+      "label": "Excavation Depth",
+      "description": "Depth of excavation affects labor efficiency",
+
+      "excavationDepth": {
+        "label": "Excavation Depth",
+        "description": "Deeper excavations require more labor per cubic yard",
+        "type": "select",
+        "default": "medium",
+        "calculationTier": 1,
+        "effectType": "labor_time_percentage",
+        "options": {
+          "shallow": { "label": "Shallow (0-6 inches)", "value": 0, "multiplier": 1.0 },
+          "medium": { "label": "Medium (6-18 inches)", "value": 40, "multiplier": 1.4 },
+          "deep": { "label": "Deep (18+ inches)", "value": 80, "multiplier": 1.8 }
+        }
+      }
+    },
+    "debrisType": {
+      "label": "Debris & Removal Type",
+      "description": "Type of debris affects handling and disposal costs",
+
+      "removalComplexity": {
+        "label": "Debris Type",
+        "description": "Additional cost based on debris handling difficulty",
+        "type": "select",
+        "default": "organic",
+        "calculationTier": 2,
+        "effectType": "flat_additional_cost",
+        "options": {
+          "organic": { "label": "Organic Material (grass, plants, topsoil)", "value": 0 },
+          "concrete": { "label": "Concrete/Hardscape Debris", "value": 500 },
+          "mixed": { "label": "Mixed Debris (various materials)", "value": 300 }
+        }
+      }
+    },
+    "siteAccess": {
+      "label": "Site Access & Obstacles",
+      "description": "Site accessibility affects labor time and equipment usage",
+
+      "accessDifficulty": {
+        "label": "Access Difficulty",
+        "type": "select",
+        "default": "easy",
+        "calculationTier": 1,
+        "effectType": "labor_time_percentage",
+        "options": {
+          "easy": { "label": "Easy Access (open, driveway)", "value": 0, "multiplier": 1.0 },
+          "moderate": { "label": "Moderate Access (backyard, gate)", "value": 50, "multiplier": 1.5 },
+          "difficult": { "label": "Difficult Access (no machinery access)", "value": 100, "multiplier": 2.0 }
+        }
+      }
+    },
+    "equipment": {
+      "label": "Equipment Required",
+      "description": "Equipment rental costs for excavation",
+
+      "equipmentType": {
+        "label": "Equipment Type",
+        "type": "select",
+        "default": "miniExcavator",
+        "calculationTier": 2,
+        "effectType": "daily_equipment_cost",
+        "options": {
+          "handTools": { "label": "Hand Tools Only (wheelbarrow, shovels)", "value": 0 },
+          "miniExcavator": { "label": "Mini Excavator (up to 4 tons)", "value": 350 },
+          "excavator": { "label": "Full-Size Excavator (4+ tons)", "value": 650 },
+          "specialized": { "label": "Specialized Equipment (rock breaker, etc)", "value": 900 }
+        }
+      }
+    },
+    "disposal": {
+      "label": "Disposal Method",
+      "description": "How debris is disposed affects cost multiplier",
+
+      "disposalMethod": {
+        "label": "Disposal Method",
+        "description": "Cost multiplier based on disposal complexity",
+        "type": "select",
+        "default": "onsite",
+        "calculationTier": 2,
+        "effectType": "disposal_cost_multiplier",
+        "options": {
+          "onsite": { "label": "On-site Redistribution (reuse on property)", "value": 0, "multiplier": 1.0 },
+          "hauling": { "label": "Off-site Disposal (haul to landfill/facility)", "value": 30, "multiplier": 1.3 },
+          "special": { "label": "Special Disposal (contaminated, regulated)", "value": 80, "multiplier": 1.8 }
+        }
+      }
+    },
+    "complexity": {
+      "label": "Project Complexity",
+      "description": "Overall excavation project difficulty and planning complexity",
+
+      "overallComplexity": {
+        "label": "Overall Complexity",
+        "type": "select",
+        "default": "simple",
+        "calculationTier": 2,
+        "effectType": "total_project_multiplier",
+        "options": {
+          "simple": { "label": "Simple Project - Straightforward excavation in one area", "value": 0, "multiplier": 1.0 },
+          "standard": { "label": "Standard Project - Multiple areas or moderate planning", "value": 10, "multiplier": 1.1 },
+          "complex": { "label": "Complex Project - Multiple depths, utilities present", "value": 30, "multiplier": 1.3 },
+          "extreme": { "label": "Extreme Complexity - Utility conflicts, tight spaces, precision required", "value": 50, "multiplier": 1.5 }
+        }
+      }
+    }
+  }
+}

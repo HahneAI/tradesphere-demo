@@ -1,0 +1,15 @@
+.particle {
+    position: absolute;
+    top: -20px;
+    background-color: var(--landscape-accent);
+    border-radius: 50%;
+    opacity: 0.6;
+    animation: fall linear infinite;
+}
+
+@keyframes fall {
+    to {
+        transform: translateY(105vh);
+        opacity: 0;
+    }
+}
