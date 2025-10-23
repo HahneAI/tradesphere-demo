@@ -12,6 +12,12 @@ import { useServiceBaseSettings } from './stores/serviceBaseSettingsStore';
 import { getSupabase } from './services/supabase';
 import { OnboardingLanding } from './pages/OnboardingLanding';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
+import { DashboardHome } from './components/dashboard/DashboardHome';
+import { JobsTab } from './components/jobs/JobsTab';
+import { ScheduleTab } from './components/schedule/ScheduleTab';
+import { CrewsTab } from './components/crews/CrewsTab';
+import { CustomersTab } from './components/CustomersTab';
+import { BillingTab } from './components/billing/BillingTab';
 
 // 🎯 DEBUG: Using centralized environment manager for debug logging
 console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
@@ -22,6 +28,7 @@ console.log('🟢 APP.TSX - Component mounting (Supabase Auth)...');
 
 type AppState = 'loading' | 'login' | 'onboarding_landing' | 'onboarding_wizard' | 'authenticated';
 type AnimationState = 'in' | 'out';
+type ActiveTab = 'dashboard' | 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing';
 
 function App() {
   const { user, loading: authLoading } = useAuth();
@@ -31,6 +38,7 @@ function App() {
   const [currentAppState, setCurrentAppState] = useState<AppState>(appState);
   const [isExitingLoading, setIsExitingLoading] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
 
   // CRITICAL: Preload ALL service configurations on authentication
   // This ensures default values (like excavation depth) are available BEFORE components mount
@@ -170,14 +178,42 @@ function App() {
       case 'authenticated':
         if (user) {
           return animatedRender(
-            <div>
+            <div className="h-screen flex flex-col">
               <div className="hidden">
                 <p>Logged in as: {user.email} ({user.title})</p>
                 <p>Role: {user.role}</p>
                 <p>Admin: {user.is_admin ? 'Yes' : 'No'}</p>
                 <p>Company ID: {user.company_id}</p>
               </div>
-              <ChatInterface />
+
+              {/* Dashboard Home Screen */}
+              {activeTab === 'dashboard' && (
+                <DashboardHome
+                  onNavigate={(tab) => setActiveTab(tab as ActiveTab)}
+                />
+              )}
+
+              {/* Tab Modals */}
+              <JobsTab
+                isOpen={activeTab === 'jobs'}
+                onClose={() => setActiveTab('dashboard')}
+              />
+              <ScheduleTab
+                isOpen={activeTab === 'schedule'}
+                onClose={() => setActiveTab('dashboard')}
+              />
+              <CrewsTab
+                isOpen={activeTab === 'crews'}
+                onClose={() => setActiveTab('dashboard')}
+              />
+              <CustomersTab
+                isOpen={activeTab === 'customers'}
+                onClose={() => setActiveTab('dashboard')}
+              />
+              <BillingTab
+                isOpen={activeTab === 'billing'}
+                onBackClick={() => setActiveTab('dashboard')}
+              />
             </div>
           );
         }
