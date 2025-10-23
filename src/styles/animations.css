@@ -124,6 +124,17 @@
   }
 }
 
+@keyframes fade-smooth {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* === ANIMATION CLASSES === */
 .animate-fade-up-out {
   animation: fade-up-out 0.2s ease-in-out forwards;
@@ -131,6 +142,10 @@
 
 .animate-fade-up-in {
   animation: fade-up-in 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+.animate-fade-smooth {
+  animation: fade-smooth 0.5s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
 .animate-fade-up-in-delay {

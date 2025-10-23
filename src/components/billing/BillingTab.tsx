@@ -223,109 +223,112 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
   // Main render
   return (
     <div
-      className="min-h-screen p-4 md:p-6 lg:p-8 animate-fade-up-in"
+      className="h-full flex flex-col animate-fade-smooth"
       style={{ backgroundColor: visualConfig.colors.background }}
     >
-      <div className="max-w-5xl mx-auto">
-        {/* Header with Back Button */}
-        <div className="mb-8">
-          <button
-            onClick={onBackClick}
-            className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
-            style={{
-              color: visualConfig.colors.primary,
-              backgroundColor: visualConfig.colors.surface,
-            }}
-          >
-            <Icons.ArrowLeft className="h-5 w-5" />
-            <span>Back to Chat</span>
-          </button>
-
-          <div className="relative inline-block mb-2">
-            <h1
-              className="text-3xl md:text-4xl font-extrabold tracking-tight"
-              style={{ color: visualConfig.colors.text.primary }}
-            >
-              Billing & Subscription
-            </h1>
-            <div
-              className="absolute -bottom-2 left-0 w-24 h-1 rounded-full"
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8">
+          {/* Header with Back Button */}
+          <div className="mb-8">
+            <button
+              onClick={onBackClick}
+              className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
               style={{
-                background: `linear-gradient(to right, ${visualConfig.colors.primary}, ${visualConfig.colors.secondary})`
+                color: visualConfig.colors.primary,
+                backgroundColor: visualConfig.colors.surface,
               }}
-            ></div>
+            >
+              <Icons.ArrowLeft className="h-5 w-5" />
+              <span>Back to Chat</span>
+            </button>
+
+            <div className="relative inline-block mb-2">
+              <h1
+                className="text-3xl md:text-4xl font-extrabold tracking-tight"
+                style={{ color: visualConfig.colors.text.primary }}
+              >
+                Billing & Subscription
+              </h1>
+              <div
+                className="absolute -bottom-2 left-0 w-24 h-1 rounded-full"
+                style={{
+                  background: `linear-gradient(to right, ${visualConfig.colors.primary}, ${visualConfig.colors.secondary})`
+                }}
+              ></div>
+            </div>
+            <p className="mt-4" style={{ color: visualConfig.colors.text.secondary }}>
+              Manage your subscription, payment method, and billing history.
+            </p>
           </div>
-          <p className="mt-4" style={{ color: visualConfig.colors.text.secondary }}>
-            Manage your subscription, payment method, and billing history.
-          </p>
-        </div>
 
-        {/* Subscription Status Card */}
-        <SubscriptionStatusCard
-          billing={billing}
-          onUpdatePayment={() => setShowVerifyModal(true)}
-          onCancelSubscription={() => setShowCancelModal(true)}
-          isLoading={loading}
-          visualConfig={visualConfig}
-          theme={theme}
-        />
-
-        {/* Payment Method Card */}
-        {paymentMethod && (
-          <PaymentMethodCard
-            paymentMethod={paymentMethod}
-            onUpdatePaymentMethod={() => setShowVerifyModal(true)}
+          {/* Subscription Status Card */}
+          <SubscriptionStatusCard
+            billing={billing}
+            onUpdatePayment={() => setShowVerifyModal(true)}
+            onCancelSubscription={() => setShowCancelModal(true)}
             isLoading={loading}
             visualConfig={visualConfig}
             theme={theme}
           />
-        )}
 
-        {/* Payment History Table */}
-        <PaymentHistoryTable
-          payments={payments}
-          isLoading={loading}
-          visualConfig={visualConfig}
-          theme={theme}
-        />
+          {/* Payment Method Card */}
+          {paymentMethod && (
+            <PaymentMethodCard
+              paymentMethod={paymentMethod}
+              onUpdatePaymentMethod={() => setShowVerifyModal(true)}
+              isLoading={loading}
+              visualConfig={visualConfig}
+              theme={theme}
+            />
+          )}
 
-        {/* Refresh Button */}
-        <div className="mt-6 flex justify-center">
-          <button
-            onClick={loadBillingData}
-            disabled={loading}
-            className="border py-2 px-4 rounded-md hover:opacity-80 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center gap-2"
-            style={{
-              minHeight: '44px',
-              backgroundColor: visualConfig.colors.surface,
-              color: visualConfig.colors.text.primary,
-              borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgb(209, 213, 219)',
-              opacity: loading ? 0.5 : 1
-            }}
-          >
-            <Icons.RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh Billing Data
-          </button>
+          {/* Payment History Table */}
+          <PaymentHistoryTable
+            payments={payments}
+            isLoading={loading}
+            visualConfig={visualConfig}
+            theme={theme}
+          />
+
+          {/* Refresh Button */}
+          <div className="mt-6 flex justify-center pb-4">
+            <button
+              onClick={loadBillingData}
+              disabled={loading}
+              className="border py-2 px-4 rounded-md hover:opacity-80 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center gap-2"
+              style={{
+                minHeight: '44px',
+                backgroundColor: visualConfig.colors.surface,
+                color: visualConfig.colors.text.primary,
+                borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgb(209, 213, 219)',
+                opacity: loading ? 0.5 : 1
+              }}
+            >
+              <Icons.RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Billing Data
+            </button>
+          </div>
+
+          {/* Modals */}
+          <UpdatePaymentMethodModal
+            isOpen={showVerifyModal}
+            onClose={() => setShowVerifyModal(false)}
+            billing={billing}
+            onSuccess={handleVerifySuccess}
+            visualConfig={visualConfig}
+            theme={theme}
+          />
+
+          <CancelSubscriptionModal
+            isOpen={showCancelModal}
+            onClose={() => setShowCancelModal(false)}
+            billing={billing}
+            onSuccess={handleCancelSuccess}
+            visualConfig={visualConfig}
+            theme={theme}
+          />
         </div>
-
-        {/* Modals */}
-        <UpdatePaymentMethodModal
-          isOpen={showVerifyModal}
-          onClose={() => setShowVerifyModal(false)}
-          billing={billing}
-          onSuccess={handleVerifySuccess}
-          visualConfig={visualConfig}
-          theme={theme}
-        />
-
-        <CancelSubscriptionModal
-          isOpen={showCancelModal}
-          onClose={() => setShowCancelModal(false)}
-          billing={billing}
-          onSuccess={handleCancelSuccess}
-          visualConfig={visualConfig}
-          theme={theme}
-        />
       </div>
     </div>
   );
