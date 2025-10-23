@@ -1,15 +1,16 @@
 /**
  * UpdatePaymentMethodModal Component
  *
- * Modal for verifying micro-deposits sent to customer's bank account.
- * Dwolla sends two small deposits (typically $0.01 - $0.10 each) that
- * customers must verify to complete bank account verification.
+ * Modal for updating bank account via Plaid Link integration.
+ * Plaid handles instant bank verification and creates a Stripe PaymentMethod.
+ * No micro-deposits needed - verification is instant via Plaid + Stripe.
  *
  * Features:
- * - Two number inputs for deposit amounts (with $ prefix)
- * - Form validation (required, 2 decimal places, $0.01 - $0.10 range)
+ * - "Update Payment Method" button opens Plaid Link
+ * - Plaid Link returns Stripe PaymentMethod ID
+ * - API call updates company payment method
  * - Loading state during API call
- * - Error display if verification fails
+ * - Error display if update fails
  * - Success message with auto-close
  * - Mobile-optimized with 44px touch targets
  */
@@ -17,7 +18,7 @@
 import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
 import { getSupabase } from '../../services/supabase';
-import { CompanyBilling, VerifyMicroDepositsRequest } from '../../types/billing';
+import { CompanyBilling } from '../../types/billing';
 
 interface UpdatePaymentMethodModalProps {
   /** Whether modal is open */
@@ -26,7 +27,7 @@ interface UpdatePaymentMethodModalProps {
   onClose: () => void;
   /** Current company billing data */
   billing: CompanyBilling;
-  /** Callback when verification successful */
+  /** Callback when payment method updated successfully */
   onSuccess: () => void;
 }
 
@@ -36,8 +37,6 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
   billing,
   onSuccess
 }) => {
-  const [amount1, setAmount1] = useState('');
-  const [amount2, setAmount2] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -45,8 +44,6 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setAmount1('');
-      setAmount2('');
       setError(null);
       setSuccess(false);
       setLoading(false);
@@ -55,26 +52,19 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
 
   if (!isOpen) return null;
 
-  const handleVerify = async () => {
-    // Validation
-    if (!amount1 || !amount2) {
-      setError('Please enter both deposit amounts');
-      return;
-    }
-
-    const amt1 = parseFloat(amount1);
-    const amt2 = parseFloat(amount2);
-
-    if (isNaN(amt1) || isNaN(amt2)) {
-      setError('Please enter valid amounts');
-      return;
-    }
-
-    if (amt1 < 0.01 || amt1 > 0.10 || amt2 < 0.01 || amt2 > 0.10) {
-      setError('Amounts must be between $0.01 and $0.10');
-      return;
-    }
-
+  /**
+   * Handle payment method update via Plaid Link
+   *
+   * TODO: Implement Plaid Link integration
+   * Flow:
+   * 1. Open Plaid Link modal (usePlaidLink hook)
+   * 2. User selects their bank and authenticates
+   * 3. Plaid Link returns public_token and account_id
+   * 4. Exchange public_token for Stripe PaymentMethod via API
+   * 5. Update company record with new stripe_payment_method_id
+   * 6. Close modal and refresh billing data
+   */
+  const handleUpdatePaymentMethod = async () => {
     setError(null);
     setLoading(true);
 
@@ -87,8 +77,8 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
       }
 
       // TODO: [NATIVE-APP] Netlify Functions use relative URLs
-      // Current: fetch('/.netlify/functions/verify-microdeposits')
-      // Native: fetch(`${API_BASE_URL}/verify-microdeposits`)
+      // Current: fetch('/.netlify/functions/update-payment-method')
+      // Native: fetch(`${API_BASE_URL}/update-payment-method`)
       //   where API_BASE_URL = 'https://app.tradesphere.com/.netlify/functions'
       // Options:
       //   1. Keep Netlify, use absolute URLs (recommended)
@@ -96,25 +86,31 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
       // See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-4d-1
       // MIGRATION RISK: LOW (URL change only)
 
-      // Call Netlify function
-      const response = await fetch('/.netlify/functions/verify-microdeposits', {
+      // TODO: Replace with actual Plaid Link integration
+      // For now, this is a placeholder that shows the intended API structure
+
+      // Placeholder: Simulate Plaid Link flow
+      // In production, this would be:
+      // const { public_token, account_id } = await openPlaidLink();
+
+      // Call Netlify function to exchange Plaid token for Stripe PaymentMethod
+      const response = await fetch('/.netlify/functions/update-payment-method', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          company_id: billing.id,
-          funding_source_id: billing.dwolla_funding_source_id,
-          amount1: Math.round(amt1 * 100), // Convert to cents
-          amount2: Math.round(amt2 * 100)
-        } as VerifyMicroDepositsRequest)
+          companyId: billing.id,
+          // plaidToken: public_token, // From Plaid Link
+          // accountId: account_id      // From Plaid Link
+        })
       });
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Verification failed');
+        throw new Error(data.error || 'Failed to update payment method');
       }
 
       // Success
@@ -125,8 +121,8 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
       }, 2000);
 
     } catch (err: any) {
-      console.error('Micro-deposit verification error:', err);
-      setError(err.message || 'Verification failed. Please try again.');
+      console.error('Payment method update error:', err);
+      setError(err.message || 'Failed to update payment method. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -167,13 +163,13 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
         <div className="flex justify-between items-center p-4 md:p-6 border-b border-gray-200">
           <h3 className="text-lg md:text-xl font-bold text-gray-900 flex items-center gap-2">
             <Icons.Building2 className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
-            Verify Bank Account
+            Update Payment Method
           </h3>
           <button
             onClick={onClose}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             style={{ minHeight: '44px', minWidth: '44px' }}
-            aria-label="Close bank account verification modal"
+            aria-label="Close payment method update modal"
             type="button"
           >
             <Icons.X className="h-5 w-5 text-gray-600" />
@@ -188,7 +184,7 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
               <div className="relative inline-block mb-4">
                 <Icons.CheckCircle className="h-16 w-16 text-green-600 animate-bounce" />
               </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-2">Verification Successful!</h4>
+              <h4 className="text-xl font-bold text-gray-900 mb-2">Payment Method Updated!</h4>
               <p className="text-sm text-gray-600">
                 Your bank account has been verified and is ready for payments.
               </p>
@@ -202,75 +198,35 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
                   <Icons.Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm text-blue-700">
-                      Check your bank statement for two small deposits from Dwolla. Enter the exact amounts below to verify your account.
+                      You'll securely connect your bank account via Plaid. Your bank credentials are never shared with us - all verification happens through your bank's secure portal.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* TODO: [NATIVE-APP] Number input with decimal precision
-                  Current: HTML5 <input type="number" step="0.01"> with browser validation
-                  Native React Native: Use TextInput with keyboardType="decimal-pad"
-                  - Implement custom formatCurrencyInput() helper to:
-                    1. Remove non-numeric characters except decimal
-                    2. Limit to one decimal point
-                    3. Limit to 2 decimal places
-                  - Replace <span> prefix with positioned Text component
-                  - Validate on submit: parseFloat() + range check (0.01-0.10)
-                  Reusable CurrencyInput component recommended for consistency
-                  See: docs/pre-production-map/MOBILE-DEV-TRACKING.md#phase-4d-6
-                  MIGRATION RISK: MEDIUM (custom decimal formatting required) */}
-              {/* Amount Input 1 */}
-              <div>
-                <label htmlFor="deposit-amount-1" className="block text-sm font-medium text-gray-700 mb-1">
-                  First Deposit Amount
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-gray-500 pointer-events-none">$</span>
-                  <input
-                    id="deposit-amount-1"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="0.10"
-                    value={amount1}
-                    onChange={(e) => setAmount1(e.target.value)}
-                    className="pl-7 w-full border border-gray-300 rounded-md py-2.5 px-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    style={{ minHeight: '44px', fontSize: '16px' }}
-                    placeholder="0.05"
-                    disabled={loading}
-                    required
-                    aria-label="First micro-deposit amount in dollars"
-                    aria-required="true"
-                  />
-                </div>
+              {/* Security Badge */}
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600 bg-gray-50 py-3 rounded-lg">
+                <Icons.Shield className="h-5 w-5 text-green-600" />
+                <span>Bank-level security with Plaid + Stripe</span>
               </div>
 
-              {/* Amount Input 2 */}
-              <div>
-                <label htmlFor="deposit-amount-2" className="block text-sm font-medium text-gray-700 mb-1">
-                  Second Deposit Amount
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-3 text-gray-500 pointer-events-none">$</span>
-                  <input
-                    id="deposit-amount-2"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    max="0.10"
-                    value={amount2}
-                    onChange={(e) => setAmount2(e.target.value)}
-                    className="pl-7 w-full border border-gray-300 rounded-md py-2.5 px-3 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    style={{ minHeight: '44px', fontSize: '16px' }}
-                    placeholder="0.12"
-                    disabled={loading}
-                    required
-                    aria-label="Second micro-deposit amount in dollars"
-                    aria-required="true"
-                  />
+              {/* Current Payment Method (if exists) */}
+              {billing.stripe_payment_method_id && billing.bank_account_last4 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 mb-1">Current Payment Method</p>
+                  <div className="flex items-center gap-2">
+                    <Icons.Building2 className="h-4 w-4 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">
+                      •••• {billing.bank_account_last4}
+                    </span>
+                    {billing.bank_account_type && (
+                      <span className="text-xs text-gray-500 capitalize">
+                        ({billing.bank_account_type})
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Error Message */}
               {error && (
@@ -285,20 +241,20 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
-                  onClick={handleVerify}
-                  disabled={loading || !amount1 || !amount2}
+                  onClick={handleUpdatePaymentMethod}
+                  disabled={loading}
                   className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
                   style={{ minHeight: '44px' }}
                 >
                   {loading ? (
                     <>
                       <Icons.Loader className="h-4 w-4 animate-spin" />
-                      Verifying...
+                      Updating...
                     </>
                   ) : (
                     <>
-                      <Icons.CheckCircle className="h-4 w-4" />
-                      Verify Amounts
+                      <Icons.Building2 className="h-4 w-4" />
+                      Update Payment Method
                     </>
                   )}
                 </button>
@@ -310,6 +266,13 @@ export const UpdatePaymentMethodModal: React.FC<UpdatePaymentMethodModalProps> =
                 >
                   Cancel
                 </button>
+              </div>
+
+              {/* Help Text */}
+              <div className="text-center pt-2">
+                <p className="text-xs text-gray-500">
+                  Need help? Contact support at support@tradesphere.com
+                </p>
               </div>
             </div>
           )}

@@ -20,7 +20,7 @@ import {
   formatCurrency,
   formatBillingPeriod,
   getPaymentStatusColor,
-  getDwollaFailureMessage
+  getACHFailureMessage
 } from '../../types/billing';
 import { StatusBadge } from './StatusBadge';
 
@@ -93,7 +93,7 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
           </p>
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <Icons.Shield className="h-4 w-4" />
-            <span>Bank-level security with Dwolla ACH</span>
+            <span>Bank-level security with Stripe ACH</span>
           </div>
         </div>
       </div>
@@ -169,7 +169,7 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                             <div className="flex-1">
                               <p className="text-xs font-medium text-red-700">Failure Reason</p>
                               <p className="text-sm text-red-600 mt-1">
-                                {payment.failure_message || getDwollaFailureMessage(payment.failure_code)}
+                                {payment.failure_message || getACHFailureMessage(payment.failure_code)}
                               </p>
                               {payment.failure_code && (
                                 <p className="text-xs text-red-500 mt-1">Code: {payment.failure_code}</p>
@@ -232,7 +232,7 @@ export const PaymentHistoryTable: React.FC<PaymentHistoryTableProps> = ({
                       <div className="flex-1">
                         <p className="text-xs font-medium text-red-700 mb-1">Failure Reason</p>
                         <p className="text-sm text-red-600">
-                          {payment.failure_message || getDwollaFailureMessage(payment.failure_code)}
+                          {payment.failure_message || getACHFailureMessage(payment.failure_code)}
                         </p>
                         {payment.failure_code && (
                           <p className="text-xs text-red-500 mt-1">Code: {payment.failure_code}</p>

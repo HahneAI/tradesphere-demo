@@ -105,7 +105,7 @@ export const BillingTab: React.FC = () => {
         bank_name: null, // Not stored in companies table
         account_type: companyData.bank_account_type as 'checking' | 'savings' | null,
         verified_at: companyData.payment_method_verified_at,
-        funding_source_id: companyData.dwolla_funding_source_id
+        payment_method_id: companyData.stripe_payment_method_id
       });
 
       // Fetch last 12 payments
@@ -132,7 +132,7 @@ export const BillingTab: React.FC = () => {
   };
 
   /**
-   * Handle successful micro-deposit verification
+   * Handle successful payment method update
    */
   const handleVerifySuccess = () => {
     setShowVerifyModal(false);
@@ -229,8 +229,7 @@ export const BillingTab: React.FC = () => {
         {paymentMethod && (
           <PaymentMethodCard
             paymentMethod={paymentMethod}
-            onVerifyMicroDeposits={() => setShowVerifyModal(true)}
-            onUpdateBankAccount={() => setShowVerifyModal(true)}
+            onUpdatePaymentMethod={() => setShowVerifyModal(true)}
             isLoading={loading}
           />
         )}

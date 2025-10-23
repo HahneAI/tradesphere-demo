@@ -1,8 +1,8 @@
 /**
- * PHASE 4D: CANCEL SUBSCRIPTION
+ * CANCEL SUBSCRIPTION
  *
  * Netlify function to handle subscription cancellations with feedback collection.
- * Maintains Dwolla customer data for compliance but stops future billing.
+ * Maintains Stripe customer data for compliance but stops future billing.
  *
  * Security:
  * - Requires valid JWT token from Supabase auth
@@ -13,24 +13,47 @@
  * Flow:
  * 1. User confirms cancellation in modal with optional reason/feedback
  * 2. Frontend calls this function with reason and feedback
- * 3. Function updates subscription status to 'canceled'
- * 4. Sets cancelled_at timestamp and stores feedback
- * 5. Maintains Dwolla customer for potential reactivation
+ * 3. Function cancels any active Stripe subscriptions
+ * 4. Updates subscription status to 'canceled'
+ * 5. Sets cancelled_at timestamp and stores feedback
+ * 6. Maintains Stripe customer for potential reactivation
+ *
+ * TESTING GUIDE:
+ *
+ * Stripe Test Mode:
+ * - Use test API keys (sk_test_...)
+ * - Test with sandbox subscriptions
+ *
+ * Manual Testing:
+ * curl -X POST https://full-code.netlify.app/.netlify/functions/cancel-subscription \
+ *   -H "Authorization: Bearer $TOKEN" \
+ *   -H "Content-Type: application/json" \
+ *   -d '{"company_id": "uuid", "reason": "too_expensive", "feedback": "Optional feedback"}'
+ *
+ * Expected Response:
+ * {
+ *   "success": true,
+ *   "billing": {
+ *     "subscription_status": "canceled",
+ *     "cancelled_at": "2025-01-15T..."
+ *   }
+ * }
  */
 
 import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase clients
-const supabaseAdmin = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Service role for bypassing RLS
-);
-
-const supabaseClient = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY! // Anon key for JWT verification
-);
+import {
+  getStripe,
+  getSupabaseAdmin,
+  getSupabaseClient,
+  verifyAuth,
+  verifyCompanyOwner,
+  getCustomerByCompanyId,
+  errorResponse,
+  successResponse,
+  logAudit,
+  extractAuthToken,
+  RESPONSE_HEADERS
+} from './shared/stripe-client';
 
 /**
  * Cancel subscription request body
@@ -61,42 +84,41 @@ export const handler: Handler = async (
 ) => {
   // Only accept POST requests
   if (event.httpMethod !== 'POST') {
+    return errorResponse(405, 'Method not allowed');
+  }
+
+  // Handle OPTIONS for CORS
+  if (event.httpMethod === 'OPTIONS') {
     return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
+      statusCode: 204,
+      headers: RESPONSE_HEADERS,
+      body: ''
     };
   }
 
-  // Extract JWT token from Authorization header
-  const authHeader = event.headers.authorization || event.headers.Authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Missing or invalid authorization header' })
-    };
+  // Extract auth token
+  const token = extractAuthToken(event.headers);
+  if (!token) {
+    return errorResponse(401, 'Missing or invalid authorization header');
   }
-
-  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
   try {
     // ==================================================================
     // STEP 1: VERIFY JWT TOKEN USING SUPABASE
     // ==================================================================
 
-    // Verify JWT token using Supabase client
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    let userId: string;
+    let userEmail: string | undefined;
 
-    if (authError || !user) {
+    try {
+      const user = await verifyAuth(token);
+      userId = user.id;
+      userEmail = user.email;
+      console.log('[CancelSubscription] Request from user:', userId, userEmail);
+    } catch (authError) {
       console.error('[CancelSubscription] Auth verification failed:', authError);
-      return {
-        statusCode: 401,
-        body: JSON.stringify({ error: 'Invalid authentication token' })
-      };
+      return errorResponse(401, 'Invalid authentication token');
     }
-
-    const userId = user.id;
-    const userEmail = user.email;
-    console.log('[CancelSubscription] Request from user:', userId, userEmail);
 
     // ==================================================================
     // STEP 2: PARSE AND VALIDATE REQUEST
@@ -106,21 +128,12 @@ export const handler: Handler = async (
 
     // Validate required fields
     if (!body.company_id) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Company ID is required' })
-      };
+      return errorResponse(400, 'Company ID is required');
     }
 
     // Validate cancellation reason
     if (body.reason && !VALID_CANCELLATION_REASONS.includes(body.reason)) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Invalid cancellation reason',
-          valid_reasons: VALID_CANCELLATION_REASONS
-        })
-      };
+      return errorResponse(400, 'Invalid cancellation reason', 'INVALID_REASON');
     }
 
     // Default to 'other' if no reason provided
@@ -137,7 +150,17 @@ export const handler: Handler = async (
     // STEP 3: VERIFY USER IS COMPANY OWNER
     // ==================================================================
 
-    // Get company and verify ownership
+    const isOwner = await verifyCompanyOwner(userId, body.company_id);
+    if (!isOwner) {
+      console.error('[CancelSubscription] User is not company owner:', {
+        userId,
+        companyId: body.company_id
+      });
+      return errorResponse(403, 'You do not have permission to cancel this subscription');
+    }
+
+    // Get company details
+    const supabaseAdmin = getSupabaseAdmin();
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .select(`
@@ -150,40 +173,21 @@ export const handler: Handler = async (
         next_billing_date,
         trial_end_date,
         cancelled_at,
-        monthly_amount
+        monthly_amount,
+        stripe_customer_id,
+        stripe_subscription_id
       `)
       .eq('id', body.company_id)
       .single();
 
     if (companyError || !company) {
       console.error('[CancelSubscription] Company not found:', companyError);
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Company not found' })
-      };
-    }
-
-    // Check ownership
-    if (company.owner_id !== userId) {
-      console.error('[CancelSubscription] User is not company owner:', {
-        userId,
-        ownerId: company.owner_id
-      });
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: 'You do not have permission to cancel this subscription' })
-      };
+      return errorResponse(404, 'Company not found');
     }
 
     // Check if already canceled
     if (company.subscription_status === 'canceled' || company.cancelled_at) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          error: 'Subscription is already canceled',
-          cancelled_at: company.cancelled_at
-        })
-      };
+      return errorResponse(400, 'Subscription is already canceled', 'ALREADY_CANCELED');
     }
 
     // ==================================================================
@@ -224,7 +228,50 @@ export const handler: Handler = async (
     console.log('[CancelSubscription] Effective cancellation date:', effectiveDate);
 
     // ==================================================================
-    // STEP 5: UPDATE COMPANY SUBSCRIPTION STATUS
+    // STEP 5: CANCEL STRIPE SUBSCRIPTION (IF EXISTS)
+    // ==================================================================
+
+    if (company.stripe_subscription_id) {
+      try {
+        const stripe = getStripe();
+
+        // Cancel subscription at period end or immediately
+        const subscription = await stripe.subscriptions.update(
+          company.stripe_subscription_id,
+          {
+            cancel_at_period_end: !body.immediate,
+            cancellation_details: {
+              comment: body.feedback || undefined,
+              feedback: cancellationReason as any // Map our reason to Stripe's enum
+            },
+            metadata: {
+              cancelled_by: userId,
+              cancelled_at: now.toISOString(),
+              cancellation_reason: cancellationReason,
+              cancellation_feedback: body.feedback || ''
+            }
+          }
+        );
+
+        console.log('[CancelSubscription] Stripe subscription canceled:', {
+          subscriptionId: subscription.id,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          currentPeriodEnd: subscription.current_period_end
+        });
+
+        // If immediate cancellation, cancel the subscription now
+        if (body.immediate) {
+          await stripe.subscriptions.cancel(company.stripe_subscription_id);
+        }
+
+      } catch (stripeError: any) {
+        console.error('[CancelSubscription] Failed to cancel Stripe subscription:', stripeError);
+        // Non-fatal: Continue with database update even if Stripe cancellation fails
+      }
+    }
+
+    // ==================================================================
+    // STEP 6: UPDATE COMPANY SUBSCRIPTION STATUS
     // ==================================================================
 
     // Build update object
@@ -245,42 +292,34 @@ export const handler: Handler = async (
 
     if (updateError) {
       console.error('[CancelSubscription] Failed to update company:', updateError);
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: 'Failed to cancel subscription',
-          details: 'Please try again or contact support'
-        })
-      };
+      return errorResponse(500, 'Failed to cancel subscription', 'UPDATE_FAILED');
     }
 
     // ==================================================================
-    // STEP 6: LOG CANCELLATION IN AUDIT TRAIL
+    // STEP 7: LOG CANCELLATION IN AUDIT TRAIL
     // ==================================================================
 
-    // Store detailed cancellation info including feedback in audit log
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        company_id: body.company_id,
-        user_id: userId,
-        action: 'subscription_canceled',
-        details: {
-          reason: cancellationReason,
-          feedback: body.feedback,
-          immediate: body.immediate,
-          effective_date: effectiveDate.toISOString(),
-          refund_amount: refundAmount,
-          subscription_tier: company.subscription_tier,
-          monthly_amount: company.monthly_amount,
-          ip_address: event.headers['x-forwarded-for'] || event.headers['x-real-ip'],
-          user_agent: event.headers['user-agent']
-        },
-        created_at: now.toISOString()
-      });
+    await logAudit({
+      companyId: body.company_id,
+      userId,
+      action: 'subscription_canceled',
+      details: {
+        reason: cancellationReason,
+        feedback: body.feedback,
+        immediate: body.immediate,
+        effective_date: effectiveDate.toISOString(),
+        refund_amount: refundAmount,
+        subscription_tier: company.subscription_tier,
+        monthly_amount: company.monthly_amount,
+        stripe_customer_id: company.stripe_customer_id,
+        stripe_subscription_id: company.stripe_subscription_id,
+        ip_address: event.headers['x-forwarded-for'] || event.headers['x-real-ip'],
+        user_agent: event.headers['user-agent']
+      }
+    });
 
     // ==================================================================
-    // STEP 7: STORE CANCELLATION FEEDBACK (TEMPORARY SOLUTION)
+    // STEP 8: STORE CANCELLATION FEEDBACK (TEMPORARY SOLUTION)
     // ==================================================================
 
     // Since cancellation_feedback column doesn't exist yet, store in a separate table
@@ -309,30 +348,54 @@ export const handler: Handler = async (
     }
 
     // ==================================================================
-    // STEP 8: HANDLE REFUND IF APPLICABLE
+    // STEP 9: HANDLE REFUND IF APPLICABLE
     // ==================================================================
 
-    if (refundAmount > 0) {
-      // Create refund record
-      await supabaseAdmin
-        .from('payments')
-        .insert({
-          company_id: body.company_id,
-          amount: -refundAmount, // Negative amount for refund
-          status: 'pending',
-          payment_type: 'refund',
-          created_at: now.toISOString()
+    if (refundAmount > 0 && company.stripe_customer_id) {
+      try {
+        const stripe = getStripe();
+
+        // Get the last successful payment
+        const payments = await stripe.paymentIntents.list({
+          customer: company.stripe_customer_id,
+          limit: 1
         });
 
-      console.log('[CancelSubscription] Refund queued:', refundAmount);
+        if (payments.data.length > 0 && payments.data[0].status === 'succeeded') {
+          // Create refund through Stripe
+          const refund = await stripe.refunds.create({
+            payment_intent: payments.data[0].id,
+            amount: refundAmount, // Amount in cents
+            reason: 'requested_by_customer',
+            metadata: {
+              company_id: body.company_id,
+              cancellation_reason: cancellationReason,
+              cancelled_by: userId
+            }
+          });
 
-      // TODO: Trigger actual refund through Dwolla
-      // This would require calling Dwolla's refund API
-      // For now, just log it for manual processing
+          console.log('[CancelSubscription] Stripe refund created:', refund.id);
+
+          // Record refund in database
+          await supabaseAdmin
+            .from('payments')
+            .insert({
+              company_id: body.company_id,
+              amount: -refundAmount, // Negative amount for refund
+              status: 'pending',
+              payment_type: 'refund',
+              stripe_refund_id: refund.id,
+              created_at: now.toISOString()
+            });
+        }
+      } catch (refundError) {
+        console.error('[CancelSubscription] Failed to create refund:', refundError);
+        // Non-fatal: Continue even if refund fails
+      }
     }
 
     // ==================================================================
-    // STEP 9: SEND CANCELLATION EMAIL
+    // STEP 10: SEND CANCELLATION EMAIL
     // ==================================================================
 
     // TODO: Send cancellation confirmation email
@@ -351,54 +414,49 @@ export const handler: Handler = async (
     });
 
     // ==================================================================
-    // STEP 10: RETURN SUCCESS RESPONSE
+    // STEP 11: RETURN SUCCESS RESPONSE
     // ==================================================================
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        success: true,
-        message: body.immediate
-          ? 'Your subscription has been canceled immediately'
-          : `Your subscription will remain active until ${effectiveDate.toLocaleDateString()}`,
-        billing: {
-          id: body.company_id,
-          subscription_status: 'canceled',
-          cancelled_at: now.toISOString(),
-          cancellation_reason: cancellationReason,
-          effective_date: effectiveDate.toISOString()
-        },
-        cancelled_at: effectiveDate.toISOString(),
-        refund_amount: refundAmount > 0 ? refundAmount : undefined
-      })
-    };
+    return successResponse({
+      message: body.immediate
+        ? 'Your subscription has been canceled immediately'
+        : `Your subscription will remain active until ${effectiveDate.toLocaleDateString()}`,
+      billing: {
+        id: body.company_id,
+        subscription_status: 'canceled',
+        cancelled_at: now.toISOString(),
+        cancellation_reason: cancellationReason,
+        effective_date: effectiveDate.toISOString(),
+        stripe_customer_id: company.stripe_customer_id
+      },
+      cancelled_at: effectiveDate.toISOString(),
+      refund_amount: refundAmount > 0 ? refundAmount : undefined
+    });
 
   } catch (error: any) {
     console.error('[CancelSubscription] Unexpected error:', error);
 
     // Log error for debugging
     if (event.body) {
-      const body = JSON.parse(event.body);
-      await supabaseAdmin
-        .from('audit_logs')
-        .insert({
-          company_id: body.company_id,
+      try {
+        const body = JSON.parse(event.body);
+        await logAudit({
+          companyId: body.company_id,
           action: 'subscription_cancel_error',
           details: {
             error: error.message,
             stack: error.stack
-          },
-          created_at: new Date().toISOString()
-        })
-        .catch(() => {}); // Ignore logging errors
+          }
+        });
+      } catch {
+        // Ignore audit log errors
+      }
     }
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
-      })
-    };
+    return errorResponse(
+      500,
+      process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred',
+      'INTERNAL_ERROR'
+    );
   }
 };

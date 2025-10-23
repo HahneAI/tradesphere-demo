@@ -2,7 +2,12 @@
  * PaymentMethodCard Component
  *
  * Displays bank account information, verification status, and action buttons
- * for managing payment methods (verify micro-deposits, update bank account).
+ * for managing payment methods.
+ *
+ * With Stripe + Plaid integration:
+ * - Instant verification (no micro-deposits needed)
+ * - "Update Payment Method" opens Plaid Link for bank selection
+ * - All accounts are verified instantly via Plaid
  *
  * Mobile-first design with responsive layout and touch-optimized buttons (44px minimum).
  */
@@ -20,10 +25,8 @@ import { StatusBadge } from './StatusBadge';
 interface PaymentMethodCardProps {
   /** Payment method information */
   paymentMethod: PaymentMethodInfo;
-  /** Callback when "Verify Micro-Deposits" clicked */
-  onVerifyMicroDeposits: () => void;
-  /** Callback when "Update Bank Account" clicked */
-  onUpdateBankAccount?: () => void;
+  /** Callback when "Update Payment Method" clicked */
+  onUpdatePaymentMethod: () => void;
   /** Whether component is in loading state */
   isLoading?: boolean;
 }
@@ -46,8 +49,7 @@ const getStatusLabel = (status: PaymentMethodStatus): string => {
 
 export const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
   paymentMethod,
-  onVerifyMicroDeposits,
-  onUpdateBankAccount,
+  onUpdatePaymentMethod,
   isLoading = false
 }) => {
   const { status, last4, bank_name, account_type, verified_at } = paymentMethod;
@@ -94,34 +96,6 @@ export const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
       )}
 
       {/* Conditional Status Messages and Actions */}
-      {status === PaymentMethodStatus.PENDING && (
-        <div className="space-y-3">
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r">
-            <div className="flex items-start gap-2">
-              <Icons.Clock className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm text-yellow-700 font-medium">
-                  Waiting for micro-deposit verification
-                </p>
-                <p className="text-xs text-yellow-600 mt-1">
-                  We've sent 2 small deposits to your bank account. They should appear in 1-3 business days. Once received, verify the amounts below.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={onVerifyMicroDeposits}
-            disabled={isLoading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
-            style={{ minHeight: '44px' }}
-          >
-            <Icons.CheckCircle className="h-4 w-4" />
-            Verify Micro-Deposits
-          </button>
-        </div>
-      )}
-
       {status === PaymentMethodStatus.VERIFIED && verified_at && (
         <div className="space-y-3">
           <div className="bg-green-50 border-l-4 border-green-400 p-3 rounded-r">
@@ -142,17 +116,43 @@ export const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
             </div>
           </div>
 
-          {onUpdateBankAccount && (
-            <button
-              onClick={onUpdateBankAccount}
-              disabled={isLoading}
-              className="w-full bg-white text-gray-700 border border-gray-300 py-3 px-4 rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
-              style={{ minHeight: '44px' }}
-            >
-              <Icons.Edit className="h-4 w-4" />
-              Update Bank Account
-            </button>
-          )}
+          <button
+            onClick={onUpdatePaymentMethod}
+            disabled={isLoading}
+            className="w-full bg-white text-gray-700 border border-gray-300 py-3 px-4 rounded-md hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
+            style={{ minHeight: '44px' }}
+          >
+            <Icons.Edit className="h-4 w-4" />
+            Update Payment Method
+          </button>
+        </div>
+      )}
+
+      {status === PaymentMethodStatus.PENDING && (
+        <div className="space-y-3">
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r">
+            <div className="flex items-start gap-2">
+              <Icons.Clock className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-yellow-700 font-medium">
+                  Payment method pending
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  Your bank account is being verified. This usually completes within a few minutes.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={onUpdatePaymentMethod}
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
+            style={{ minHeight: '44px' }}
+          >
+            <Icons.RefreshCw className="h-4 w-4" />
+            Update Payment Method
+          </button>
         </div>
       )}
 
@@ -166,34 +166,34 @@ export const PaymentMethodCard: React.FC<PaymentMethodCardProps> = ({
                   Verification failed
                 </p>
                 <p className="text-xs text-red-600 mt-1">
-                  The amounts you entered don't match our records. Please check your bank statement and try again.
+                  Unable to verify your bank account. Please try adding it again or use a different account.
                 </p>
               </div>
             </div>
           </div>
 
           <button
-            onClick={onVerifyMicroDeposits}
+            onClick={onUpdatePaymentMethod}
             disabled={isLoading}
             className="w-full bg-red-600 text-white py-3 px-4 rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
             style={{ minHeight: '44px' }}
           >
             <Icons.RotateCcw className="h-4 w-4" />
-            Retry Verification
+            Try Again
           </button>
         </div>
       )}
 
       {/* No payment method - show add button */}
-      {!last4 && onUpdateBankAccount && (
+      {!last4 && (
         <button
-          onClick={onUpdateBankAccount}
+          onClick={onUpdatePaymentMethod}
           disabled={isLoading}
           className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium text-sm flex items-center justify-center gap-2"
           style={{ minHeight: '44px' }}
         >
           <Icons.Plus className="h-4 w-4" />
-          Add Bank Account
+          Add Payment Method
         </button>
       )}
     </div>

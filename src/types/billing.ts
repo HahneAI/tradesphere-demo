@@ -1,7 +1,7 @@
 /**
  * TradeSphere Billing Type Definitions
  *
- * Comprehensive type system for Dwolla ACH payment integration,
+ * Comprehensive type system for Stripe payment integration,
  * subscription management, and billing UI components.
  *
  * @module billing
@@ -22,19 +22,19 @@ export type CompanyId = string & { readonly __brand: 'CompanyId' };
 export type PaymentId = string & { readonly __brand: 'PaymentId' };
 
 /**
- * Branded type for Dwolla customer URLs
+ * Branded type for Stripe customer IDs
  */
-export type DwollaCustomerUrl = string & { readonly __brand: 'DwollaCustomerUrl' };
+export type StripeCustomerId = string & { readonly __brand: 'StripeCustomerId' };
 
 /**
- * Branded type for Dwolla funding source IDs (bank account IDs)
+ * Branded type for Stripe payment method IDs
  */
-export type DwollaFundingSourceId = string & { readonly __brand: 'DwollaFundingSourceId' };
+export type StripePaymentMethodId = string & { readonly __brand: 'StripePaymentMethodId' };
 
 /**
- * Branded type for Dwolla transfer URLs
+ * Branded type for Stripe payment intent IDs
  */
-export type DwollaTransferUrl = string & { readonly __brand: 'DwollaTransferUrl' };
+export type StripePaymentIntentId = string & { readonly __brand: 'StripePaymentIntentId' };
 
 /**
  * Type helper to create branded types from raw strings
@@ -119,10 +119,10 @@ export enum CancellationReason {
 }
 
 /**
- * Dwolla ACH transfer failure codes
- * Common error codes from Dwolla API
+ * ACH transfer failure codes
+ * Common NACHA return codes mapped to Stripe error codes
  */
-export enum DwollaFailureCode {
+export enum ACHFailureCode {
   INSUFFICIENT_FUNDS = 'R01',
   ACCOUNT_CLOSED = 'R02',
   NO_ACCOUNT = 'R03',
@@ -175,11 +175,14 @@ export interface CompanyBilling {
   /** Timestamp when payment method was verified (ISO 8601 timestamp string) */
   payment_method_verified_at: string | null;
 
-  /** Dwolla customer URL reference */
-  dwolla_customer_url: DwollaCustomerUrl | null;
+  /** Stripe customer ID reference */
+  stripe_customer_id: StripeCustomerId | null;
 
-  /** Dwolla funding source ID (bank account ID) */
-  dwolla_funding_source_id: DwollaFundingSourceId | null;
+  /** Stripe payment method ID (bank account ID) */
+  stripe_payment_method_id: StripePaymentMethodId | null;
+
+  /** Stripe setup intent ID (used during Plaid flow) */
+  stripe_setup_intent_id: string | null;
 
   /** Billing contact email */
   billing_email: string | null;
@@ -229,11 +232,14 @@ export interface Payment {
   /** End date of subscription period (ISO 8601 date string) */
   subscription_period_end: string | null;
 
-  /** Dwolla transfer URL reference */
-  dwolla_transfer_url: DwollaTransferUrl | null;
+  /** Stripe payment intent ID reference */
+  stripe_payment_intent_id: StripePaymentIntentId | null;
 
-  /** Dwolla failure code if payment failed */
-  failure_code: DwollaFailureCode | null;
+  /** Stripe charge ID (set when payment succeeds) */
+  stripe_charge_id: string | null;
+
+  /** ACH failure code if payment failed */
+  failure_code: ACHFailureCode | null;
 
   /** Human-readable failure message */
   failure_message: string | null;
@@ -281,8 +287,8 @@ export interface PaymentMethodInfo {
   /** Timestamp when verified (ISO 8601 timestamp string) */
   verified_at: string | null;
 
-  /** Dwolla funding source ID */
-  funding_source_id: DwollaFundingSourceId | null;
+  /** Stripe payment method ID */
+  payment_method_id: StripePaymentMethodId | null;
 }
 
 /**
@@ -330,7 +336,7 @@ export interface BillingStatus {
  */
 export interface BillingAction {
   /** Action type identifier */
-  type: 'verify_bank' | 'update_payment_method' | 'contact_support' | 'upgrade' | 'reactivate';
+  type: 'add_payment_method' | 'update_payment_method' | 'contact_support' | 'upgrade' | 'reactivate';
 
   /** Human-readable action description */
   label: string;
@@ -375,9 +381,6 @@ export interface PaymentMethodCardProps {
 
   /** Callback when update payment method clicked */
   onUpdate: () => void;
-
-  /** Callback when verify micro-deposits clicked */
-  onVerify?: () => void;
 
   /** Whether component is in loading state */
   isLoading?: boolean;
@@ -426,7 +429,7 @@ export interface UpdatePaymentMethodModalProps {
   billing: CompanyBilling;
 
   /** Callback when bank account linked successfully */
-  onSuccess: (fundingSourceId: DwollaFundingSourceId) => void;
+  onSuccess: (paymentMethodId: StripePaymentMethodId) => void;
 
   /** Callback when error occurs */
   onError?: (error: Error) => void;
@@ -452,28 +455,6 @@ export interface CancelSubscriptionModalProps {
   isProcessing?: boolean;
 }
 
-/**
- * Props for VerifyMicroDepositsModal component
- */
-export interface VerifyMicroDepositsModalProps {
-  /** Whether modal is open */
-  isOpen: boolean;
-
-  /** Callback to close modal */
-  onClose: () => void;
-
-  /** Current company billing data */
-  billing: CompanyBilling;
-
-  /** Callback when verification successful */
-  onSuccess: () => void;
-
-  /** Callback when verification fails */
-  onError?: (error: Error) => void;
-
-  /** Whether verification is processing */
-  isProcessing?: boolean;
-}
 
 // ============================================================================
 // API Request/Response Types
@@ -516,42 +497,6 @@ export interface CancelSubscriptionResponse {
   error?: string;
 }
 
-/**
- * Request payload for verifying micro-deposits
- */
-export interface VerifyMicroDepositsRequest {
-  /** Company ID */
-  company_id: CompanyId;
-
-  /** First micro-deposit amount in cents (e.g., 0.01 = 1 cent) */
-  amount1: number;
-
-  /** Second micro-deposit amount in cents (e.g., 0.02 = 2 cents) */
-  amount2: number;
-
-  /** Dwolla funding source ID to verify */
-  funding_source_id: DwollaFundingSourceId;
-}
-
-/**
- * Response from verify micro-deposits API
- */
-export interface VerifyMicroDepositsResponse {
-  /** Whether verification was successful */
-  success: boolean;
-
-  /** Updated payment method status */
-  payment_method_status: PaymentMethodStatus;
-
-  /** Verification timestamp (ISO 8601 timestamp string) */
-  verified_at: string | null;
-
-  /** Error message if verification failed */
-  error?: string;
-
-  /** Number of verification attempts remaining */
-  attempts_remaining?: number;
-}
 
 /**
  * Request payload for updating payment method
@@ -561,13 +506,11 @@ export interface UpdatePaymentMethodRequest {
   company_id: CompanyId;
 
   /** Plaid public token (from Plaid Link flow) */
-  plaid_token?: string;
+  plaid_token: string;
 
-  /** Dwolla funding source URL (if manually providing Dwolla details) */
-  dwolla_funding_source_url?: string;
-
-  /** Bank account last 4 digits */
+  /** Bank account metadata from Plaid */
   bank_account_last4?: string;
+  bank_name?: string;
 }
 
 /**
@@ -577,14 +520,11 @@ export interface UpdatePaymentMethodResponse {
   /** Whether update was successful */
   success: boolean;
 
-  /** New Dwolla funding source ID */
-  funding_source_id: DwollaFundingSourceId;
+  /** New Stripe payment method ID */
+  payment_method_id: StripePaymentMethodId;
 
   /** Updated payment method information */
   payment_method: PaymentMethodInfo;
-
-  /** Whether micro-deposits were initiated */
-  micro_deposits_initiated: boolean;
 
   /** Error message if failed */
   error?: string;
@@ -600,8 +540,8 @@ export interface RetryPaymentRequest {
   /** Company ID */
   company_id: CompanyId;
 
-  /** Optional: Use different funding source */
-  funding_source_id?: DwollaFundingSourceId;
+  /** Optional: Use different payment method */
+  payment_method_id?: StripePaymentMethodId;
 }
 
 /**
@@ -614,8 +554,8 @@ export interface RetryPaymentResponse {
   /** Updated payment record */
   payment: Payment;
 
-  /** Dwolla transfer URL */
-  transfer_url: DwollaTransferUrl | null;
+  /** Stripe payment intent ID */
+  payment_intent_id: StripePaymentIntentId | null;
 
   /** Error message if failed */
   error?: string;
@@ -645,11 +585,12 @@ export function isPastDue(billing: CompanyBilling): boolean {
 
 /**
  * Type guard: Check if payment method needs verification
+ * Note: With Stripe + Plaid, instant verification is used, so this is rarely needed
  */
 export function requiresPaymentVerification(billing: CompanyBilling): boolean {
   return (
     billing.payment_method_status === PaymentMethodStatus.PENDING &&
-    billing.dwolla_funding_source_id !== null
+    billing.stripe_payment_method_id !== null
   );
 }
 
@@ -685,7 +626,7 @@ export function isTrialExpiringSoon(billing: CompanyBilling): boolean {
 export function isPaymentMethodReady(billing: CompanyBilling): boolean {
   return (
     billing.payment_method_status === PaymentMethodStatus.VERIFIED &&
-    billing.dwolla_funding_source_id !== null
+    billing.stripe_payment_method_id !== null
   );
 }
 
@@ -923,7 +864,7 @@ export function computeBillingStatus(billing: CompanyBilling): BillingStatus {
   if (isActiveTrial(billing)) {
     if (!isPaymentMethodReady(billing)) {
       actions.push({
-        type: 'verify_bank',
+        type: 'add_payment_method',
         label: 'Add payment method before trial ends',
         cta: 'Add Payment Method',
         priority: 'high'
@@ -951,25 +892,9 @@ export function computeBillingStatus(billing: CompanyBilling): BillingStatus {
 
   // Active subscription - check payment method
   if (billing.subscription_status === SubscriptionStatus.ACTIVE) {
-    if (requiresPaymentVerification(billing)) {
-      actions.push({
-        type: 'verify_bank',
-        label: 'Verify your bank account with micro-deposits',
-        cta: 'Verify Bank Account',
-        priority: 'high'
-      });
-
-      return {
-        status: 'action_required',
-        message: 'Bank account verification required',
-        actions,
-        is_urgent: true
-      };
-    }
-
     if (!isPaymentMethodReady(billing)) {
       actions.push({
-        type: 'update_payment_method',
+        type: 'add_payment_method',
         label: 'Add a payment method to avoid service interruption',
         cta: 'Add Payment Method',
         priority: 'high'
@@ -1026,31 +951,31 @@ export function getPaymentTypeLabel(type: PaymentType): string {
 }
 
 /**
- * Get human-readable failure message from Dwolla error code
- * @param code - Dwolla failure code
+ * Get human-readable failure message from ACH error code
+ * @param code - ACH failure code (NACHA return code)
  * @returns Human-readable error message
  */
-export function getDwollaFailureMessage(code: DwollaFailureCode | null): string {
+export function getACHFailureMessage(code: ACHFailureCode | null): string {
   if (!code) return 'Payment failed';
 
   switch (code) {
-    case DwollaFailureCode.INSUFFICIENT_FUNDS:
+    case ACHFailureCode.INSUFFICIENT_FUNDS:
       return 'Insufficient funds in account';
-    case DwollaFailureCode.ACCOUNT_CLOSED:
+    case ACHFailureCode.ACCOUNT_CLOSED:
       return 'Bank account has been closed';
-    case DwollaFailureCode.NO_ACCOUNT:
+    case ACHFailureCode.NO_ACCOUNT:
       return 'No account found';
-    case DwollaFailureCode.INVALID_ACCOUNT:
+    case ACHFailureCode.INVALID_ACCOUNT:
       return 'Invalid account number';
-    case DwollaFailureCode.UNAUTHORIZED:
+    case ACHFailureCode.UNAUTHORIZED:
       return 'Transaction not authorized';
-    case DwollaFailureCode.RETURNED:
+    case ACHFailureCode.RETURNED:
       return 'Payment was returned by bank';
-    case DwollaFailureCode.AUTHORIZATION_REVOKED:
+    case ACHFailureCode.AUTHORIZATION_REVOKED:
       return 'Authorization revoked';
-    case DwollaFailureCode.PAYMENT_STOPPED:
+    case ACHFailureCode.PAYMENT_STOPPED:
       return 'Payment stopped by customer';
-    case DwollaFailureCode.ACCOUNT_FROZEN:
+    case ACHFailureCode.ACCOUNT_FROZEN:
       return 'Account is frozen';
     default:
       return 'Payment processing failed';

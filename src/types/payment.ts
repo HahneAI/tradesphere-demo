@@ -1,9 +1,11 @@
 /**
  * PHASE 4B: PAYMENT & BILLING TYPE DEFINITIONS
  *
- * TypeScript types for Dwolla ACH payment integration and subscription management.
- * Provides type safety for Dwolla API responses, webhook events, and payment data.
+ * TypeScript types for Stripe payment integration and subscription management.
+ * Provides type safety for Stripe API responses, webhook events, and payment data.
  */
+
+import type Stripe from 'stripe';
 
 // ============================================================================
 // PAYMENT STATUS ENUMS
@@ -33,184 +35,32 @@ export enum PaymentMethodStatus {
   SUSPENDED = 'suspended'     // Account issues
 }
 
-export enum FundingSourceType {
+export enum BankAccountType {
   CHECKING = 'checking',
   SAVINGS = 'savings'
 }
 
-export enum FundingSourceStatus {
+export enum PaymentMethodVerificationStatus {
   UNVERIFIED = 'unverified',
   VERIFIED = 'verified',
   REMOVED = 'removed'
 }
 
-export enum TransferStatus {
-  PENDING = 'pending',
-  PROCESSED = 'processed',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled'
-}
-
 // ============================================================================
-// DWOLLA API RESPONSE TYPES
+// STRIPE SDK TYPE RE-EXPORTS
 // ============================================================================
 
 /**
- * Dwolla Customer Resource
- * Represents a business customer in Dwolla
+ * Re-export commonly used Stripe SDK types for convenience
+ * Import directly from Stripe SDK to ensure type compatibility
  */
-export interface DwollaCustomer {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  type: 'business' | 'personal';
-  businessName?: string;
-  businessType?: string;
-  businessClassification?: string;
-  status: 'unverified' | 'retry' | 'document' | 'verified' | 'suspended' | 'deactivated';
-  created: string;
-  _links: {
-    self: { href: string };
-    'funding-sources': { href: string };
-    transfers: { href: string };
-  };
-}
-
-/**
- * Dwolla Funding Source (Bank Account)
- * Represents a linked bank account
- */
-export interface DwollaFundingSource {
-  id: string;
-  status: FundingSourceStatus;
-  type: 'bank';
-  bankAccountType: FundingSourceType;
-  name: string;
-  created: string;
-  balance?: {
-    value: string;
-    currency: 'USD';
-  };
-  removed: boolean;
-  channels: string[];
-  bankName?: string;
-  fingerprint?: string;
-  _links: {
-    self: { href: string };
-    customer: { href: string };
-    'micro-deposits'?: { href: string };
-  };
-}
-
-/**
- * Dwolla Transfer Resource
- * Represents an ACH payment transfer
- */
-export interface DwollaTransfer {
-  id: string;
-  status: TransferStatus;
-  amount: {
-    value: string;
-    currency: 'USD';
-  };
-  created: string;
-  metadata?: Record<string, string>;
-  clearing?: {
-    source: 'standard' | 'next-day';
-  };
-  _links: {
-    self: { href: string };
-    source: { href: string };
-    destination: { href: string };
-    'source-funding-source'?: { href: string };
-    'destination-funding-source'?: { href: string };
-    cancel?: { href: string };
-  };
-  _embedded?: {
-    source?: DwollaCustomer;
-    destination?: DwollaCustomer;
-  };
-}
-
-/**
- * Dwolla Micro-Deposit Verification
- */
-export interface DwollaMicroDeposit {
-  _links: {
-    self: { href: string };
-    verify: { href: string };
-  };
-  created: string;
-  status: 'pending' | 'processed' | 'failed';
-  failure?: {
-    code: string;
-    description: string;
-  };
-}
-
-// ============================================================================
-// DWOLLA WEBHOOK EVENT TYPES
-// ============================================================================
-
-/**
- * Dwolla Webhook Event
- * Structure of webhook payloads from Dwolla
- */
-export interface DwollaWebhookEvent {
-  id: string;
-  resourceId: string;
-  topic: DwollaWebhookTopic;
-  timestamp: string;
-  _links: {
-    self: { href: string };
-    account: { href: string };
-    resource: { href: string };
-    customer?: { href: string };
-  };
-  _embedded?: {
-    [key: string]: any;
-  };
-}
-
-/**
- * Dwolla Webhook Topics
- * All possible webhook event types from Dwolla
- */
-export type DwollaWebhookTopic =
-  // Customer Events
-  | 'customer_created'
-  | 'customer_verified'
-  | 'customer_suspended'
-  | 'customer_activated'
-  | 'customer_deactivated'
-
-  // Funding Source Events
-  | 'customer_funding_source_added'
-  | 'customer_funding_source_removed'
-  | 'customer_funding_source_verified'
-  | 'customer_funding_source_negative'
-  | 'customer_funding_source_updated'
-  | 'customer_funding_source_unverified'
-
-  // Transfer Events
-  | 'customer_transfer_created'
-  | 'customer_transfer_completed'
-  | 'customer_transfer_failed'
-  | 'customer_transfer_cancelled'
-
-  // Micro-Deposit Events
-  | 'customer_microdeposits_added'
-  | 'customer_microdeposits_failed'
-  | 'customer_microdeposits_completed'
-  | 'customer_microdeposits_maxattempts'
-
-  // Bank Transfer Events
-  | 'customer_bank_transfer_created'
-  | 'customer_bank_transfer_creation_failed'
-  | 'customer_bank_transfer_completed'
-  | 'customer_bank_transfer_failed'
-  | 'customer_bank_transfer_cancelled';
+export type StripeCustomer = Stripe.Customer;
+export type StripePaymentMethod = Stripe.PaymentMethod;
+export type StripePaymentIntent = Stripe.PaymentIntent;
+export type StripeCharge = Stripe.Charge;
+export type StripeDispute = Stripe.Dispute;
+export type StripeEvent = Stripe.Event;
+export type StripeSetupIntent = Stripe.SetupIntent;
 
 // ============================================================================
 // APPLICATION PAYMENT TYPES
@@ -228,8 +78,11 @@ export interface Payment {
   payment_type: 'monthly_subscription' | 'setup_fee' | 'addon' | 'refund';
   subscription_period_start?: string;
   subscription_period_end?: string;
-  dwolla_transfer_id?: string;
-  dwolla_transfer_url?: string;
+
+  // Stripe payment references
+  stripe_payment_intent_id?: string;  // PaymentIntent ID (pi_xxx)
+  stripe_charge_id?: string;          // Charge ID (ch_xxx) - set when payment succeeds
+
   bank_account_name?: string;
   bank_account_last4?: string;
   failure_code?: string;
@@ -241,12 +94,12 @@ export interface Payment {
 
 /**
  * Payment Webhook Record (Supabase)
- * Logs all Dwolla webhook events for audit and replay
+ * Logs all Stripe webhook events for audit and replay
  */
 export interface PaymentWebhook {
   id: string;
   event_type: string;
-  payload: DwollaWebhookEvent;
+  payload: StripeEvent;
   company_id?: string;
   payment_id?: string;
   processed: boolean;
@@ -269,8 +122,12 @@ export interface CompanyBilling {
   trial_end_date?: string;
   next_billing_date?: string;
   monthly_amount: number;
-  dwolla_customer_url?: string;
-  dwolla_funding_source_id?: string;
+
+  // Stripe customer and payment method references
+  stripe_customer_id?: string;          // Customer ID (cus_xxx)
+  stripe_payment_method_id?: string;    // PaymentMethod ID (pm_xxx)
+  stripe_setup_intent_id?: string;      // SetupIntent ID (seti_xxx) - used during Plaid flow
+
   payment_method_status: PaymentMethodStatus;
   payment_method_verified_at?: string;
   billing_email?: string;
@@ -285,125 +142,84 @@ export interface CompanyBilling {
 }
 
 // ============================================================================
-// DWOLLA SERVICE METHOD PARAMETERS
+// STRIPE SERVICE METHOD PARAMETERS
 // ============================================================================
 
 /**
- * Parameters for creating a Dwolla customer
+ * Parameters for creating a Stripe customer
  */
-export interface CreateCustomerParams {
+export interface CreateStripeCustomerParams {
   email: string;
   companyName: string;
-  firstName: string;
-  lastName: string;
-  businessType?: 'llc' | 'corporation' | 'partnership' | 'soleProprietorship';
-  businessClassification?: string;
-  ein?: string;
-  address1?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
+  metadata?: Record<string, string>;
 }
 
 /**
- * Parameters for creating a funding source
+ * Parameters for attaching a payment method to a customer
+ * Payment method is created client-side via Stripe.js + Plaid integration
  */
-export interface CreateFundingSourceParams {
-  customerUrl: string;
-  routingNumber: string;
-  accountNumber: string;
-  bankAccountType: FundingSourceType;
-  name: string;
+export interface AttachPaymentMethodParams {
+  customerId: string;           // Stripe Customer ID (cus_xxx)
+  paymentMethodId: string;      // Payment Method ID created client-side (pm_xxx)
 }
 
 /**
- * Parameters for verifying micro-deposits
+ * Parameters for creating a payment intent (charge)
  */
-export interface VerifyMicroDepositsParams {
-  fundingSourceUrl: string;
-  amount1: number;  // In cents (e.g., 0.03 = 3 cents)
-  amount2: number;  // In cents (e.g., 0.09 = 9 cents)
-}
-
-/**
- * Parameters for creating a transfer (payment)
- */
-export interface CreateTransferParams {
-  sourceFundingSourceUrl: string;      // Customer's bank account
-  destinationFundingSourceUrl: string; // TradeSphere's bank account
-  amount: number;                      // In dollars (e.g., 2000.00)
-  metadata?: Record<string, string>;   // Custom data (company_id, invoice_id, etc.)
+export interface CreatePaymentIntentParams {
+  customerId: string;           // Stripe Customer ID (cus_xxx)
+  amount: number;               // Amount in cents (e.g., 2000 = $20.00)
+  paymentMethodId: string;      // Payment Method ID (pm_xxx)
+  metadata?: Record<string, string>;  // Custom data (company_id, subscription_period, etc.)
 }
 
 // ============================================================================
-// DWOLLA SERVICE RESPONSE TYPES
+// STRIPE SERVICE RESPONSE TYPES
 // ============================================================================
 
 /**
- * Generic Dwolla API Response
+ * Generic Stripe API Response
+ * Wrapper for all Stripe service method responses
  */
-export interface DwollaResponse<T = any> {
+export interface StripeResponse<T = any> {
   success: boolean;
   data?: T;
   error?: {
     code: string;
     message: string;
-    _embedded?: {
-      errors?: Array<{
-        code: string;
-        message: string;
-        path: string;
-      }>;
-    };
+    type?: 'card_error' | 'invalid_request_error' | 'api_error' | 'idempotency_error' | 'rate_limit_error' | 'authentication_error';
+    decline_code?: string;
+    param?: string;
   };
 }
 
 /**
  * Response from createCustomer()
  */
-export interface CreateCustomerResponse extends DwollaResponse {
+export interface CreateCustomerResponse extends StripeResponse {
   data?: {
-    customerUrl: string;
-    customerId: string;
+    customerId: string;           // Stripe Customer ID (cus_xxx)
+    customer: StripeCustomer;     // Full Stripe Customer object
   };
 }
 
 /**
- * Response from createFundingSource()
+ * Response from attachPaymentMethod()
  */
-export interface CreateFundingSourceResponse extends DwollaResponse {
+export interface AttachPaymentMethodResponse extends StripeResponse {
   data?: {
-    fundingSourceUrl: string;
-    fundingSourceId: string;
+    paymentMethod: StripePaymentMethod;  // Full Stripe PaymentMethod object
   };
 }
 
 /**
- * Response from createTransfer()
+ * Response from createPaymentIntent()
  */
-export interface CreateTransferResponse extends DwollaResponse {
+export interface CreatePaymentIntentResponse extends StripeResponse {
   data?: {
-    transferUrl: string;
-    transferId: string;
-    status: TransferStatus;
-  };
-}
-
-/**
- * List of funding sources for a customer
- */
-export interface FundingSourcesList {
-  _embedded: {
-    'funding-sources': DwollaFundingSource[];
-  };
-}
-
-/**
- * List of transfers for a customer
- */
-export interface TransfersList {
-  _embedded: {
-    transfers: DwollaTransfer[];
+    paymentIntentId: string;      // PaymentIntent ID (pi_xxx)
+    clientSecret: string;         // Client secret for confirmation (if needed)
+    status: string;               // PaymentIntent status
   };
 }
 
@@ -431,9 +247,9 @@ export interface PaymentMethod {
   id: string;
   type: 'bank_account';
   bankName: string;
-  accountType: FundingSourceType;
+  accountType: BankAccountType;
   last4: string;
-  status: FundingSourceStatus;
+  status: PaymentMethodVerificationStatus;
   isDefault: boolean;
 }
 
