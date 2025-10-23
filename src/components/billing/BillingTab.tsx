@@ -34,9 +34,17 @@ import { PaymentMethodCard } from './PaymentMethodCard';
 import { PaymentHistoryTable } from './PaymentHistoryTable';
 import { UpdatePaymentMethodModal } from './UpdatePaymentMethodModal';
 import { CancelSubscriptionModal } from './CancelSubscriptionModal';
+import { useTheme } from '../../context/ThemeContext';
+import { getSmartVisualThemeConfig } from '../../config/industry';
 
-export const BillingTab: React.FC = () => {
+interface BillingTabProps {
+  onBackClick: () => void;
+}
+
+export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
   const { user, isOwner } = useAuth();
+  const { theme } = useTheme();
+  const visualConfig = getSmartVisualThemeConfig(theme);
 
   // Data state
   const [billing, setBilling] = useState<CompanyBilling | null>(null);
@@ -204,17 +212,42 @@ export const BillingTab: React.FC = () => {
 
   // Main render
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+    <div
+      className="min-h-screen p-4 md:p-6 lg:p-8 animate-fade-up-in"
+      style={{ backgroundColor: visualConfig.colors.background }}
+    >
       <div className="max-w-5xl mx-auto">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="mb-8">
+          <button
+            onClick={onBackClick}
+            className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105"
+            style={{
+              color: visualConfig.colors.primary,
+              backgroundColor: visualConfig.colors.surface,
+            }}
+          >
+            <Icons.ArrowLeft className="h-5 w-5" />
+            <span>Back to Chat</span>
+          </button>
+
           <div className="relative inline-block mb-2">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
+            <h1
+              className="text-3xl md:text-4xl font-extrabold tracking-tight"
+              style={{ color: visualConfig.colors.text.primary }}
+            >
               Billing & Subscription
             </h1>
-            <div className="absolute -bottom-2 left-0 w-24 h-1 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full"></div>
+            <div
+              className="absolute -bottom-2 left-0 w-24 h-1 rounded-full"
+              style={{
+                background: `linear-gradient(to right, ${visualConfig.colors.primary}, ${visualConfig.colors.secondary})`
+              }}
+            ></div>
           </div>
-          <p className="text-gray-600 mt-4">Manage your subscription, payment method, and billing history.</p>
+          <p className="mt-4" style={{ color: visualConfig.colors.text.secondary }}>
+            Manage your subscription, payment method, and billing history.
+          </p>
         </div>
 
         {/* Subscription Status Card */}

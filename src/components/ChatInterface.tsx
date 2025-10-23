@@ -2217,9 +2217,7 @@ const ChatInterface = () => {
       )}
 
       {currentPage === 'billing' && (
-        <div className="flex-1 overflow-y-auto p-4">
-          <BillingTab />
-        </div>
+        <BillingTab onBackClick={() => setCurrentPage('chat')} />
       )}
 
       {currentPage === 'chat' && (
