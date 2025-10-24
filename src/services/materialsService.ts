@@ -60,7 +60,7 @@ export async function fetchMaterialsForCategory(
     const supabase = getSupabase();
 
     const { data, error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .select('*')
       .eq('company_id', companyId)
       .eq('service_config_id', serviceConfigId)
@@ -98,7 +98,7 @@ export async function fetchAllMaterialsForService(
 
     // Fetch all materials for the service
     const { data, error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .select('*')
       .eq('company_id', companyId)
       .eq('service_config_id', serviceConfigId)
@@ -151,7 +151,7 @@ export async function getDefaultMaterial(
     });
 
     const { data, error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .select('*')
       .eq('company_id', companyId)
       .eq('service_config_id', serviceConfigId)
@@ -209,7 +209,7 @@ export async function getMaterialCount(
     const supabase = getSupabase();
 
     const { count, error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .select('*', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('service_config_id', serviceConfigId)
@@ -243,7 +243,7 @@ export async function fetchMaterialById(
     console.log('🔍 [FETCH MATERIAL BY ID] Fetching material:', { materialId });
 
     const { data, error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .select('*')
       .eq('id', materialId)
       .single();
@@ -307,7 +307,7 @@ export async function fetchServicesWithMaterials(
 
     // Fetch service details for those IDs
     const { data: serviceConfigs, error: serviceError } = await supabase
-      .from('service_pricing_configs')
+      .from('svc_pricing_configs')
       .select('id, service_name')
       .eq('company_id', companyId)
       .eq('is_active', true)
@@ -343,7 +343,7 @@ export async function updateMaterialFactor(
     const supabase = getSupabase();
 
     const { error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .update({ [field]: value })
       .eq('id', materialId);
 
@@ -381,7 +381,7 @@ export async function updateMaterialDepth(
 
     // First, fetch current material to log what's being changed
     const { data: currentMaterial } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .select('material_name, material_category, coverage_depth_inches, is_default')
       .eq('id', materialId)
       .single();
@@ -398,7 +398,7 @@ export async function updateMaterialDepth(
     }
 
     const { error } = await supabase
-      .from('service_materials')
+      .from('svc_materials')
       .update({ coverage_depth_inches: depth })
       .eq('id', materialId);
 

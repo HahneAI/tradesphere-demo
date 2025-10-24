@@ -158,7 +158,7 @@ export class MasterPricingEngine {
       });
 
       const { data, error } = await this.supabase
-        .from('service_pricing_configs')
+        .from('svc_pricing_configs')
         .select('*')
         .eq('company_id', targetCompanyId)
         .eq('service_name', serviceName)
@@ -166,12 +166,22 @@ export class MasterPricingEngine {
         .limit(1);
 
       if (error) {
-        console.error('❌ [LOAD DEBUG] Full query error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          isRLS: error.code === 'PGRST301' || error.message?.includes('RLS') || error.message?.includes('policy')
+        // Log raw error object first for full context
+        console.error('❌ [LOAD DEBUG] Full query error object:', error);
+
+        // Then log structured breakdown
+        console.error('❌ [LOAD DEBUG] Error details:', {
+          message: error?.message || 'No message',
+          details: error?.details || 'No details',
+          hint: error?.hint || 'No hint',
+          code: error?.code || 'No code',
+          isRLS: error?.code === 'PGRST301' || error?.message?.includes('RLS') || error?.message?.includes('policy'),
+          tableName: 'svc_pricing_configs',
+          query: {
+            company_id: targetCompanyId,
+            service_name: serviceName,
+            is_active: true
+          }
         });
         console.log('🔄 [MASTER ENGINE] Falling back to JSON config due to query error');
         return this.getFallbackConfig();
@@ -287,7 +297,7 @@ export class MasterPricingEngine {
       const targetCompanyId = companyId || await this.getDevModeCompanyId();
 
       const { error } = await this.supabase
-        .from('service_pricing_configs')
+        .from('svc_pricing_configs')
         .update({
           ...updates,
           updated_at: new Date().toISOString()

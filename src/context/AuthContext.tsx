@@ -277,14 +277,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Log state change to authenticated with role
       console.log(`✅ Authenticated as ${userData.role.toUpperCase()}`);
 
-      // Log user payload
+      // Log user payload with all role flags
       console.log('👤 User payload:', {
         email: userData.email,
         name: userData.name,
         role: userData.role,
         title: userData.title,
         company_id: userData.company_id,
-        is_admin: userData.is_admin
+        is_admin: userData.is_admin,
+        is_owner: userData.is_owner,
+        is_developer: userData.is_developer,
+        is_manager: userData.is_manager,
+        is_analyst: userData.is_analyst,
+        is_sales: userData.is_sales,
+        is_field_tech: userData.is_field_tech
       });
 
       // Step 3: Update context state
