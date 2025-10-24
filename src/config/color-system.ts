@@ -98,9 +98,9 @@ export const createSmartColorSystem = (
     },
     surfaces: {
       light: {
-        background: '#f8fafc', // Very light gray (almost white)
-        surface: '#ffffff',    // Pure white for cards, headers
-        elevated: '#ffffff',   // Pure white for modals, pop-ups
+        background: '#eff6ff', // Very light blue (soft blue tint)
+        surface: '#f8fbff',    // Almost white with subtle blue tint for cards, headers
+        elevated: '#ffffff',   // Pure white for modals, pop-ups (highest elevation)
       },
       dark: {
         background: '#0f172a', // Very dark blue-gray
