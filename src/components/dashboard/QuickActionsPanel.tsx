@@ -43,7 +43,7 @@ export const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
       id: 'new_job',
       label: 'New Job',
       icon: 'Plus',
-      tab: 'jobs',
+      tab: 'jobs', // TODO: This will eventually open the Job Creation Wizard directly instead of the jobs list page
       color: visualConfig.colors.primary,
       description: 'Create a new job or quote'
     },
