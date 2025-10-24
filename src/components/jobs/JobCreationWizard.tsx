@@ -203,7 +203,7 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
           />
 
           {/* Step Content */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
             {wizard.currentStep === 1 && (
               <CustomerSelectionStep
                 companyId={companyId}
