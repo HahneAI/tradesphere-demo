@@ -399,13 +399,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // 🔧 ENHANCED: Robust webhook handler with validation, timeout, and debug logging
   const sendUserMessageToMake = async (userMessageText: string) => {
     const debugPrefix = `🔗 WEBHOOK [${sessionIdRef.current.slice(-8)}]`;
-    
+
     // Debug logging removed for production
-    
+
     // STEP 1: Validate webhook URL configuration
     if (!MAKE_WEBHOOK_URL || MAKE_WEBHOOK_URL === 'YOUR_MAKE_WEBHOOK_URL') {
-      console.error('❌ STEP 1 FAILED: Make.com webhook URL not configured');
-      throw new Error("Webhook URL not configured - check environment variables");
+      console.warn('⚠️ Make.com webhook URL not configured - skipping Make.com integration');
+      // Return gracefully instead of throwing - Make.com is now optional
+      return;
     }
 
     // STEP 2: Validate URL format
