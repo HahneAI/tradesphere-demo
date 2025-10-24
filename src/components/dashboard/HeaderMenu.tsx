@@ -1,114 +1,76 @@
 /**
  * Header Menu Component
  *
- * Dropdown menu that appears when hamburger button is clicked
- * Provides navigation to main sections and Sign Out option
+ * Comprehensive navigation menu matching original MobileHamburgerMenu
+ * Includes CRM navigation, databases, calculator, and miscellaneous features
  *
  * @module HeaderMenu
  */
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import * as Icons from 'lucide-react';
 import { hapticFeedback } from '../../utils/mobile-gestures';
+import { User } from '../../context/AuthContext';
+
+const DynamicIcon = ({ name, ...props }: { name: string } & any) => {
+  const IconComponent = Icons[name as keyof typeof Icons] || Icons.User;
+  return <IconComponent {...props} />;
+};
 
 interface HeaderMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  // CRM Navigation
   onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
+  // Additional Features
+  onServicesClick: () => void;
+  onMaterialsClick: () => void;
+  onQuickCalculatorClick: () => void;
+  onAvatarClick: () => void;
+  onNotesClick: () => void;
+  onFeedbackClick: () => void;
   onSignOut: () => void;
+  // Context
   visualConfig: any;
   theme: any;
-}
-
-interface MenuItem {
-  id: string;
-  label: string;
-  icon: keyof typeof Icons;
-  action: 'navigate' | 'signout';
-  tab?: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing';
-  color?: string;
+  user: User | null;
 }
 
 /**
  * Header Menu
- * Navigation dropdown for hamburger menu
+ * Comprehensive navigation with collapsible sections
  */
 export const HeaderMenu: React.FC<HeaderMenuProps> = ({
   isOpen,
   onClose,
   onNavigate,
+  onServicesClick,
+  onMaterialsClick,
+  onQuickCalculatorClick,
+  onAvatarClick,
+  onNotesClick,
+  onFeedbackClick,
   onSignOut,
   visualConfig,
-  theme
+  theme,
+  user
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Menu items configuration
-   */
-  const menuItems: MenuItem[] = [
-    {
-      id: 'jobs',
-      label: 'Jobs',
-      icon: 'Briefcase',
-      action: 'navigate',
-      tab: 'jobs',
-      color: visualConfig.colors.primary
-    },
-    {
-      id: 'schedule',
-      label: 'Schedule',
-      icon: 'Calendar',
-      action: 'navigate',
-      tab: 'schedule',
-      color: '#8B5CF6'
-    },
-    {
-      id: 'crews',
-      label: 'Crews',
-      icon: 'Users',
-      action: 'navigate',
-      tab: 'crews',
-      color: '#F59E0B'
-    },
-    {
-      id: 'customers',
-      label: 'Customers',
-      icon: 'User',
-      action: 'navigate',
-      tab: 'customers',
-      color: '#10B981'
-    },
-    {
-      id: 'billing',
-      label: 'Billing',
-      icon: 'CreditCard',
-      action: 'navigate',
-      tab: 'billing',
-      color: '#6366F1'
-    },
-    {
-      id: 'signout',
-      label: 'Sign Out',
-      icon: 'LogOut',
-      action: 'signout',
-      color: '#EF4444'
-    }
-  ];
+  // State for collapsible sections
+  const [expandedSections, setExpandedSections] = useState<{
+    databases: boolean;
+    miscellaneous: boolean;
+  }>({
+    databases: false,
+    miscellaneous: false,
+  });
 
-  /**
-   * Handle menu item click
-   */
-  const handleItemClick = (item: MenuItem) => {
-    hapticFeedback.selection();
-
-    if (item.action === 'navigate' && item.tab) {
-      onNavigate(item.tab);
-    } else if (item.action === 'signout') {
-      onSignOut();
-    }
-
-    onClose();
+  const toggleSection = (section: 'databases' | 'miscellaneous') => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
   };
 
   /**
@@ -155,91 +117,336 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Background Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-20 z-40 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-50 z-40 animate-overlay-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Menu Panel */}
+      {/* Menu Container */}
       <div
         ref={menuRef}
-        className="fixed top-16 left-4 z-50 w-64 rounded-lg shadow-xl border animate-in fade-in slide-in-from-top-2 duration-200"
+        className="fixed top-0 left-0 h-full z-50 flex flex-col transition-transform duration-300 ease-in-out animate-slide-in-left"
         style={{
+          width: '80vw',
+          maxWidth: '320px',
           backgroundColor: visualConfig.colors.surface,
-          borderColor: visualConfig.colors.text.secondary + '20'
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
         }}
         role="menu"
         aria-orientation="vertical"
-        aria-labelledby="menu-button"
       >
-        <div className="py-2">
-          {menuItems.map((item, index) => {
-            const IconComponent = Icons[item.icon] as React.ComponentType<any>;
-            const isSignOut = item.action === 'signout';
+        {/* Menu Header - User Profile */}
+        <div
+          className="p-4 border-b"
+          style={{ borderColor: visualConfig.colors.text.secondary + '20' }}
+        >
+          <div className="flex items-center space-x-3">
+            <div
+              className="flex items-center justify-center w-12 h-12 min-w-[48px] min-h-[48px] rounded-full"
+              style={{
+                backgroundColor: visualConfig.colors.primary,
+                color: visualConfig.colors.text.onPrimary,
+              }}
+            >
+              <DynamicIcon name={user?.user_icon || 'User'} className="h-6 w-6" />
+            </div>
+            <div>
+              <p
+                className="font-semibold"
+                style={{ color: visualConfig.colors.text.primary }}
+              >
+                {user?.name || user?.full_name || 'User'}
+              </p>
+              <p
+                className="text-xs"
+                style={{ color: visualConfig.colors.text.secondary }}
+              >
+                {user?.title || 'Team Member'}
+              </p>
+            </div>
+          </div>
+        </div>
 
-            return (
-              <React.Fragment key={item.id}>
-                {/* Divider before Sign Out */}
-                {isSignOut && (
-                  <div
-                    className="my-2 border-t"
-                    style={{ borderColor: visualConfig.colors.text.secondary + '20' }}
-                  />
-                )}
+        {/* Navigation Items */}
+        <nav className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* CRM Navigation - Jobs */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onNavigate('jobs');
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Briefcase className="h-6 w-6" style={{ color: visualConfig.colors.primary }} />
+            <span className="font-medium">Jobs</span>
+          </button>
 
+          {/* CRM Navigation - Schedule */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onNavigate('schedule');
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Calendar className="h-6 w-6" style={{ color: '#8B5CF6' }} />
+            <span className="font-medium">Schedule</span>
+          </button>
+
+          {/* CRM Navigation - Crews */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onNavigate('crews');
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Users className="h-6 w-6" style={{ color: '#F59E0B' }} />
+            <span className="font-medium">Crews</span>
+          </button>
+
+          {/* Databases Section - Collapsible */}
+          <div>
+            <button
+              onClick={() => toggleSection('databases')}
+              className="w-full flex items-center justify-between px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+              style={{
+                color: visualConfig.colors.text.primary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="flex items-center gap-4">
+                <Icons.Database className="h-6 w-6" />
+                <span className="font-semibold">Databases</span>
+              </div>
+              <Icons.ChevronDown
+                className={`h-5 w-5 transition-transform duration-300 ${expandedSections.databases ? 'rotate-180' : ''}`}
+                style={{ color: visualConfig.colors.text.secondary }}
+              />
+            </button>
+            {expandedSections.databases && (
+              <div className="mt-1 space-y-2">
                 <button
-                  onClick={() => handleItemClick(item)}
-                  className="w-full flex items-center gap-3 px-4 py-3 transition-all duration-200 hover:bg-opacity-50 active:scale-98"
+                  onClick={() => {
+                    hapticFeedback.selection();
+                    onServicesClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
                   style={{
-                    color: isSignOut ? item.color : visualConfig.colors.text.primary,
-                    backgroundColor: 'transparent'
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = `${visualConfig.colors.primary}10`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                  role="menuitem"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleItemClick(item);
-                    }
-                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                  {/* Icon */}
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{
-                      backgroundColor: `${item.color}20`,
-                    }}
-                  >
-                    <IconComponent
-                      className="h-4 w-4"
-                      style={{ color: item.color }}
-                    />
-                  </div>
-
-                  {/* Label */}
-                  <span className="font-medium text-sm">
-                    {item.label}
-                  </span>
-
-                  {/* Arrow indicator */}
-                  {!isSignOut && (
-                    <Icons.ChevronRight
-                      className="h-4 w-4 ml-auto opacity-40"
-                      style={{ color: visualConfig.colors.text.secondary }}
-                    />
-                  )}
+                  <Icons.Settings className="h-5 w-5" />
+                  <span className="font-medium">Services Configuration</span>
                 </button>
-              </React.Fragment>
-            );
-          })}
+                <button
+                  onClick={() => {
+                    hapticFeedback.selection();
+                    onMaterialsClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.Package className="h-5 w-5" />
+                  <span className="font-medium">Materials Management</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Calculator - Top Level */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onQuickCalculatorClick();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Calculator className="h-6 w-6" />
+            <span className="font-medium">Quick Calculator</span>
+          </button>
+
+          {/* Customers - Top Level */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onNavigate('customers');
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.User className="h-6 w-6" style={{ color: '#10B981' }} />
+            <span className="font-medium">Customers</span>
+          </button>
+
+          {/* Billing - Top Level (Owner Only) */}
+          {user?.is_owner && (
+            <button
+              onClick={() => {
+                hapticFeedback.selection();
+                onNavigate('billing');
+                onClose();
+              }}
+              className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+              style={{
+                color: visualConfig.colors.text.primary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Icons.CreditCard className="h-6 w-6" />
+              <span className="font-medium">Billing & Subscription</span>
+            </button>
+          )}
+
+          {/* Miscellaneous Section - Collapsible */}
+          <div>
+            <button
+              onClick={() => toggleSection('miscellaneous')}
+              className="w-full flex items-center justify-between px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+              style={{
+                color: visualConfig.colors.text.primary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <div className="flex items-center gap-4">
+                <Icons.Settings className="h-6 w-6" />
+                <span className="font-semibold">Miscellaneous</span>
+              </div>
+              <Icons.ChevronDown
+                className={`h-5 w-5 transition-transform duration-300 ${expandedSections.miscellaneous ? 'rotate-180' : ''}`}
+                style={{ color: visualConfig.colors.text.secondary }}
+              />
+            </button>
+            {expandedSections.miscellaneous && (
+              <div className="mt-1 space-y-2">
+                <button
+                  onClick={() => {
+                    hapticFeedback.selection();
+                    onAvatarClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <DynamicIcon name={user?.user_icon || 'User'} className="h-5 w-5" />
+                  <span className="font-medium">Change Profile Icon</span>
+                </button>
+                <button
+                  onClick={() => {
+                    hapticFeedback.selection();
+                    onNotesClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.StickyNote className="h-5 w-5" />
+                  <span className="font-medium">Your Notes from Us</span>
+                </button>
+                <button
+                  onClick={() => {
+                    hapticFeedback.selection();
+                    onFeedbackClick();
+                    onClose();
+                  }}
+                  className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+                  style={{
+                    color: visualConfig.colors.text.primary,
+                    backgroundColor: 'transparent',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Icons.MessageSquareQuote className="h-5 w-5" />
+                  <span className="font-medium">Send Feedback</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </nav>
+
+        {/* Footer Actions - Logout */}
+        <div
+          className="p-4 border-t"
+          style={{ borderColor: visualConfig.colors.text.secondary + '20' }}
+        >
+          <button
+            onClick={() => {
+              hapticFeedback.impact('medium');
+              onSignOut();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 text-red-600 active:scale-95"
+            style={{
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme === 'light' ? '#fee2e2' : 'rgba(239, 68, 68, 0.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.LogOut className="h-6 w-6" />
+            <span className="font-medium">Logout</span>
+          </button>
         </div>
       </div>
     </>

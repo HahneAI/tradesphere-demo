@@ -18,6 +18,12 @@ import { ScheduleTab } from './components/schedule/ScheduleTab';
 import { CrewsTab } from './components/crews/CrewsTab';
 import { CustomersTab } from './components/CustomersTab';
 import { BillingTab } from './components/billing/BillingTab';
+import { ServicesPage } from './components/ServicesPage';
+import { MaterialsPage } from './components/materials/MaterialsPage';
+import QuickCalculatorTab from './pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
+import { AvatarSelectionPopup } from './components/ui/AvatarSelectionPopup';
+import { NotesPopup } from './components/ui/NotesPopup';
+import { FeedbackPopup } from './components/ui/FeedbackPopup';
 
 // 🎯 DEBUG: Using centralized environment manager for debug logging
 console.log('ENV TEST:', import.meta.env.VITE_TEST_VAR);
@@ -39,6 +45,14 @@ function App() {
   const [isExitingLoading, setIsExitingLoading] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+
+  // Modal states for additional features
+  const [showServicesPage, setShowServicesPage] = useState(false);
+  const [showMaterialsPage, setShowMaterialsPage] = useState(false);
+  const [showQuickCalculator, setShowQuickCalculator] = useState(false);
+  const [showAvatarPopup, setShowAvatarPopup] = useState(false);
+  const [showNotesPopup, setShowNotesPopup] = useState(false);
+  const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
 
   // CRITICAL: Preload ALL service configurations on authentication
   // This ensures default values (like excavation depth) are available BEFORE components mount
@@ -190,6 +204,12 @@ function App() {
               {activeTab === 'dashboard' && (
                 <DashboardHome
                   onNavigate={(tab) => setActiveTab(tab as ActiveTab)}
+                  onServicesClick={() => setShowServicesPage(true)}
+                  onMaterialsClick={() => setShowMaterialsPage(true)}
+                  onQuickCalculatorClick={() => setShowQuickCalculator(true)}
+                  onAvatarClick={() => setShowAvatarPopup(true)}
+                  onNotesClick={() => setShowNotesPopup(true)}
+                  onFeedbackClick={() => setShowFeedbackPopup(true)}
                 />
               )}
 
@@ -213,6 +233,36 @@ function App() {
               <BillingTab
                 isOpen={activeTab === 'billing'}
                 onBackClick={() => setActiveTab('dashboard')}
+              />
+
+              {/* Additional Feature Modals */}
+              {showServicesPage && (
+                <ServicesPage onBackClick={() => setShowServicesPage(false)} />
+              )}
+              {showMaterialsPage && (
+                <MaterialsPage onBackClick={() => setShowMaterialsPage(false)} />
+              )}
+              <QuickCalculatorTab
+                isOpen={showQuickCalculator}
+                onClose={() => setShowQuickCalculator(false)}
+              />
+              <AvatarSelectionPopup
+                isOpen={showAvatarPopup}
+                onClose={() => setShowAvatarPopup(false)}
+              />
+              <NotesPopup
+                isOpen={showNotesPopup}
+                onClose={() => setShowNotesPopup(false)}
+                isAdmin={user?.is_admin || false}
+              />
+              <FeedbackPopup
+                isOpen={showFeedbackPopup}
+                onClose={() => setShowFeedbackPopup(false)}
+                onSubmit={async (feedback) => {
+                  // Handle feedback submission
+                  console.log('Feedback submitted:', feedback);
+                  setShowFeedbackPopup(false);
+                }}
               />
             </div>
           );

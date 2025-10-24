@@ -32,13 +32,27 @@ import { HeaderMenu } from './HeaderMenu';
 
 interface DashboardHomeProps {
   onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
+  onServicesClick: () => void;
+  onMaterialsClick: () => void;
+  onQuickCalculatorClick: () => void;
+  onAvatarClick: () => void;
+  onNotesClick: () => void;
+  onFeedbackClick: () => void;
 }
 
 /**
  * Main Dashboard Home component
  * Primary screen for CRM system
  */
-export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
+export const DashboardHome: React.FC<DashboardHomeProps> = ({
+  onNavigate,
+  onServicesClick,
+  onMaterialsClick,
+  onQuickCalculatorClick,
+  onAvatarClick,
+  onNotesClick,
+  onFeedbackClick
+}) => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -217,9 +231,16 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
           onNavigate(tab);
           handleMenuClose();
         }}
+        onServicesClick={onServicesClick}
+        onMaterialsClick={onMaterialsClick}
+        onQuickCalculatorClick={onQuickCalculatorClick}
+        onAvatarClick={onAvatarClick}
+        onNotesClick={onNotesClick}
+        onFeedbackClick={onFeedbackClick}
         onSignOut={handleSignOut}
         visualConfig={visualConfig}
         theme={theme}
+        user={user}
       />
 
       {/* Header */}
