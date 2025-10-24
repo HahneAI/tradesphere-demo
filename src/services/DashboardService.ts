@@ -102,6 +102,11 @@ export class DashboardService {
         .eq('company_id', companyId);
 
       if (error) {
+        // Handle missing table gracefully (code 42P01 = undefined_table)
+        if (error.code === '42P01') {
+          console.warn('[DashboardService] Jobs table does not exist yet - returning empty data');
+          return this.getEmptyJobMetrics();
+        }
         console.error('[DashboardService] Error fetching jobs:', error);
         throw error;
       }
@@ -188,13 +193,19 @@ export class DashboardService {
       const currentStart = dateRange?.start || thirtyDaysAgo.toISOString();
       const currentEnd = dateRange?.end || now.toISOString();
 
-      const { data: current } = await this.supabase
+      const { data: current, error: currentError } = await this.supabase
         .from('jobs')
         .select('estimated_total, actual_total, status')
         .eq('company_id', companyId)
         .gte('created_at', currentStart)
         .lte('created_at', currentEnd)
         .in('status', ['completed', 'invoiced']);
+
+      // Handle missing table gracefully
+      if (currentError?.code === '42P01') {
+        console.warn('[DashboardService] Jobs table does not exist yet - returning empty revenue metrics');
+        return this.success(this.getEmptyRevenueMetrics());
+      }
 
       // Previous period (for comparison)
       const { data: previous } = await this.supabase
@@ -265,10 +276,16 @@ export class DashboardService {
   ): Promise<ServiceResponse<CrewUtilization>> {
     try {
       // Get all crews
-      const { data: crews, count: totalCrews } = await this.supabase
+      const { data: crews, count: totalCrews, error: crewsError } = await this.supabase
         .from('crews')
         .select('*', { count: 'exact' })
         .eq('company_id', companyId);
+
+      // Handle missing table gracefully
+      if (crewsError?.code === '42P01') {
+        console.warn('[DashboardService] Crews table does not exist yet - returning empty utilization metrics');
+        return this.success(this.getEmptyCrewUtilization());
+      }
 
       const activeCrews = crews?.filter(c => c.is_active).length || 0;
 
@@ -471,6 +488,63 @@ export class DashboardService {
       return false;
     }
     return new Date(job.scheduled_end_date) < new Date();
+  }
+
+  /**
+   * Return empty job metrics for dev mode / missing tables
+   */
+  private getEmptyJobMetrics(): ServiceResponse<JobMetricsByStatus[]> {
+    const allStatuses: JobStatus[] = [
+      'quote', 'approved', 'scheduled', 'in_progress',
+      'completed', 'invoiced', 'cancelled'
+    ];
+
+    const emptyMetrics = allStatuses.map(status => ({
+      status,
+      job_count: 0,
+      total_estimated: 0,
+      total_actual: 0,
+      avg_estimated: 0,
+      avg_actual: 0,
+      unique_customers: 0,
+      high_priority_count: 0,
+      overdue_count: 0
+    }));
+
+    return this.success(emptyMetrics);
+  }
+
+  /**
+   * Return empty revenue metrics for dev mode / missing tables
+   */
+  private getEmptyRevenueMetrics(): RevenueMetrics {
+    return {
+      current_period_revenue: 0,
+      current_period_jobs: 0,
+      previous_period_revenue: 0,
+      previous_period_jobs: 0,
+      revenue_growth_percentage: 0,
+      quoted_value: 0,
+      approved_value: 0,
+      outstanding_invoices: 0,
+      average_job_value: 0,
+      average_days_to_close: 0
+    };
+  }
+
+  /**
+   * Return empty crew utilization for dev mode / missing tables
+   */
+  private getEmptyCrewUtilization(): CrewUtilization {
+    return {
+      total_crews: 0,
+      active_crews: 0,
+      avg_completion_percentage: 0,
+      total_hours_worked: 0,
+      assignments_in_progress: 0,
+      crews_at_capacity: 0,
+      crews_available: 0
+    };
   }
 
   /**
