@@ -35,6 +35,7 @@ import { JobsKanbanView } from './views/JobsKanbanView';
 import { JobsTableView } from './views/JobsTableView';
 import { JobsCalendarView } from './views/JobsCalendarView';
 import { EmptyState } from './shared/EmptyState';
+import { JobCreationWizard } from './JobCreationWizard';
 
 interface JobsPageProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const JobsPage: React.FC<JobsPageProps> = ({ isOpen, onClose }) => {
   // View state
   const [viewMode, setViewMode] = useState<JobsViewMode>('kanban');
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   // Data state
   const [jobs, setJobs] = useState<JobListItem[]>([]);
@@ -160,9 +162,17 @@ export const JobsPage: React.FC<JobsPageProps> = ({ isOpen, onClose }) => {
    */
   const handleCreateJob = useCallback(() => {
     hapticFeedback.impact('medium');
-    // TODO: Open job creation wizard
-    console.log('[JobsPage] Create job clicked - wizard not implemented yet');
+    setShowWizard(true);
   }, []);
+
+  /**
+   * Handle wizard close
+   */
+  const handleWizardClose = useCallback(() => {
+    setShowWizard(false);
+    // Refresh jobs list after wizard closes (in case job was created)
+    fetchJobs();
+  }, [fetchJobs]);
 
   /**
    * Handle refresh
@@ -490,6 +500,14 @@ export const JobsPage: React.FC<JobsPageProps> = ({ isOpen, onClose }) => {
           </>
         )}
       </div>
+
+      {/* Job Creation Wizard */}
+      <JobCreationWizard
+        isOpen={showWizard}
+        onClose={handleWizardClose}
+        companyId={user?.company_id || ''}
+        userId={user?.id || ''}
+      />
     </div>
   );
 };

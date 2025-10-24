@@ -12,7 +12,7 @@ import * as Icons from 'lucide-react';
 import { hapticFeedback } from '../../utils/mobile-gestures';
 
 interface QuickActionsPanelProps {
-  onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
+  onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing', actionId?: string) => void;
   visualConfig: any;
   theme: any;
 }
@@ -78,7 +78,7 @@ export const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
    */
   const handleActionClick = useCallback((action: QuickAction) => {
     hapticFeedback.impact('medium');
-    onNavigate(action.tab);
+    onNavigate(action.tab, action.id);
   }, [onNavigate]);
 
   return (
