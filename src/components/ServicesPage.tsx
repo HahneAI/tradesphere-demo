@@ -9,10 +9,11 @@ import { ServiceCard } from './services/ServiceCard';
 import { serviceConfigManager } from '../services/ServiceConfigManager';
 
 interface ServicesPageProps {
+  isOpen: boolean;
   onBackClick: () => void;
 }
 
-export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
+export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -63,15 +64,18 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
     setTempValue('');
   };
 
-  const filteredServices = services.filter(service => 
+  const filteredServices = services.filter(service =>
     service.service.toLowerCase().includes(filter.toLowerCase()) ||
     service.category.toLowerCase().includes(filter.toLowerCase())
   );
 
+  // Don't render if not open
+  if (!isOpen) return null;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2" 
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2"
              style={{ borderColor: visualConfig.colors.primary }}></div>
         <span className="ml-3" style={{ color: visualConfig.colors.text.primary }}>
           Loading services...
@@ -212,7 +216,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ onBackClick }) => {
   };
 
   return (
-    <div className="h-full flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
       {/* Header */}
       <div className="flex flex-col gap-3 p-4 md:p-6 border-b"
            style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>

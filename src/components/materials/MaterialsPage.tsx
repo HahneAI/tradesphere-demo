@@ -21,10 +21,11 @@ import { CategoryMaterialsModal } from './CategoryMaterialsModal';
 import { CategoryCard } from './CategoryCard';
 
 interface MaterialsPageProps {
+  isOpen: boolean;
   onBackClick: () => void;
 }
 
-export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => {
+export const MaterialsPage: React.FC<MaterialsPageProps> = ({ isOpen, onBackClick }) => {
   const { user, canEditMaterials } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -160,6 +161,9 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
     category.category_key.toLowerCase().includes(filter.toLowerCase())
   );
 
+  // Don't render if not open
+  if (!isOpen) return null;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -187,7 +191,7 @@ export const MaterialsPage: React.FC<MaterialsPageProps> = ({ onBackClick }) => 
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
       {/* Header */}
       <div className="flex flex-col gap-3 p-4 md:p-6 border-b"
            style={{ borderColor: theme === 'light' ? '#e5e7eb' : '#374151' }}>

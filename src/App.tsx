@@ -245,12 +245,14 @@ function App() {
               />
 
               {/* Additional Feature Modals */}
-              {showServicesPage && (
-                <ServicesPage onBackClick={() => setShowServicesPage(false)} />
-              )}
-              {showMaterialsPage && (
-                <MaterialsPage onBackClick={() => setShowMaterialsPage(false)} />
-              )}
+              <ServicesPage
+                isOpen={showServicesPage}
+                onBackClick={() => setShowServicesPage(false)}
+              />
+              <MaterialsPage
+                isOpen={showMaterialsPage}
+                onBackClick={() => setShowMaterialsPage(false)}
+              />
               <QuickCalculatorTab
                 isOpen={showQuickCalculator}
                 onClose={() => setShowQuickCalculator(false)}
