@@ -38,13 +38,17 @@ import { useTheme } from '../../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../../config/industry';
 
 interface BillingTabProps {
+  isOpen: boolean;
   onBackClick: () => void;
 }
 
-export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
+export const BillingTab: React.FC<BillingTabProps> = ({ isOpen, onBackClick }) => {
   const { user, isOwner } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
+
+  // Don't render if not open
+  if (!isOpen) return null;
 
   // Data state
   const [billing, setBilling] = useState<CompanyBilling | null>(null);
@@ -223,7 +227,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
   // Main render
   return (
     <div
-      className="h-full flex flex-col animate-fade-smooth"
+      className="fixed inset-0 z-50 flex flex-col animate-fade-smooth"
       style={{ backgroundColor: visualConfig.colors.background }}
     >
       {/* Scrollable content area */}
@@ -240,7 +244,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({ onBackClick }) => {
               }}
             >
               <Icons.ArrowLeft className="h-5 w-5" />
-              <span>Back to Chat</span>
+              <span>Back to Home</span>
             </button>
 
             <div className="relative inline-block mb-2">

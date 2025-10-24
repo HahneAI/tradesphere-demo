@@ -18,6 +18,7 @@ import { ScheduleTab } from './components/schedule/ScheduleTab';
 import { CrewsTab } from './components/crews/CrewsTab';
 import { CustomersTab } from './components/CustomersTab';
 import { BillingTab } from './components/billing/BillingTab';
+import { CompanySettingsTab } from './components/company-settings/CompanySettingsTab';
 import { ServicesPage } from './components/ServicesPage';
 import { MaterialsPage } from './components/materials/MaterialsPage';
 import QuickCalculatorTab from './pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
@@ -34,7 +35,7 @@ console.log('🟢 APP.TSX - Component mounting (Supabase Auth)...');
 
 type AppState = 'loading' | 'login' | 'onboarding_landing' | 'onboarding_wizard' | 'authenticated';
 type AnimationState = 'in' | 'out';
-type ActiveTab = 'dashboard' | 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing';
+type ActiveTab = 'dashboard' | 'chat' | 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing';
 
 function App() {
   const { user, loading: authLoading } = useAuth();
@@ -50,6 +51,7 @@ function App() {
   const [showServicesPage, setShowServicesPage] = useState(false);
   const [showMaterialsPage, setShowMaterialsPage] = useState(false);
   const [showQuickCalculator, setShowQuickCalculator] = useState(false);
+  const [showCompanySettings, setShowCompanySettings] = useState(false);
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [showFeedbackPopup, setShowFeedbackPopup] = useState(false);
@@ -204,6 +206,8 @@ function App() {
               {activeTab === 'dashboard' && (
                 <DashboardHome
                   onNavigate={(tab) => setActiveTab(tab as ActiveTab)}
+                  onChatClick={() => setActiveTab('chat')}
+                  onCompanySettingsClick={() => setShowCompanySettings(true)}
                   onServicesClick={() => setShowServicesPage(true)}
                   onMaterialsClick={() => setShowMaterialsPage(true)}
                   onQuickCalculatorClick={() => setShowQuickCalculator(true)}
@@ -211,6 +215,11 @@ function App() {
                   onNotesClick={() => setShowNotesPopup(true)}
                   onFeedbackClick={() => setShowFeedbackPopup(true)}
                 />
+              )}
+
+              {/* Chat Interface - Full Screen Tab */}
+              {activeTab === 'chat' && (
+                <ChatInterface onBackToDashboard={() => setActiveTab('dashboard')} />
               )}
 
               {/* Tab Modals */}
@@ -264,6 +273,14 @@ function App() {
                   setShowFeedbackPopup(false);
                 }}
               />
+
+              {/* Company Settings (Owner Only) */}
+              {user?.is_owner && (
+                <CompanySettingsTab
+                  isOpen={showCompanySettings}
+                  onClose={() => setShowCompanySettings(false)}
+                />
+              )}
             </div>
           );
         }

@@ -243,7 +243,11 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, waitingFor, visualConfig, the
   );
 };
 
-const ChatInterface = () => {
+interface ChatInterfaceProps {
+  onBackToDashboard?: () => void;
+}
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut, isAdmin } = useAuth();
   const visualConfig = getSmartVisualThemeConfig(theme);
@@ -1784,6 +1788,23 @@ const ChatInterface = () => {
                   )}
                 </div>
               </div>
+
+              {/* Back to Dashboard button - only show when callback provided */}
+              {onBackToDashboard && (
+                <button
+                  onClick={onBackToDashboard}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
+                  style={{
+                    backgroundColor: visualConfig.colors.surface,
+                    color: visualConfig.colors.primary,
+                    border: `1px solid ${visualConfig.colors.primary}30`
+                  }}
+                  aria-label="Back to Dashboard"
+                >
+                  <Icons.LayoutDashboard className="h-4 w-4" />
+                  <span className="hidden md:inline text-sm font-medium">Back to Dashboard</span>
+                </button>
+              )}
             </div>
 
             {/* 🏢 PHASE 3: Center - Customer Details Button */}

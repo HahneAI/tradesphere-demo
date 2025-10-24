@@ -1,6 +1,8 @@
-# Priority Agents Reference
+# Priority Agents Reference (Enhanced with Skills)
 
-This document provides quick access to the most frequently used agents for your development workflows. Each agent is listed with its purpose, key capabilities, and direct file path.
+This document provides quick access to the most frequently used agents for your development workflows. Each agent is listed with its purpose, key capabilities, **available skills**, and direct file path.
+
+**New:** Each agent now shows which skills automatically activate when you use them!
 
 ---
 
@@ -20,6 +22,12 @@ Expert backend architect specializing in scalable API design, microservices arch
 - **Security**: OAuth 2.0, JWT, RBAC, ABAC, rate limiting, input validation
 - **Resilience**: Circuit breaker, retry patterns, timeout management, graceful degradation
 - **Observability**: Structured logging, metrics, distributed tracing, APM integration
+
+### 🎯 Available Skills (Auto-Activate)
+- **api-design-principles** - REST/GraphQL best practices, API design checklist
+- **architecture-patterns** - Clean Architecture, Hexagonal Architecture, DDD
+- **microservices-patterns** - Service boundaries, event-driven communication, resilience
+- **fastapi-templates** - Production-ready FastAPI patterns (when using Python)
 
 ### When to Use
 - Designing new backend services or APIs from scratch
@@ -46,6 +54,11 @@ Expert security auditor specializing in DevSecOps, comprehensive cybersecurity, 
 - **Testing**: Static analysis (SonarQube, CodeQL), dynamic analysis (OWASP ZAP, Burp Suite)
 - **Cloud Security**: AWS Security Hub, Azure Security Center, GCP Security Command Center
 - **Compliance**: GDPR, HIPAA, PCI-DSS, SOC 2, ISO 27001, NIST Cybersecurity Framework
+
+### 🎯 Available Skills (Auto-Activate)
+- **sast-configuration** - Configure SAST tools for vulnerability detection
+- **k8s-security-policies** - Kubernetes NetworkPolicy, PodSecurityPolicy, RBAC
+- **solidity-security** - Smart contract security (when working with blockchain)
 
 ### When to Use
 - Conducting comprehensive security audits
@@ -74,6 +87,11 @@ Expert database optimizer specializing in modern performance tuning, query optim
 - **Caching**: Multi-tier caching (L1/L2/L3), Redis Cluster, cache invalidation strategies
 - **Scaling**: Horizontal partitioning, sharding, read replicas, write optimization
 
+### 🎯 Available Skills (Auto-Activate)
+- **cost-optimization** - Cloud cost optimization, rightsizing, reserved instances
+- **database-migration** - Zero-downtime migration strategies
+- **prometheus-configuration** - Setup Prometheus for database monitoring
+
 ### When to Use
 - Optimizing slow queries and database performance
 - Designing indexing strategies for high-traffic applications
@@ -100,6 +118,12 @@ Master AI-powered test automation with modern frameworks, self-healing tests, an
 - **CI/CD Integration**: Parallel execution, dynamic test selection, containerized environments
 - **Performance Testing**: Load testing, stress testing, API performance, SLA validation
 - **Quality Engineering**: Test pyramid, risk-based testing, shift-left practices
+
+### 🎯 Available Skills (Auto-Activate)
+- **python-testing-patterns** - Pytest patterns, fixtures, mocking, parametrization
+- **javascript-testing-patterns** - Jest/Vitest patterns, Testing Library, mocks
+- **web3-testing** - Smart contract testing with Hardhat/Foundry (blockchain projects)
+- **bats-testing-patterns** - Bash testing patterns (for shell scripts)
 
 ### When to Use
 - Generating comprehensive test suites for new features
@@ -128,6 +152,12 @@ Build React components, implement responsive layouts, and handle client-side sta
 - **Performance**: Core Web Vitals, code splitting, image optimization, lazy loading
 - **Testing**: React Testing Library, Jest, Playwright, Storybook, visual regression
 
+### 🎯 Available Skills (Auto-Activate)
+- **react-modernization** - Upgrade React apps, migrate to hooks, concurrent features
+- **modern-javascript-patterns** - ES6+ features, async/await, functional programming
+- **typescript-advanced-types** - Advanced TypeScript patterns and generics
+- **nodejs-backend-patterns** - Node.js backend patterns (for full-stack work)
+
 ### When to Use
 - Building React components and user interfaces
 - Implementing TypeScript-based frontend applications
@@ -154,6 +184,10 @@ Create interface designs, wireframes, and design systems. Masters user research,
 - **Accessibility**: WCAG 2.1/2.2 compliance, inclusive design, screen reader optimization
 - **Information Architecture**: Site mapping, navigation hierarchy, content strategy
 - **Visual Design**: Typography systems, color theory, layout principles, iconography
+
+### 🎯 Available Skills (Auto-Activate)
+- **react-modernization** - Modern React component patterns for design systems
+- **modern-javascript-patterns** - JavaScript patterns for interactive prototypes
 
 ### When to Use
 - Designing user interfaces and experiences
@@ -182,6 +216,12 @@ Integrate Stripe, PayPal, and payment processors. Handles checkout flows, subscr
 - **Security**: PCI compliance, tokenization, secure data handling
 - **Error Handling**: Failed payments, disputes, refunds, retry strategies
 
+### 🎯 Available Skills (Auto-Activate)
+- **stripe-integration** - Stripe checkout, subscriptions, webhooks, payment intents
+- **paypal-integration** - PayPal express checkout, subscriptions, dispute handling
+- **pci-compliance** - PCI DSS compliance for secure payment handling
+- **billing-automation** - Automated billing systems, recurring payments, invoicing
+
 ### When to Use
 - Integrating payment gateways (Stripe, PayPal, Square)
 - Building checkout and payment flows
@@ -208,6 +248,11 @@ Master TypeScript with advanced types, generics, and strict type safety. Handles
 - **Decorators**: Metadata programming, class decorators, method decorators
 - **Module Systems**: ES modules, namespace organization, declaration files
 - **Framework Integration**: React, Node.js, Express type-safe patterns
+
+### 🎯 Available Skills (Auto-Activate)
+- **typescript-advanced-types** - Generics, conditional types, mapped types, utility types
+- **modern-javascript-patterns** - ES6+ patterns that complement TypeScript
+- **nodejs-backend-patterns** - Type-safe Node.js backend patterns
 
 ### When to Use
 - Writing type-safe TypeScript code
@@ -236,6 +281,10 @@ Master TDD orchestrator specializing in red-green-refactor discipline, multi-age
 - **Test Architecture**: Test pyramid optimization, test categorization, isolation verification
 - **Metrics**: Cycle time tracking, coverage analysis, quality assessment through mutation testing
 
+### 🎯 Available Skills (Auto-Activate)
+- **python-testing-patterns** - Python TDD patterns, pytest, fixtures
+- **javascript-testing-patterns** - JavaScript TDD patterns, Jest, mocking
+
 ### When to Use
 - Implementing test-driven development workflows
 - Coordinating multiple testing agents
@@ -262,6 +311,11 @@ Elite code review expert specializing in modern AI-powered code analysis, securi
 - **Performance Analysis**: Database query optimization, N+1 detection, memory leak analysis
 - **Configuration Review**: Production configs, database settings, infrastructure as code
 - **Modern Practices**: TDD compliance, BDD scenarios, contract testing, feature flags
+
+### 🎯 Available Skills (Auto-Activate)
+- **sast-configuration** - Static analysis tool configuration
+- **api-design-principles** - API design best practices review
+- **architecture-patterns** - Architectural pattern compliance
 
 ### When to Use
 - Conducting comprehensive code reviews
@@ -290,6 +344,9 @@ Debugging specialist for errors, test failures, and unexpected behavior. Focuses
 - **Verification**: Solution testing, regression prevention
 - **Documentation**: Root cause explanation, prevention recommendations
 
+### 🎯 Available Skills (Auto-Activate)
+- **distributed-tracing** - Distributed system debugging with Jaeger/Tempo
+
 ### When to Use
 - Debugging errors and test failures
 - Analyzing stack traces and error messages
@@ -315,6 +372,10 @@ Search logs and codebases for error patterns, stack traces, and anomalies. Corre
 - **Anomaly Detection**: Error rate changes, spike detection, baseline comparison
 - **Query Building**: Elasticsearch, Splunk, log aggregation queries
 - **Monitoring**: Prevention strategies, recurrence detection queries
+
+### 🎯 Available Skills (Auto-Activate)
+- **distributed-tracing** - Trace requests across distributed systems
+- **grafana-dashboards** - Create dashboards for error monitoring
 
 ### When to Use
 - Investigating production errors and failures
@@ -343,6 +404,12 @@ Expert prompt engineer specializing in advanced prompting techniques, LLM optimi
 - **Agent Prompting**: Multi-agent systems, role definition, tool selection, collaboration protocols
 - **Evaluation**: Performance metrics, testing methodologies, safety assessment
 
+### 🎯 Available Skills (Auto-Activate)
+- **langchain-architecture** - LangChain agents, memory, tool integration
+- **prompt-engineering-patterns** - Advanced prompting techniques, few-shot learning
+- **rag-implementation** - RAG systems with vector databases, semantic search
+- **llm-evaluation** - Comprehensive LLM evaluation strategies
+
 ### When to Use
 - Building AI features and LLM integrations
 - Optimizing prompts for Claude or GPT APIs
@@ -369,6 +436,11 @@ Expert mobile developer specializing in cross-platform development, PWA optimiza
 - **Responsive Design**: Mobile-first layouts, touch targets, viewport optimization, gesture handling
 - **Performance**: Startup time optimization, lazy loading, image optimization, code splitting
 - **Testing**: Mobile device testing, responsive testing, performance profiling on mobile
+
+### 🎯 Available Skills (Auto-Activate)
+- **react-modernization** - Modern React patterns for mobile development
+- **typescript-advanced-types** - Type-safe mobile development
+- **modern-javascript-patterns** - JavaScript patterns for mobile apps
 
 ### When to Use
 - Optimizing Tradesphere web app for mobile browsers
@@ -402,22 +474,54 @@ Expert mobile developer specializing in cross-platform development, PWA optimiza
 
 ## Quick Reference Table
 
-| Agent | Model | Primary Use Case | Key Strength |
-|-------|-------|------------------|--------------|
-| **backend-architect** | Opus | API Design | Scalable microservices architecture |
-| **security-auditor** | Opus | Security Reviews | OWASP compliance & DevSecOps |
-| **database-optimizer** | Opus | Query Performance | Advanced indexing & caching |
-| **test-automator** | Sonnet | Test Generation | AI-powered TDD automation |
-| **frontend-developer** | Sonnet | React Components | Next.js 15 & React 19 expertise |
-| **ui-ux-designer** | Sonnet | Interface Design | Accessibility-first design systems |
-| **payment-integration** | Sonnet | Payment Processing | Stripe/PayPal integration |
-| **typescript-pro** | Sonnet | Type Safety | Advanced TypeScript patterns |
-| **tdd-orchestrator** | Opus | TDD Workflows | Red-green-refactor discipline |
-| **code-reviewer** | Opus | Code Quality | Security & performance analysis |
-| **debugger** | Sonnet | Error Resolution | Root cause analysis |
-| **error-detective** | Sonnet | Log Analysis | Pattern recognition & correlation |
-| **prompt-engineer** | Opus | AI Integration | Chain-of-thought & constitutional AI |
-| **mobile-developer** | Sonnet | PWA & Mobile | Mobile-first optimization & native prep |
+| Agent | Model | Primary Use Case | Key Strength | Skills Available |
+|-------|-------|------------------|--------------|------------------|
+| **backend-architect** | Opus | API Design | Scalable microservices architecture | 4 skills |
+| **security-auditor** | Opus | Security Reviews | OWASP compliance & DevSecOps | 3 skills |
+| **database-optimizer** | Opus | Query Performance | Advanced indexing & caching | 3 skills |
+| **test-automator** | Sonnet | Test Generation | AI-powered TDD automation | 4 skills |
+| **frontend-developer** | Sonnet | React Components | Next.js 15 & React 19 expertise | 4 skills |
+| **ui-ux-designer** | Sonnet | Interface Design | Accessibility-first design systems | 2 skills |
+| **payment-integration** | Sonnet | Payment Processing | Stripe/PayPal integration | 4 skills |
+| **typescript-pro** | Sonnet | Type Safety | Advanced TypeScript patterns | 3 skills |
+| **tdd-orchestrator** | Opus | TDD Workflows | Red-green-refactor discipline | 2 skills |
+| **code-reviewer** | Opus | Code Quality | Security & performance analysis | 3 skills |
+| **debugger** | Sonnet | Error Resolution | Root cause analysis | 1 skill |
+| **error-detective** | Sonnet | Log Analysis | Pattern recognition & correlation | 2 skills |
+| **prompt-engineer** | Opus | AI Integration | Chain-of-thought & constitutional AI | 4 skills |
+| **mobile-developer** | Sonnet | PWA & Mobile | Mobile-first optimization & native prep | 3 skills |
+
+**Total: 14 agents with 43 auto-activating skills**
+
+---
+
+## How Skills Work
+
+### Automatic Activation
+Skills activate automatically when you use an agent and mention relevant keywords:
+
+```
+You: "Use backend-architect to design a FastAPI REST API"
+→ Activates: api-design-principles, architecture-patterns, fastapi-templates skills
+
+You: "Use payment-integration to implement Stripe checkout"
+→ Activates: stripe-integration, pci-compliance, billing-automation skills
+
+You: "Use test-automator to generate pytest tests"
+→ Activates: python-testing-patterns skill
+```
+
+### Progressive Disclosure
+Skills load knowledge on-demand for token efficiency:
+1. **Metadata** (always loaded): Name and activation criteria
+2. **Instructions** (loaded when activated): Core patterns and guidance
+3. **Resources** (loaded on request): Examples, templates, code snippets
+
+### Verification
+To confirm skills are active, ask:
+```
+"What skills are you using for this task?"
+```
 
 ---
 
@@ -427,13 +531,15 @@ Expert mobile developer specializing in cross-platform development, PWA optimiza
 2. **Combine Agents**: Multiple agents can work together (e.g., backend-architect + security-auditor)
 3. **Respect Agent Boundaries**: Each agent defers to others for specialized work
 4. **Model Selection**: Opus for complex architecture/strategy, Sonnet for implementation
-5. **File Paths**: All agents live in `agents/` directory with `.md` extension
+5. **Mention Technologies**: Explicitly mention FastAPI, Stripe, React, etc. to activate relevant skills
+6. **File Paths**: All agents live in `agents/` directory with `.md` extension
 
 ---
 
 ## See Also
 
+- [WEBSITE-PRIORITY-AGENTS.md](WEBSITE-PRIORITY-AGENTS.md) - Website-specific agents (18 agents)
+- [docs/agent-skills.md](docs/agent-skills.md) - Complete skills documentation (47 skills)
+- [docs/plugins.md](docs/plugins.md) - All 63 plugins
 - [CLAUDE.md](CLAUDE.md) - Safety guide and configuration instructions
 - [agents/README.md](agents/README.md) - Complete agent documentation
-- [tools/](tools/) - Reusable tool definitions
-- [workflows/](workflows/) - Multi-step workflow orchestrations

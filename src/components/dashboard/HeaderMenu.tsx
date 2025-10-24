@@ -1,8 +1,11 @@
 /**
  * Header Menu Component
  *
- * Comprehensive navigation menu matching original MobileHamburgerMenu
- * Includes CRM navigation, databases, calculator, and miscellaneous features
+ * Comprehensive navigation menu with reorganized structure
+ * - Colored icon tabs at top (Chat, Jobs, Schedule, Crews, Customers)
+ * - Quick Calculator
+ * - Databases section (bottom, collapsible)
+ * - Miscellaneous section (bottom, collapsible, includes Company Settings)
  *
  * @module HeaderMenu
  */
@@ -22,10 +25,13 @@ interface HeaderMenuProps {
   onClose: () => void;
   // CRM Navigation
   onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
+  // Chat Interface
+  onChatClick: () => void;
   // Additional Features
   onServicesClick: () => void;
   onMaterialsClick: () => void;
   onQuickCalculatorClick: () => void;
+  onCompanySettingsClick: () => void;
   onAvatarClick: () => void;
   onNotesClick: () => void;
   onFeedbackClick: () => void;
@@ -38,15 +44,17 @@ interface HeaderMenuProps {
 
 /**
  * Header Menu
- * Comprehensive navigation with collapsible sections
+ * Reorganized navigation with colored tabs at top
  */
 export const HeaderMenu: React.FC<HeaderMenuProps> = ({
   isOpen,
   onClose,
   onNavigate,
+  onChatClick,
   onServicesClick,
   onMaterialsClick,
   onQuickCalculatorClick,
+  onCompanySettingsClick,
   onAvatarClick,
   onNotesClick,
   onFeedbackClick,
@@ -85,7 +93,6 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
       }
     };
 
-    // Add slight delay to prevent immediate close from hamburger button click
     setTimeout(() => {
       document.addEventListener('mousedown', handleClickOutside);
     }, 100);
@@ -171,7 +178,30 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
 
         {/* Navigation Items */}
         <nav className="flex-1 overflow-y-auto p-4 space-y-3">
-          {/* CRM Navigation - Jobs */}
+          {/* ========================================
+              COLORED ICON SECTION (TOP)
+          ======================================== */}
+
+          {/* Chat Interface - Red Bot Icon */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onChatClick();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Bot className="h-6 w-6" style={{ color: '#EF4444' }} />
+            <span className="font-medium">Chat Interface</span>
+          </button>
+
+          {/* Jobs - Blue/Primary */}
           <button
             onClick={() => {
               hapticFeedback.selection();
@@ -190,7 +220,7 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
             <span className="font-medium">Jobs</span>
           </button>
 
-          {/* CRM Navigation - Schedule */}
+          {/* Schedule - Purple */}
           <button
             onClick={() => {
               hapticFeedback.selection();
@@ -209,7 +239,7 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
             <span className="font-medium">Schedule</span>
           </button>
 
-          {/* CRM Navigation - Crews */}
+          {/* Crews - Orange */}
           <button
             onClick={() => {
               hapticFeedback.selection();
@@ -228,7 +258,54 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
             <span className="font-medium">Crews</span>
           </button>
 
-          {/* Databases Section - Collapsible */}
+          {/* Customers - Green */}
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onNavigate('customers');
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.User className="h-6 w-6" style={{ color: '#10B981' }} />
+            <span className="font-medium">Customers</span>
+          </button>
+
+          {/* ========================================
+              QUICK CALCULATOR
+          ======================================== */}
+
+          <button
+            onClick={() => {
+              hapticFeedback.selection();
+              onQuickCalculatorClick();
+              onClose();
+            }}
+            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+            style={{
+              color: visualConfig.colors.text.primary,
+              backgroundColor: 'transparent',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            <Icons.Calculator className="h-6 w-6" />
+            <span className="font-medium">Quick Calculator</span>
+          </button>
+
+          {/* Spacer to push bottom sections down */}
+          <div className="flex-1 min-h-[20px]" />
+
+          {/* ========================================
+              DATABASES SECTION (BOTTOM, COLLAPSIBLE)
+          ======================================== */}
+
           <div>
             <button
               onClick={() => toggleSection('databases')}
@@ -289,66 +366,10 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
             )}
           </div>
 
-          {/* Quick Calculator - Top Level */}
-          <button
-            onClick={() => {
-              hapticFeedback.selection();
-              onQuickCalculatorClick();
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.Calculator className="h-6 w-6" />
-            <span className="font-medium">Quick Calculator</span>
-          </button>
+          {/* ========================================
+              MISCELLANEOUS SECTION (BOTTOM, COLLAPSIBLE)
+          ======================================== */}
 
-          {/* Customers - Top Level */}
-          <button
-            onClick={() => {
-              hapticFeedback.selection();
-              onNavigate('customers');
-              onClose();
-            }}
-            className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
-            style={{
-              color: visualConfig.colors.text.primary,
-              backgroundColor: 'transparent',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <Icons.User className="h-6 w-6" style={{ color: '#10B981' }} />
-            <span className="font-medium">Customers</span>
-          </button>
-
-          {/* Billing - Top Level (Owner Only) */}
-          {user?.is_owner && (
-            <button
-              onClick={() => {
-                hapticFeedback.selection();
-                onNavigate('billing');
-                onClose();
-              }}
-              className="w-full flex items-center gap-4 px-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
-              style={{
-                color: visualConfig.colors.text.primary,
-                backgroundColor: 'transparent',
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <Icons.CreditCard className="h-6 w-6" />
-              <span className="font-medium">Billing & Subscription</span>
-            </button>
-          )}
-
-          {/* Miscellaneous Section - Collapsible */}
           <div>
             <button
               onClick={() => toggleSection('miscellaneous')}
@@ -371,6 +392,26 @@ export const HeaderMenu: React.FC<HeaderMenuProps> = ({
             </button>
             {expandedSections.miscellaneous && (
               <div className="mt-1 space-y-2">
+                {/* Company Settings (Owner-only) */}
+                {user?.is_owner && (
+                  <button
+                    onClick={() => {
+                      hapticFeedback.selection();
+                      onCompanySettingsClick();
+                      onClose();
+                    }}
+                    className="w-full flex items-center gap-4 pl-12 pr-3 h-12 min-h-[48px] rounded-lg text-left transition-all duration-200 active:scale-95"
+                    style={{
+                      color: visualConfig.colors.text.primary,
+                      backgroundColor: 'transparent',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = visualConfig.colors.background}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <Icons.Building2 className="h-5 w-5" />
+                    <span className="font-medium">Company Settings</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     hapticFeedback.selection();

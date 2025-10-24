@@ -33,7 +33,11 @@
       "Bash(npm run dev:*)",
       "mcp__filesystem__move_file",
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(node_modules.bintsc:*)",
+      "Bash(./node_modules/.bin/tsc:*)",
+      "Bash(findstr:*)",
+      "Bash(dir:*)"
     ],
     "deny": [],
     "ask": []

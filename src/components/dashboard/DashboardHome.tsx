@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { getSmartVisualThemeConfig } from '../../config/industry';
 import { dashboardService } from '../../services/DashboardService';
+import { getSupabase } from '../../services/supabase';
 import { DashboardMetrics } from '../../types/crm';
 import { hapticFeedback, isMobileDevice } from '../../utils/mobile-gestures';
 import { KPIGrid } from './KPIGrid';
@@ -32,6 +33,8 @@ import { HeaderMenu } from './HeaderMenu';
 
 interface DashboardHomeProps {
   onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
+  onChatClick: () => void;
+  onCompanySettingsClick: () => void;
   onServicesClick: () => void;
   onMaterialsClick: () => void;
   onQuickCalculatorClick: () => void;
@@ -46,6 +49,8 @@ interface DashboardHomeProps {
  */
 export const DashboardHome: React.FC<DashboardHomeProps> = ({
   onNavigate,
+  onChatClick,
+  onCompanySettingsClick,
   onServicesClick,
   onMaterialsClick,
   onQuickCalculatorClick,
@@ -64,6 +69,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [companyTimezone, setCompanyTimezone] = useState<string>('America/Chicago');
 
   // Polling ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -104,6 +110,33 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         setIsLoading(false);
       }
     }
+  }, [user?.company_id]);
+
+  /**
+   * Load company timezone from database
+   */
+  useEffect(() => {
+    const loadTimezone = async () => {
+      if (!user?.company_id) return;
+
+      try {
+        const supabase = getSupabase();
+        const { data, error } = await supabase
+          .from('companies')
+          .select('timezone')
+          .eq('id', user.company_id)
+          .single();
+
+        if (!error && data?.timezone) {
+          setCompanyTimezone(data.timezone);
+        }
+      } catch (err) {
+        console.error('[DashboardHome] Error loading timezone:', err);
+        // Keep default timezone on error
+      }
+    };
+
+    loadTimezone();
   }, [user?.company_id]);
 
   /**
@@ -231,6 +264,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           onNavigate(tab);
           handleMenuClose();
         }}
+        onChatClick={() => {
+          onChatClick();
+          handleMenuClose();
+        }}
+        onCompanySettingsClick={() => {
+          onCompanySettingsClick();
+          handleMenuClose();
+        }}
         onServicesClick={onServicesClick}
         onMaterialsClick={onMaterialsClick}
         onQuickCalculatorClick={onQuickCalculatorClick}
@@ -250,6 +291,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
         isRefreshing={isLoading}
         visualConfig={visualConfig}
         theme={theme}
+        timezone={companyTimezone}
         onMenuToggle={handleMenuToggle}
         onThemeToggle={toggleTheme}
         isMenuOpen={isMenuOpen}

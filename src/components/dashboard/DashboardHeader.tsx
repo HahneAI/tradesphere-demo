@@ -19,6 +19,7 @@ interface DashboardHeaderProps {
   isRefreshing: boolean;
   visualConfig: any;
   theme: any;
+  timezone?: string;
   onMenuToggle: () => void;
   onThemeToggle: () => void;
   isMenuOpen?: boolean;
@@ -34,6 +35,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   isRefreshing,
   visualConfig,
   theme,
+  timezone,
   onMenuToggle,
   onThemeToggle,
   isMenuOpen = false
@@ -169,6 +171,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             {/* Live Clock */}
             <LiveClock
               visualConfig={visualConfig}
+              timezone={timezone}
               showIcon={true}
               showTimezone={true}
             />
@@ -275,6 +278,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
               {/* Live Clock */}
               <LiveClock
                 visualConfig={visualConfig}
+                timezone={timezone}
                 showIcon={true}
                 showTimezone={false}
                 compact={true}

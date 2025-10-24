@@ -2,7 +2,8 @@
  * Live Clock Component
  *
  * Displays real-time clock that updates every minute
- * Shows time in 12-hour format with timezone (America/Chicago)
+ * Shows time in 12-hour format with configurable timezone
+ * Defaults to America/Chicago if no timezone provided
  *
  * @module LiveClock
  */
@@ -12,6 +13,7 @@ import * as Icons from 'lucide-react';
 
 interface LiveClockProps {
   visualConfig: any;
+  timezone?: string;
   showIcon?: boolean;
   showTimezone?: boolean;
   className?: string;
@@ -20,10 +22,11 @@ interface LiveClockProps {
 
 /**
  * Live Clock Component
- * Updates every minute with current time in America/Chicago timezone
+ * Updates every minute with current time in specified timezone
  */
 export const LiveClock: React.FC<LiveClockProps> = ({
   visualConfig,
+  timezone = 'America/Chicago',
   showIcon = true,
   showTimezone = true,
   className = '',
@@ -43,23 +46,23 @@ export const LiveClock: React.FC<LiveClockProps> = ({
   }, []);
 
   /**
-   * Format time as HH:MM AM/PM in America/Chicago timezone
+   * Format time as HH:MM AM/PM in specified timezone
    */
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: 'America/Chicago'
+      timeZone: timezone
     });
   };
 
   /**
-   * Get timezone abbreviation for America/Chicago (CST/CDT)
+   * Get timezone abbreviation for specified timezone (e.g., CST/CDT, PST/PDT)
    */
   const getTimezone = (): string => {
     return new Date().toLocaleTimeString('en-US', {
-      timeZone: 'America/Chicago',
+      timeZone: timezone,
       timeZoneName: 'short'
     }).split(' ').pop() || '';
   };
