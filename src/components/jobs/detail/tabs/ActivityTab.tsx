@@ -10,7 +10,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import * as Icons from 'lucide-react';
 import { jobNotesService } from '../../../../services/JobNotesService';
-import { formatDate } from '../../../../utils/formatting';
+import { formatDate } from '../../../../types/jobs-views';
 
 interface ActivityTabProps {
   jobId: string;

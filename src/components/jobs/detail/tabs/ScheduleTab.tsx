@@ -10,7 +10,7 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
 import { JobWithDetails } from '../../../../types/crm';
-import { formatDate } from '../../../../utils/formatting';
+import { formatDate } from '../../../../types/jobs-views';
 
 interface ScheduleTabProps {
   job: JobWithDetails;

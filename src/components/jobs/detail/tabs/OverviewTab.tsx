@@ -14,7 +14,7 @@
 import React from 'react';
 import * as Icons from 'lucide-react';
 import { JobWithDetails } from '../../../../types/crm';
-import { formatCurrency, formatDate } from '../../../../utils/formatting';
+import { formatCurrency, formatDate } from '../../../../types/jobs-views';
 
 interface OverviewTabProps {
   job: JobWithDetails;
