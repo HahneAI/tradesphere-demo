@@ -23,7 +23,7 @@ export async function fetchMaterialCategories(
     const supabase = getSupabase();
 
     const { data, error } = await supabase
-      .from('service_material_categories')
+      .from('svc_material_categories')
       .select('*')
       .eq('company_id', companyId)
       .eq('service_config_id', serviceConfigId)
@@ -287,7 +287,7 @@ export async function fetchServicesWithMaterials(
 
     // Optimized query: Get all categories in one query, then filter services
     const { data: categories, error: categoriesError } = await supabase
-      .from('service_material_categories')
+      .from('svc_material_categories')
       .select('service_config_id')
       .eq('company_id', companyId)
       .eq('is_active', true);

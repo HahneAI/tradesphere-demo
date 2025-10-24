@@ -24,14 +24,10 @@ import { ThemeAwareAvatar } from './ui/ThemeAwareAvatar';
 import { FeedbackPopup } from './ui/FeedbackPopup';
 import { sendFeedback } from '../utils/feedback-webhook';
 import { Message } from '../types/message';
-import { MobileHamburgerMenu } from './mobile/MobileHamburgerMenu';
+import { HeaderMenu } from './dashboard/HeaderMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
 import { ServicesTab } from './ServicesTab';
-import { ServicesPage } from './ServicesPage';
-import QuickCalculatorTab from '../pricing-system/interfaces/quick-calculator/QuickCalculatorTab';
-import { MaterialsPage } from './materials/MaterialsPage';
-import { BillingTab } from './billing/BillingTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -245,20 +241,27 @@ const DualResponseDisplay = ({ makeMsg, nativeMsg, waitingFor, visualConfig, the
 
 interface ChatInterfaceProps {
   onBackToDashboard?: () => void;
+  onNavigate?: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
+  onServicesClick?: () => void;
+  onMaterialsClick?: () => void;
+  onQuickCalculatorClick?: () => void;
+  onCompanySettingsClick?: () => void;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  onBackToDashboard,
+  onNavigate,
+  onServicesClick,
+  onMaterialsClick,
+  onQuickCalculatorClick,
+  onCompanySettingsClick
+}) => {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut, isAdmin } = useAuth();
   const visualConfig = getSmartVisualThemeConfig(theme);
   
   const [showAvatarPopup, setShowAvatarPopup] = useState(false);
-
   const [showNotesPopup, setShowNotesPopup] = useState(false);
-  const [showQuickCalculatorPopup, setShowQuickCalculatorPopup] = useState(false);
-
-  // Full-page navigation system
-  const [currentPage, setCurrentPage] = useState<'chat' | 'services' | 'customers' | 'materials' | 'billing'>('chat');
 
   // 🏢 ENTERPRISE: Minimal performance tracking (background + admin only)
   const [performanceMetrics, setPerformanceMetrics] = useState({
@@ -1723,24 +1726,39 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
   // ORIGINAL: Exact same return structure - preserving 100% of working layout
   return (
     <div className="h-screen flex flex-col overflow-hidden transition-colors duration-500" style={{ backgroundColor: visualConfig.colors.background }}>
-      <MobileHamburgerMenu
+      <HeaderMenu
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
-        onLogoutClick={handleLogout}
-        onFeedbackClick={() => setShowFeedbackPopup(true)}
-        onNotesClick={() => setShowNotesPopup(true)}
+        onNavigate={(tab) => {
+          if (onNavigate) onNavigate(tab);
+          setIsMenuOpen(false);
+        }}
+        onChatClick={onBackToDashboard || (() => {})}
+        onCompanySettingsClick={() => {
+          if (onCompanySettingsClick) onCompanySettingsClick();
+          setIsMenuOpen(false);
+        }}
+        onServicesClick={() => {
+          if (onServicesClick) onServicesClick();
+          setIsMenuOpen(false);
+        }}
+        onMaterialsClick={() => {
+          if (onMaterialsClick) onMaterialsClick();
+          setIsMenuOpen(false);
+        }}
+        onQuickCalculatorClick={() => {
+          if (onQuickCalculatorClick) onQuickCalculatorClick();
+          setIsMenuOpen(false);
+        }}
         onAvatarClick={() => setShowAvatarPopup(true)}
-        onCustomersClick={() => setCurrentPage('customers')}
-        onServicesClick={() => setCurrentPage('services')}
-        onMaterialsClick={() => setCurrentPage('materials')}
-        onBillingClick={() => setCurrentPage('billing')}
-        onQuickCalculatorClick={() => setShowQuickCalculatorPopup(true)}
+        onNotesClick={() => setShowNotesPopup(true)}
+        onFeedbackClick={() => setShowFeedbackPopup(true)}
+        onSignOut={handleLogout}
         visualConfig={visualConfig}
         theme={theme}
         user={user}
       />
-      {/* Main header - only show on chat page; Services and Materials have their own headers */}
-      {currentPage === 'chat' && (
+      {/* Main header */}
       <header className="flex-shrink-0 border-b transition-colors duration-300" style={{ borderBottomColor: theme === 'light' ? '#e5e7eb' : '#374151', backgroundColor: visualConfig.colors.surface, paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between w-full">
@@ -1770,22 +1788,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
                   <h1 className="text-xl font-bold" style={{ color: visualConfig.colors.text.primary }}>
                     {coreConfig.companyName}
                   </h1>
-                  {currentPage !== 'chat' && (
-                    <div className="flex items-center space-x-2 text-sm mt-1">
-                      <button
-                        onClick={() => setCurrentPage('chat')}
-                        className="flex items-center space-x-1 hover:opacity-80 transition-opacity"
-                        style={{ color: visualConfig.colors.text.secondary }}
-                      >
-                        <Icons.Home className="h-4 w-4" />
-                        <span>Dashboard</span>
-                      </button>
-                      <Icons.ChevronRight className="h-4 w-4" style={{ color: visualConfig.colors.text.secondary }} />
-                      <span style={{ color: visualConfig.colors.text.primary }} className="capitalize">
-                        {currentPage}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2216,35 +2218,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
           </div>
         </div>
       </header>
-      )}
 
-      {/* Page Content - Conditional rendering based on currentPage */}
-      {currentPage === 'services' && (
-        <ServicesPage onBackClick={() => setCurrentPage('chat')} />
-      )}
-
-      {currentPage === 'customers' && (
-        <div className="flex-1 p-4">
-          <CustomersTab
-            isOpen={true}
-            onClose={() => setCurrentPage('chat')}
-            onLoadCustomer={handleLoadCustomer}
-          />
-        </div>
-      )}
-
-      {currentPage === 'materials' && (
-        <MaterialsPage onBackClick={() => setCurrentPage('chat')} />
-      )}
-
-      {currentPage === 'billing' && (
-        <BillingTab onBackClick={() => setCurrentPage('chat')} />
-      )}
-
-      {currentPage === 'chat' && (
-        <>
-          {/* ORIGINAL: Main Chat Area - exact same structure */}
-          <main className="flex-1 flex flex-col overflow-hidden p-4">
+      {/* Main Chat Area */}
+      <main className="flex-1 flex flex-col overflow-hidden p-4">
         <div
           className="flex-1 rounded-2xl shadow-lg flex flex-col overflow-hidden min-h-0 transition-all duration-300"
           style={{
@@ -2444,10 +2420,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
           </div>
         </div>
       </main>
-        </>
-      )}
 
-      {/* ADD NOTESPOPUP HERE */}
+      {/* Popups and Modals */}
       <NotesPopup
         isOpen={showNotesPopup}
         onClose={() => setShowNotesPopup(false)}
@@ -2455,12 +2429,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onBackToDashboard }) => {
         userName={user?.name || 'Anonymous'}
       />
 
-
-      {/* Quick Calculator Popup */}
-      <QuickCalculatorTab
-        isOpen={showQuickCalculatorPopup}
-        onClose={() => setShowQuickCalculatorPopup(false)}
-      />
       {/* Feedback Button - Desktop only */}
       <div className="hidden">
         <button

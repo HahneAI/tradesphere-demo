@@ -219,7 +219,14 @@ function App() {
 
               {/* Chat Interface - Full Screen Tab */}
               {activeTab === 'chat' && (
-                <ChatInterface onBackToDashboard={() => setActiveTab('dashboard')} />
+                <ChatInterface
+                  onBackToDashboard={() => setActiveTab('dashboard')}
+                  onNavigate={(tab) => setActiveTab(tab as ActiveTab)}
+                  onServicesClick={() => setShowServicesPage(true)}
+                  onMaterialsClick={() => setShowMaterialsPage(true)}
+                  onQuickCalculatorClick={() => setShowQuickCalculator(true)}
+                  onCompanySettingsClick={() => setShowCompanySettings(true)}
+                />
               )}
 
               {/* Tab Modals */}
