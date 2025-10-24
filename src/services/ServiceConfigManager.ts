@@ -102,7 +102,7 @@ export class ServiceConfigManager {
 
       // Save to Supabase
       const { error } = await supabase
-        .from('service_pricing_configs')
+        .from('svc_pricing_configs')
         .upsert(supabaseData, {
           onConflict: 'company_id,service_name'
         });

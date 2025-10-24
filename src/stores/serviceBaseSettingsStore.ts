@@ -139,7 +139,7 @@ const saveServiceConfig = async (serviceId: string, updatedService: ServiceConfi
 
     // Upsert to Supabase (update if exists, insert if not)
     const { error } = await supabase
-      .from('service_pricing_configs')
+      .from('svc_pricing_configs')
       .upsert(supabaseData, {
         onConflict: 'company_id,service_name'
       });
@@ -295,7 +295,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
 
         const supabase = getSupabase();
         const { data, error: fetchError } = await supabase
-          .from('service_pricing_configs')
+          .from('svc_pricing_configs')
           .select('*')
           .eq('company_id', companyId)
           .eq('is_active', true);
@@ -689,7 +689,7 @@ export const useServiceBaseSettings = (companyId?: string, userId?: string): Ser
     try {
       const supabase = getSupabase();
       const { data, error: fetchError } = await supabase
-        .from('service_pricing_configs')
+        .from('svc_pricing_configs')
         .select('*')
         .eq('company_id', companyId)
         .eq('is_active', true);
