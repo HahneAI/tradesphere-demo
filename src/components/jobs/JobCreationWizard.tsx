@@ -65,12 +65,14 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
       setShowCloseConfirm(true);
     } else {
       wizard.reset();
+      setCompletedSteps([]);
       onClose();
     }
   };
 
   const confirmClose = () => {
     wizard.reset();
+    setCompletedSteps([]);
     setShowCloseConfirm(false);
     onClose();
   };
@@ -138,6 +140,10 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
 
       // Show success message
       alert(`Job created successfully! Job #${result.data.job.job_number}`);
+
+      // Reset wizard state for next use
+      wizard.reset();
+      setCompletedSteps([]);
 
       // Close wizard and redirect
       onClose();
@@ -289,6 +295,8 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
                 onAddService={wizard.addService}
                 onRemoveService={wizard.removeService}
                 estimatedTotal={wizard.estimatedTotal}
+                companyId={companyId}
+                userId={userId}
               />
             )}
 

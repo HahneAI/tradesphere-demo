@@ -345,7 +345,7 @@ export class JobService {
       // Map to list items
       const jobs: JobListItem[] = (data || []).map(row => ({
         ...row,
-        customer_name: row.customers?.customer_name || 'Unknown',
+        customer_name: row.crm_customers?.customer_name || 'Unknown',
         is_overdue: this.isJobOverdue(row),
         assigned_crews_count: 0 // TODO: Add subquery for crew count
       }));

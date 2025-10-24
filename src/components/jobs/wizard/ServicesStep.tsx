@@ -8,6 +8,7 @@
 import React, { useState } from 'react';
 import { ServiceLineItem as ServiceLineItemType } from '../../../hooks/useJobCreationWizard';
 import { ServiceLineItem } from './components/ServiceLineItem';
+import { InlineQuickCalculator } from './components/InlineQuickCalculator';
 
 interface ServicesStepProps {
   services: ServiceLineItemType[];
@@ -16,6 +17,8 @@ interface ServicesStepProps {
   onOpenAIChat?: () => void;
   onOpenCalculator?: () => void;
   estimatedTotal: number;
+  companyId: string;
+  userId: string;
 }
 
 export const ServicesStep: React.FC<ServicesStepProps> = ({
@@ -25,6 +28,8 @@ export const ServicesStep: React.FC<ServicesStepProps> = ({
   onOpenAIChat,
   onOpenCalculator,
   estimatedTotal,
+  companyId,
+  userId,
 }) => {
   const [manualService, setManualService] = useState({
     name: '',
@@ -65,6 +70,13 @@ export const ServicesStep: React.FC<ServicesStepProps> = ({
           Choose how you'd like to add services to this job
         </p>
       </div>
+
+      {/* Inline Quick Calculator Section */}
+      <InlineQuickCalculator
+        companyId={companyId}
+        userId={userId}
+        onCommitService={onAddService}
+      />
 
       {/* Service Input Methods */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
