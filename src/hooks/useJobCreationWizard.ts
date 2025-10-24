@@ -16,6 +16,7 @@ import {
   CreateJobAssignmentInput,
   Job
 } from '../types/crm';
+import { parseAddress } from '../utils/addressParser';
 
 // ============================================================================
 // Type Definitions
@@ -476,10 +477,13 @@ export const useJobCreationWizard = (config: WizardConfig): UseJobCreationWizard
 
       // Auto-populate service address from customer if not already set
       if (customer && !prev.jobDetails.service_address) {
+        const parsed = parseAddress(customer.customer_address || '');
         updates.jobDetails = {
           ...prev.jobDetails,
-          service_address: customer.customer_address || '',
-          // Could parse address into city/state/zip if needed
+          service_address: parsed.street,
+          service_city: parsed.city,
+          service_state: parsed.state,
+          service_zip: parsed.zip,
         };
       }
 

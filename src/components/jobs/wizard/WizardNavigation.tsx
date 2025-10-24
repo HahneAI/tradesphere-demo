@@ -22,6 +22,7 @@ interface WizardNavigationProps {
   onCancel: () => void;
   // Special handlers for Step 4 (Review)
   onSaveAsQuote?: () => void;
+  onGenerateInvoice?: () => void;
   onScheduleJob?: () => void;
   // Special handler for Step 5 (Schedule)
   onCreateJob?: () => void;
@@ -39,6 +40,7 @@ export const WizardNavigation: React.FC<WizardNavigationProps> = ({
   onNext,
   onCancel,
   onSaveAsQuote,
+  onGenerateInvoice,
   onScheduleJob,
   onCreateJob,
   className = '',
@@ -162,6 +164,39 @@ export const WizardNavigation: React.FC<WizardNavigationProps> = ({
                 />
               </svg>
               <span className="hidden sm:inline">Save as Quote</span>
+            </button>
+
+            {/* Generate Invoice Button */}
+            <button
+              type="button"
+              onClick={onGenerateInvoice}
+              disabled={isLoading}
+              className={`
+                h-10 px-4 md:px-6 rounded-lg font-medium text-sm transition-all
+                flex items-center gap-2
+                ${
+                  isLoading
+                    ? 'bg-green-300 dark:bg-green-900 text-white cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'
+                }
+              `}
+              aria-label="Generate and send invoice"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="hidden sm:inline">Generate Invoice</span>
             </button>
 
             {/* Schedule Job Button */}

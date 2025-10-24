@@ -21,6 +21,7 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { PriorityIndicator } from '../shared/PriorityIndicator';
 import { KanbanColumn } from './kanban/KanbanColumn';
 import { JobCard } from './kanban/JobCard';
+import { JobDetailModal } from '../detail/JobDetailModal';
 
 interface JobsKanbanViewProps {
   jobs: JobListItem[];
@@ -42,6 +43,8 @@ export const JobsKanbanView: React.FC<JobsKanbanViewProps> = ({
   const { user } = useAuth();
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   // Setup drag sensors
   const sensors = useSensors(
@@ -135,7 +138,16 @@ export const JobsKanbanView: React.FC<JobsKanbanViewProps> = ({
   const handleJobClick = (jobId: string) => {
     hapticFeedback.selection();
     console.log('[Kanban] Job card clicked:', jobId);
-    // TODO: Open job detail modal
+    setSelectedJobId(jobId);
+    setShowDetailModal(true);
+  };
+
+  /**
+   * Handle detail modal close
+   */
+  const handleDetailModalClose = () => {
+    setShowDetailModal(false);
+    setSelectedJobId(null);
   };
 
   return (
@@ -176,6 +188,20 @@ export const JobsKanbanView: React.FC<JobsKanbanViewProps> = ({
           )}
         </DragOverlay>
       </div>
+
+      {/* Job Detail Modal */}
+      {selectedJobId && (
+        <JobDetailModal
+          isOpen={showDetailModal}
+          onClose={handleDetailModalClose}
+          jobId={selectedJobId}
+          companyId={user?.company_id || ''}
+          userId={user?.id || ''}
+          onJobUpdated={onRefresh}
+          visualConfig={visualConfig}
+          theme={theme}
+        />
+      )}
 
       {/* Updating indicator */}
       {isUpdating && (

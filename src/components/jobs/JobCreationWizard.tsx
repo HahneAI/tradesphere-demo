@@ -18,6 +18,7 @@ import { JobDetailsStep } from './wizard/JobDetailsStep';
 import { ServicesStep } from './wizard/ServicesStep';
 import { ReviewStep } from './wizard/ReviewStep';
 import { ScheduleStep } from './wizard/ScheduleStep';
+import { InvoiceOptionsModal } from './wizard/InvoiceOptionsModal';
 
 interface JobCreationWizardProps {
   isOpen: boolean;
@@ -45,6 +46,8 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [createdJobId, setCreatedJobId] = useState<string | null>(null);
 
   // Track completed steps for progress indicator
   const [completedSteps, setCompletedSteps] = useState<WizardStep[]>([]);
@@ -161,6 +164,59 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
     wizard.nextStep();
   };
 
+  // Handle generate invoice
+  const handleGenerateInvoice = () => {
+    console.log('[JobCreationWizard] Generate invoice clicked');
+    setShowInvoiceModal(true);
+  };
+
+  // Auto-create job as quote when reaching Step 4 (Review)
+  useEffect(() => {
+    const autoCreateQuote = async () => {
+      // Only auto-create if:
+      // 1. We're on step 4 (Review)
+      // 2. We have a customer
+      // 3. We have services
+      // 4. We haven't already created a job
+      if (
+        wizard.currentStep === 4 &&
+        wizard.customer &&
+        wizard.services.length > 0 &&
+        !createdJobId
+      ) {
+        console.log('[JobCreationWizard] Auto-creating quote on Step 4 reach');
+
+        try {
+          const result = await jobServiceWizardExtensions.createJobFromWizard({
+            company_id: companyId,
+            customer_id: wizard.customer.id,
+            title: wizard.jobDetails.title,
+            description: wizard.jobDetails.description,
+            service_address: wizard.jobDetails.service_address,
+            service_city: wizard.jobDetails.service_city,
+            service_state: wizard.jobDetails.service_state,
+            service_zip: wizard.jobDetails.service_zip,
+            priority: wizard.jobDetails.priority,
+            requested_start_date: wizard.jobDetails.requested_start_date,
+            status: 'quote',
+            services: wizard.services,
+            created_by_user_id: userId,
+          });
+
+          if (result.success && result.data) {
+            console.log('[JobCreationWizard] Quote auto-created:', result.data.job.job_number);
+            setCreatedJobId(result.data.job.id);
+          }
+        } catch (error) {
+          console.error('[JobCreationWizard] Failed to auto-create quote:', error);
+          // Don't block user - they can still manually save
+        }
+      }
+    };
+
+    autoCreateQuote();
+  }, [wizard.currentStep, wizard.customer, wizard.services, createdJobId, companyId, userId]);
+
   if (!isOpen) return null;
 
   return (
@@ -170,10 +226,13 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
         onClick={handleClose}
       >
-        {/* Modal */}
+        {/* Modal - 30% larger with responsive breakpoints */}
         <div
-          className="relative w-full max-w-[900px] h-[90vh] max-h-[800px] bg-white dark:bg-gray-900
-                     rounded-xl shadow-2xl overflow-hidden flex flex-col"
+          className="relative w-full
+                     max-w-[1200px] xl:max-w-[1200px] lg:max-w-[1100px] md:max-w-[95vw] sm:w-full
+                     h-[95vh] sm:h-full max-h-none
+                     bg-white dark:bg-gray-900
+                     rounded-xl sm:rounded-none shadow-2xl overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
@@ -271,11 +330,36 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
             onNext={wizard.nextStep}
             onCancel={handleClose}
             onSaveAsQuote={handleSaveAsQuote}
+            onGenerateInvoice={handleGenerateInvoice}
             onScheduleJob={handleScheduleJob}
             onCreateJob={handleCreateJob}
           />
         </div>
       </div>
+
+      {/* Invoice Options Modal */}
+      <InvoiceOptionsModal
+        isOpen={showInvoiceModal}
+        onClose={() => setShowInvoiceModal(false)}
+        jobData={{
+          customer: wizard.customer,
+          jobDetails: wizard.jobDetails,
+          services: wizard.services,
+          total: wizard.estimatedTotal
+        }}
+        onDownload={() => {
+          console.log('[JobCreationWizard] Download invoice');
+          setShowInvoiceModal(false);
+        }}
+        onDownloadAndText={() => {
+          console.log('[JobCreationWizard] Download & text invoice');
+          setShowInvoiceModal(false);
+        }}
+        onDownloadAndEmail={() => {
+          console.log('[JobCreationWizard] Download & email invoice');
+          setShowInvoiceModal(false);
+        }}
+      />
 
       {/* Close Confirmation Dialog */}
       {showCloseConfirm && (

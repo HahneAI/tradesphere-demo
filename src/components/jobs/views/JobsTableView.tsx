@@ -17,6 +17,8 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { PriorityIndicator } from '../shared/PriorityIndicator';
 import { formatCurrency, formatDate } from '../../../types/jobs-views';
 import { hapticFeedback } from '../../../utils/mobile-gestures';
+import { JobDetailModal } from '../detail/JobDetailModal';
+import { useAuth } from '../../../context/AuthContext';
 
 interface JobsTableViewProps {
   jobs: JobListItem[];
@@ -38,6 +40,8 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
   visualConfig,
   theme
 }) => {
+  const { user } = useAuth();
+
   // Sort state
   const [sortColumn, setSortColumn] = useState<SortColumn>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -48,6 +52,10 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
 
   // Selection state
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+
+  // Detail modal state
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   /**
    * Handle sort column change
@@ -135,7 +143,16 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
   const handleRowClick = (jobId: string) => {
     hapticFeedback.selection();
     console.log('[Table] Row clicked:', jobId);
-    // TODO: Open job detail modal
+    setSelectedJobId(jobId);
+    setShowDetailModal(true);
+  };
+
+  /**
+   * Handle detail modal close
+   */
+  const handleDetailModalClose = () => {
+    setShowDetailModal(false);
+    setSelectedJobId(null);
   };
 
   /**
@@ -478,6 +495,20 @@ export const JobsTableView: React.FC<JobsTableViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Job Detail Modal */}
+      {selectedJobId && (
+        <JobDetailModal
+          isOpen={showDetailModal}
+          onClose={handleDetailModalClose}
+          jobId={selectedJobId}
+          companyId={user?.company_id || ''}
+          userId={user?.id || ''}
+          onJobUpdated={onRefresh}
+          visualConfig={visualConfig}
+          theme={theme}
+        />
+      )}
     </div>
   );
 };
