@@ -17,8 +17,18 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
-  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id);
-  
+  const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id, user?.id);
+
+  // Debug logging to help troubleshoot issues
+  console.log('[ServicesPage] Render state:', {
+    isOpen,
+    isLoading,
+    error,
+    servicesCount: services?.length,
+    hasUserId: !!user?.id,
+    hasCompanyId: !!user?.company_id
+  });
+
   const [filter, setFilter] = useState('');
   const [editingCell, setEditingCell] = useState<{ serviceId: string, setting: string } | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
@@ -72,26 +82,35 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick 
   // Don't render if not open
   if (!isOpen) return null;
 
-  if (isLoading) {
+  // Wrap loading and error states in proper full-page container
+  if (isLoading || error) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2"
-             style={{ borderColor: visualConfig.colors.primary }}></div>
-        <span className="ml-3" style={{ color: visualConfig.colors.text.primary }}>
-          Loading services...
-        </span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 rounded-lg border-l-4 bg-red-50 border-red-400">
-        <div className="flex items-center">
-          <Icons.AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
-          <span className="text-red-800 font-medium">Error loading services</span>
+      <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: visualConfig.colors.background }}>
+        <div className="flex-1 flex items-center justify-center p-8">
+          {isLoading ? (
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2"
+                   style={{ borderColor: visualConfig.colors.primary }}></div>
+              <span className="ml-3" style={{ color: visualConfig.colors.text.primary }}>
+                Loading services...
+              </span>
+            </div>
+          ) : (
+            <div className="p-4 rounded-lg border-l-4 bg-red-50 border-red-400 max-w-2xl">
+              <div className="flex items-center">
+                <Icons.AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
+                <span className="text-red-800 font-medium">Error loading services</span>
+              </div>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+              <button
+                onClick={onBackClick}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+          )}
         </div>
-        <p className="text-red-700 text-sm mt-1">{error}</p>
       </div>
     );
   }
