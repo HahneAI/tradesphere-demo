@@ -28,6 +28,7 @@ import { UpcomingJobsList } from './UpcomingJobsList';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { DashboardHeader } from './DashboardHeader';
 import { BottomNav } from './BottomNav';
+import { HeaderMenu } from './HeaderMenu';
 
 interface DashboardHomeProps {
   onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
@@ -38,8 +39,8 @@ interface DashboardHomeProps {
  * Primary screen for CRM system
  */
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
-  const { user } = useAuth();
-  const { theme } = useTheme();
+  const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
   const isMobile = isMobileDevice();
 
@@ -48,6 +49,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Polling ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -129,6 +131,28 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
     // TODO: Pass filter context to JobsTab
   }, [onNavigate]);
 
+  /**
+   * Handle menu toggle
+   */
+  const handleMenuToggle = useCallback(() => {
+    setIsMenuOpen(prev => !prev);
+  }, []);
+
+  /**
+   * Handle menu close
+   */
+  const handleMenuClose = useCallback(() => {
+    setIsMenuOpen(false);
+  }, []);
+
+  /**
+   * Handle sign out
+   */
+  const handleSignOut = useCallback(async () => {
+    hapticFeedback.impact('medium');
+    await signOut();
+  }, [signOut]);
+
   // Loading state
   if (isLoading && !metrics) {
     return (
@@ -185,6 +209,19 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
       className="h-full flex flex-col"
       style={{ backgroundColor: visualConfig.colors.background }}
     >
+      {/* Header Menu */}
+      <HeaderMenu
+        isOpen={isMenuOpen}
+        onClose={handleMenuClose}
+        onNavigate={(tab) => {
+          onNavigate(tab);
+          handleMenuClose();
+        }}
+        onSignOut={handleSignOut}
+        visualConfig={visualConfig}
+        theme={theme}
+      />
+
       {/* Header */}
       <DashboardHeader
         lastRefreshed={lastRefreshed}
@@ -192,6 +229,9 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ onNavigate }) => {
         isRefreshing={isLoading}
         visualConfig={visualConfig}
         theme={theme}
+        onMenuToggle={handleMenuToggle}
+        onThemeToggle={toggleTheme}
+        isMenuOpen={isMenuOpen}
       />
 
       {/* Main Content */}

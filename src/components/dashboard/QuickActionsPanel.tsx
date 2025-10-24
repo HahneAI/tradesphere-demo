@@ -90,37 +90,81 @@ export const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
           <button
             key={action.id}
             onClick={() => handleActionClick(action)}
-            className="p-6 rounded-xl shadow-sm transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 text-left"
+            className="group relative p-4 md:p-6 rounded-xl transition-all duration-300 text-left overflow-hidden hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 focus-visible:outline-none"
             style={{
               backgroundColor: visualConfig.colors.surface,
-              border: `1px solid ${visualConfig.colors.text.secondary}20`
+              boxShadow: theme === 'light'
+                ? '0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)'
+                : '0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2)',
             }}
+            aria-label={`${action.label}: ${action.description}. Press to open.`}
           >
+            {/* Gradient border effect on hover */}
             <div
-              className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
+              className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
               style={{
-                backgroundColor: action.color + '20'
+                background: `linear-gradient(135deg, ${visualConfig.colors.primary}40, ${visualConfig.colors.primary}20)`,
+                padding: '1px',
+                WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                WebkitMaskComposite: 'xor',
+                maskComposite: 'exclude',
               }}
-            >
-              <IconComponent
-                className="h-6 w-6"
-                style={{ color: action.color }}
-              />
+            />
+
+            {/* Subtle gradient background on hover */}
+            <div
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"
+              style={{
+                background: `linear-gradient(135deg, ${visualConfig.colors.primary}05, transparent)`,
+              }}
+            />
+
+            {/* Focus ring */}
+            <div
+              className="absolute inset-0 rounded-xl opacity-0 group-focus-visible:opacity-100 transition-opacity pointer-events-none"
+              style={{
+                boxShadow: `0 0 0 3px ${visualConfig.colors.primary}30`,
+              }}
+            />
+
+            {/* Content wrapper with relative positioning */}
+            <div className="relative z-10">
+              {/* Icon container with enhanced treatment */}
+              <div
+                className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 transition-transform duration-300 group-hover:scale-110"
+                style={{
+                  backgroundColor: action.color + '20',
+                  border: `1.5px solid ${action.color}30`,
+                }}
+              >
+                <IconComponent
+                  className="h-6 w-6 transition-transform duration-300"
+                  style={{ color: action.color }}
+                />
+              </div>
+
+              {/* Label */}
+              <h3
+                className="font-semibold text-base mb-1"
+                style={{ color: visualConfig.colors.text.primary }}
+              >
+                {action.label}
+              </h3>
+
+              {/* Description */}
+              <p
+                className="text-xs mb-3"
+                style={{ color: visualConfig.colors.text.secondary }}
+              >
+                {action.description}
+              </p>
+
+              {/* Action indicator - appears on hover */}
+              <div className="flex items-center gap-1 text-xs font-medium opacity-60 group-hover:opacity-100 transition-opacity">
+                <span style={{ color: visualConfig.colors.primary }}>Open</span>
+                <Icons.ArrowRight className="h-3 w-3" style={{ color: visualConfig.colors.primary }} />
+              </div>
             </div>
-
-            <h3
-              className="font-semibold text-base mb-1"
-              style={{ color: visualConfig.colors.text.primary }}
-            >
-              {action.label}
-            </h3>
-
-            <p
-              className="text-xs"
-              style={{ color: visualConfig.colors.text.secondary }}
-            >
-              {action.description}
-            </p>
           </button>
         );
       })}
