@@ -1,8 +1,8 @@
 /**
  * Live Clock Component
  *
- * Displays real-time clock that updates every second
- * Shows time in 12-hour format with timezone abbreviation
+ * Displays real-time clock that updates every minute
+ * Shows time in 12-hour format with timezone (America/Chicago)
  *
  * @module LiveClock
  */
@@ -20,7 +20,7 @@ interface LiveClockProps {
 
 /**
  * Live Clock Component
- * Updates every second with current time
+ * Updates every minute with current time in America/Chicago timezone
  */
 export const LiveClock: React.FC<LiveClockProps> = ({
   visualConfig,
@@ -32,32 +32,34 @@ export const LiveClock: React.FC<LiveClockProps> = ({
   const [currentTime, setCurrentTime] = useState(new Date());
 
   /**
-   * Update time every second
+   * Update time every minute
    */
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 1000);
+    }, 60000); // Update every 60 seconds
 
     return () => clearInterval(timer);
   }, []);
 
   /**
-   * Format time as HH:MM AM/PM
+   * Format time as HH:MM AM/PM in America/Chicago timezone
    */
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: 'America/Chicago'
     });
   };
 
   /**
-   * Get timezone abbreviation (e.g., EST, PST)
+   * Get timezone abbreviation for America/Chicago (CST/CDT)
    */
   const getTimezone = (): string => {
     return new Date().toLocaleTimeString('en-US', {
+      timeZone: 'America/Chicago',
       timeZoneName: 'short'
     }).split(' ').pop() || '';
   };
