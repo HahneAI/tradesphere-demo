@@ -100,19 +100,19 @@ export const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({
             }}
             aria-label={`${action.label}: ${action.description}. Press to open.`}
           >
-            {/* Visible gradient background - always on */}
+            {/* Base shiny gradient - always visible */}
             <div
               className="absolute inset-0 rounded-xl pointer-events-none"
               style={{
-                background: `linear-gradient(135deg, ${action.color}05, transparent)`,
+                background: `linear-gradient(135deg, ${action.color}12, ${action.color}08 50%, transparent)`,
               }}
             />
 
-            {/* Enhanced gradient on hover */}
+            {/* Enhanced shining gradient on hover - makes it glow stronger */}
             <div
               className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl pointer-events-none"
               style={{
-                background: `linear-gradient(135deg, ${action.color}08, transparent)`,
+                background: `linear-gradient(135deg, ${action.color}20, ${action.color}12 50%, transparent)`,
               }}
             />
 

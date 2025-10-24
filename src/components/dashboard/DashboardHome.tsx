@@ -308,6 +308,25 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
             theme={theme}
           />
 
+          {/* Visual Separator */}
+          <div
+            className="relative h-px"
+            style={{
+              background: theme === 'light'
+                ? `linear-gradient(to right, transparent, ${visualConfig.colors.text.secondary}20, transparent)`
+                : `linear-gradient(to right, transparent, ${visualConfig.colors.text.secondary}30, transparent)`
+            }}
+          >
+            {/* Optional decorative dot in center */}
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+              style={{
+                backgroundColor: visualConfig.colors.primary,
+                opacity: 0.6
+              }}
+            />
+          </div>
+
           {/* KPI Grid */}
           {metrics && (
             <KPIGrid
