@@ -67,7 +67,7 @@ export class JobService {
 
       // Insert job
       const { data: job, error: jobError } = await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .insert({
           company_id: input.company_id,
           customer_id: input.customer_id,
@@ -133,7 +133,7 @@ export class JobService {
     try {
       // Validate company access
       const { data: existingJob, error: fetchError } = await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .select('company_id, status')
         .eq('id', jobId)
         .eq('company_id', companyId)
@@ -156,7 +156,7 @@ export class JobService {
 
       // Update job
       const { data, error } = await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .update(updateData)
         .eq('id', jobId)
         .eq('company_id', companyId)
@@ -183,10 +183,10 @@ export class JobService {
   async getJob(jobId: string, companyId: string): Promise<ServiceResponse<JobWithDetails>> {
     try {
       const { data, error } = await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .select(`
           *,
-          customer:customers!inner (
+          customer:crm_customers!inner (
             id,
             customer_name,
             customer_email,
@@ -196,19 +196,19 @@ export class JobService {
             lifecycle_stage,
             tags
           ),
-          services:job_services (
+          services:ops_job_services (
             *
           ),
-          assignments:job_assignments (
+          assignments:ops_job_assignments (
             *,
-            crew:crews (
+            crew:ops_crews (
               id,
               crew_name,
               crew_code,
               color_code
             )
           ),
-          notes:job_notes (
+          notes:ops_job_notes (
             *
           )
         `)
@@ -248,7 +248,7 @@ export class JobService {
     try {
       // Build query
       let query = this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .select(`
           id,
           job_number,
@@ -256,7 +256,7 @@ export class JobService {
           status,
           priority,
           customer_id,
-          customers!inner (customer_name),
+          crm_customers!inner (customer_name),
           service_address,
           scheduled_start_date,
           estimated_total,
@@ -451,7 +451,7 @@ export class JobService {
     try {
       // Validate job exists
       const { data: job } = await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .select('id, company_id')
         .eq('id', jobId)
         .single();
@@ -508,7 +508,7 @@ export class JobService {
 
       // Insert job service
       const { data, error } = await this.supabase
-        .from('job_services')
+        .from('ops_job_services')
         .insert({
           job_id: jobId,
           service_config_id: serviceInput.service_config_id,
@@ -556,22 +556,22 @@ export class JobService {
     try {
       // Verify service belongs to company
       const { data: service } = await this.supabase
-        .from('job_services')
+        .from('ops_job_services')
         .select(`
           id,
           job_id,
-          jobs!inner (company_id)
+          ops_jobs!inner (company_id)
         `)
         .eq('id', serviceId)
         .single();
 
-      if (!service || service.jobs?.company_id !== companyId) {
+      if (!service || service.ops_jobs?.company_id !== companyId) {
         return this.error('Service not found');
       }
 
       // Update service
       const { data, error } = await this.supabase
-        .from('job_services')
+        .from('ops_job_services')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -608,16 +608,16 @@ export class JobService {
     try {
       // Get service to check permissions and get job_id
       const { data: service } = await this.supabase
-        .from('job_services')
+        .from('ops_job_services')
         .select(`
           id,
           job_id,
-          jobs!inner (company_id)
+          ops_jobs!inner (company_id)
         `)
         .eq('id', serviceId)
         .single();
 
-      if (!service || service.jobs?.company_id !== companyId) {
+      if (!service || service.ops_jobs?.company_id !== companyId) {
         return this.error('Service not found');
       }
 
@@ -625,7 +625,7 @@ export class JobService {
 
       // Delete service
       const { error } = await this.supabase
-        .from('job_services')
+        .from('ops_job_services')
         .delete()
         .eq('id', serviceId);
 
@@ -657,7 +657,7 @@ export class JobService {
     try {
       // Get current job
       const { data: job } = await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .select('status, company_id')
         .eq('id', jobId)
         .eq('company_id', companyId)
@@ -754,14 +754,14 @@ export class JobService {
     try {
       // Calculate totals from job_services
       const { data } = await this.supabase
-        .from('job_services')
+        .from('ops_job_services')
         .select('total_price')
         .eq('job_id', jobId);
 
       const total = data?.reduce((sum, s) => sum + (s.total_price || 0), 0) || 0;
 
       await this.supabase
-        .from('jobs')
+        .from('ops_jobs')
         .update({
           estimated_total: total,
           updated_at: new Date().toISOString()
