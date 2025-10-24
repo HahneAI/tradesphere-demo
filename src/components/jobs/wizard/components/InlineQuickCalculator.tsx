@@ -17,7 +17,8 @@ import {
   transformPaverPatioToService,
   transformExcavationToService,
 } from '../../../../utils/calculatorToServiceTransformer';
-import { useVisualConfig } from '../../../../hooks/useVisualConfig';
+import { useTheme } from '../../../../context/ThemeContext';
+import { getSmartVisualThemeConfig } from '../../../../config/industry';
 
 interface InlineQuickCalculatorProps {
   companyId: string;
@@ -39,8 +40,8 @@ export const InlineQuickCalculator: React.FC<InlineQuickCalculatorProps> = ({
   onCommitService,
   availableServices = ['paver_patio_sqft', 'excavation_removal'],
 }) => {
-  const visualConfig = useVisualConfig();
-  const theme = visualConfig?.theme || 'light';
+  const { theme } = useTheme();
+  const visualConfig = getSmartVisualThemeConfig(theme);
 
   const [selectedService, setSelectedService] = useState<ServiceType>('paver_patio_sqft');
   const [isExpanded, setIsExpanded] = useState(true);
