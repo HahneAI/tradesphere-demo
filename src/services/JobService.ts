@@ -52,7 +52,7 @@ export class JobService {
 
       // Validate customer exists and belongs to company
       const { data: customer, error: customerError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('id, company_id')
         .eq('id', input.customer_id)
         .eq('company_id', input.company_id)

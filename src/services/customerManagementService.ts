@@ -52,7 +52,7 @@ export class CustomerManagementService {
 
       // Insert customer record
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .insert({
           company_id: profile.company_id,
           customer_name: profile.customer_name.trim(),
@@ -88,7 +88,7 @@ export class CustomerManagementService {
 
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
@@ -115,7 +115,7 @@ export class CustomerManagementService {
 
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('id', customerId)
         .single();
@@ -145,7 +145,7 @@ export class CustomerManagementService {
 
     try {
       const { error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update({
           customer_name: updates.customer_name?.trim(),
           customer_email: updates.customer_email?.trim() || null,
@@ -177,7 +177,7 @@ export class CustomerManagementService {
 
     try {
       const { error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .delete()
         .eq('id', customerId);
 
@@ -201,7 +201,7 @@ export class CustomerManagementService {
   async customerExists(customerName: string, companyId: string): Promise<boolean> {
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('id')
         .eq('company_id', companyId)
         .eq('customer_name', customerName.trim())
@@ -230,7 +230,7 @@ export class CustomerManagementService {
       const searchTerm = query.trim().toLowerCase();
 
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('company_id', companyId)
         .or(`customer_name.ilike.%${searchTerm}%,customer_email.ilike.%${searchTerm}%,customer_phone.ilike.%${searchTerm}%`)
