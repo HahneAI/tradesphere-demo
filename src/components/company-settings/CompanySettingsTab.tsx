@@ -62,20 +62,20 @@ export const CompanySettingsTab: React.FC<CompanySettingsTabProps> = ({ isOpen, 
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
-  // Don't render if not open
-  if (!isOpen) return null;
-
   /**
    * Load company data on mount
    */
   useEffect(() => {
-    if (!user?.company_id || !isOwner) {
+    if (!isOpen || !user?.company_id || !isOwner) {
       setLoading(false);
       return;
     }
 
     loadCompanyData();
-  }, [user, isOwner]);
+  }, [isOpen, user, isOwner]);
+
+  // Don't render if not open
+  if (!isOpen) return null;
 
   /**
    * Load all company data (settings + billing)
