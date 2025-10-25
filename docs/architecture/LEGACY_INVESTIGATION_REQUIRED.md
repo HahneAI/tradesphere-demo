@@ -198,86 +198,139 @@ ChatInterface is a **well-architected component** using modern React patterns:
 
 ---
 
-## System 3: ServiceConfigManager Legacy Methods 🟡 IMPORTANT
+## ~~System 3: ServiceConfigManager Legacy Methods~~ ✅ COMPLETED
 
-### Description
+**Status**: ✅ INVESTIGATION COMPLETE - CLEAN ARCHITECTURE CONFIRMED
+**Completed**: October 25, 2025
+**Decision**: KEEP ALL - Active service with minimal technical debt
+**Investigator**: code-reviewer agent
 
-`ServiceConfigManager` service handles CRUD operations for service configurations. May contain legacy methods from old pricing calculator days.
+### Investigation Summary
 
-### Why It Might Be Legacy
+`ServiceConfigManager` (223 lines, 3 public methods) was thoroughly investigated for legacy patterns, unused methods, and deprecated code. Investigation revealed a **lean, modern service** with recent active maintenance.
 
-- Some methods may pre-date current database schema
-- May have duplicate logic with newer services
-- Could have hardcoded values from MVP phase
-- May use deprecated Supabase query patterns
+### Key Findings
 
-### Investigation Required
+✅ **All Methods Are Active or Reserved:**
+- `saveServiceConfig()` - ✅ ACTIVE (2 usages in serviceBaseSettingsStore.ts, lines 451 & 668)
+- `createService()` - 🟡 RESERVED (0 current usages, needed for Custom Service Wizard Step 6)
+- `getInstance()` - ✅ ACTIVE (singleton pattern, exported for use)
 
-**1. Code Review**:
-```bash
-# Read the entire service
-cat src/services/ServiceConfigManager.ts
+✅ **Modern Code Quality:**
+- Recently updated: October 23, 2025 (table name bug fix)
+- Modern Supabase patterns (no deprecated `.single()` usage)
+- Database schema perfectly aligned with `svc_pricing_configs` table
+- No localStorage usage
+- No direct environment variable access
+- Proper error handling and validation
+- Comprehensive debug logging (intentional, useful for troubleshooting)
 
-# Look for:
-# - Deprecated methods (unused elsewhere)
-# - TODO comments about cleanup
-# - Hardcoded values
-# - Old table names or schema
+✅ **Critical Functionality:**
+- **Automatic cache invalidation**: `masterPricingEngine.clearCache()` called after every save
+- Prevents stale pricing data in Quick Calculator
+- Centralized control point for service configuration changes
+
+### Method Analysis Results
+
+| Method | Usage | Status | Line Count | Recommendation |
+|--------|-------|--------|------------|----------------|
+| `saveServiceConfig()` | 2 usages | ✅ ACTIVE | ~50 lines | Keep - Critical |
+| `createService()` | 0 usages | 🟡 RESERVED | ~40 lines | Keep - Wizard integration |
+| `getInstance()` | 1 export | ✅ ACTIVE | ~10 lines | Keep - Singleton |
+| `getDefaultTemplate()` | Internal | ✅ ACTIVE | ~40 lines | Keep - Used by createService |
+
+### Issues Found: MINIMAL
+
+**Minor Type Safety (Low Priority):**
+- Line 35: `variables?: any` could be more specific (`Record<string, unknown>`)
+
+**Hardcoded Defaults (Acceptable):**
+- Default labor rate ($25/hr), team size (3), productivity (50), etc.
+- All values are sensible fallbacks
+- Could extract to constants (low priority enhancement)
+
+**Console.log Statements:**
+- 7 total, all intentional and useful for debugging
+- Prefixed with `[SERVICE MANAGER]` for easy filtering
+- Recent debugging (Oct 23) proved their value
+
+### Database Schema Alignment: PERFECT
+
+✅ Table name: `svc_pricing_configs` (fixed Oct 23, 2025)
+✅ All columns match schema exactly
+✅ Proper conflict resolution: `onConflict: 'company_id,service_name'`
+✅ No deprecated table/column references
+
+### Git History Analysis
+
+```
+b810e39 (2025-10-23) - fix: Correct table names in Services page
+  - Fixed 'service_pricing_configs' → 'svc_pricing_configs'
+  - Demonstrates active maintenance
 ```
 
-**2. Method Usage Analysis**:
-```bash
-# For each method in ServiceConfigManager, check usage:
-grep -r "serviceConfigManager\.createService" src/
-grep -r "serviceConfigManager\.updateService" src/
-grep -r "serviceConfigManager\.deleteService" src/
-grep -r "serviceConfigManager\.getService" src/
+No removed methods or deprecated functionality found in history.
 
-# Check for methods with 0 references → candidates for removal
-```
+### Custom Service Wizard Integration
 
-**3. Database Schema Alignment**:
-```sql
--- Check current service_configurations table schema
-SELECT column_name, data_type, column_default
-FROM information_schema.columns
-WHERE table_name = 'service_configurations'
-ORDER BY ordinal_position;
+**Status:** Wizard is in active development
+**File:** `src/components/services/wizard/CustomServiceWizard.tsx`
+**Current Progress:** Step 1 complete, Steps 2-6 show "Coming Soon"
+**Expected Integration:** Wizard Step 6 will call `createService()` method
 
--- Compare with what ServiceConfigManager expects
--- Check for:
--- - Columns that ServiceConfigManager references but don't exist
--- - Columns in DB that ServiceConfigManager doesn't use
-```
+**Conclusion:** `createService()` has 0 current usages BUT is reserved for imminent feature completion.
 
-**4. Recent Usage**:
-```bash
-# Check when ServiceConfigManager was last used
-git log --since="3 months ago" -- src/services/ServiceConfigManager.ts
+### Optional Enhancements (Low Priority)
 
-# Check imports of ServiceConfigManager
-grep -r "import.*ServiceConfigManager" src/
-```
+1. **Improve Type Safety:**
+   ```typescript
+   // Current:
+   variables?: any;
 
-### Decision Criteria
+   // Suggested:
+   variables?: Record<string, unknown> | VariablesConfig;
+   ```
 
-**REMOVE METHOD IF**:
-- ✅ 0 references in codebase (unused)
-- ✅ Functionality replaced by hook (useServiceBaseSettings)
-- ✅ Accesses deprecated database columns
-- ✅ Hardcoded to old pricing formula
+2. **Extract Defaults to Constants:**
+   ```typescript
+   const DEFAULT_SERVICE_VALUES = {
+     HOURLY_LABOR_RATE: 25,
+     OPTIMAL_TEAM_SIZE: 3,
+     // ... etc
+   } as const;
+   ```
 
-**KEEP METHOD IF**:
-- ❌ Active references in components
-- ❌ Used by Custom Service Wizard
-- ❌ Unique functionality not available elsewhere
-- ❌ Part of public API for future features
+3. **Custom Error Types:**
+   ```typescript
+   class ServiceConfigError extends Error {
+     constructor(message: string, public code: string) {
+       super(message);
+       this.name = 'ServiceConfigError';
+     }
+   }
+   ```
 
-**REFACTOR IF**:
-- 🔄 Uses deprecated Supabase patterns → update to modern
-- 🔄 Has hardcoded values → move to config
-- 🔄 Duplicate logic with hooks → consolidate
-- 🔄 Missing error handling → add proper errors
+### Risk Assessment
+
+| Risk Category | Level | Notes |
+|---------------|-------|-------|
+| Business Impact if Removed | 🔴 CRITICAL | Service saves would fail, cache wouldn't clear |
+| Technical Debt | 🟢 LOW | Minor typing improvements only |
+| Removal Risk | 🔴 HIGH | Would break critical workflows |
+| Refactoring Risk | 🟢 LOW | Optional enhancements, not required |
+
+### Conclusion
+
+ServiceConfigManager is **NOT legacy code**. It is:
+- ✅ Recently updated and actively maintained
+- ✅ Using modern patterns throughout
+- ✅ Critical for service configuration persistence
+- ✅ Required for Custom Service Wizard completion
+- ✅ Lean and focused (223 lines, 4 methods total)
+
+**Decision:** KEEP ALL - No removal or refactoring required. Optional type safety improvements can be made in future if desired.
+
+**Full Investigation Report:** See code-reviewer agent analysis (comprehensive 10-section report, October 25, 2025)
 
 ---
 
@@ -447,8 +500,8 @@ WHERE table_name = 'companies'
 |--------|---------------|--------------|----------------------|-----------------|----------|
 | ~~Dual Testing Mode~~ | ✅ REMOVED | ✅ COMPLETE | ✅ COMPLETE | ✅ SUCCESS | ~~1~~ DONE (Oct 25) |
 | ~~ChatInterface Nav~~ | ✅ CLEAN | ✅ CONFIRMED | ✅ MODERN | ✅ NONE | ~~2~~ DONE (Oct 25) |
-| ServiceConfigManager | Active | 🟡 MEDIUM | 🟡 MEDIUM | 🟡 MEDIUM | **1 - NEXT PRIORITY** |
-| Material Calculations | Active | 🟢 LOW | 🟡 MEDIUM | 🟢 LOW | 2 - Optimization |
+| ~~ServiceConfigManager~~ | ✅ CLEAN | ✅ CONFIRMED | ✅ MODERN | 🟢 LOW DEBT | ~~3~~ DONE (Oct 25) |
+| Material Calculations | Active | 🟢 LOW | 🟡 MEDIUM | 🟢 LOW | **1 - NEXT PRIORITY** |
 | Onboarding Screens | Active | 🟡 MEDIUM | 🟡 MEDIUM | 🔴 HIGH | 2 - User Experience |
 
 ---
@@ -630,6 +683,7 @@ This workflow ensures all legacy code removals are:
 ---
 
 **Document Maintained By**: Development Team
-**Last Investigation Completed**: 2025-10-25 (ChatInterface Legacy Navigation - Clean Architecture Confirmed)
-**Investigations Completed Today**: 2 systems (Dual Testing Mode, ChatInterface Navigation)
-**Next Priority**: System 3 - ServiceConfigManager Legacy Methods
+**Last Investigation Completed**: 2025-10-25 (ServiceConfigManager - Clean Architecture Confirmed)
+**Investigations Completed Today**: 3 systems (Dual Testing Mode, ChatInterface Navigation, ServiceConfigManager)
+**Systems Remaining**: 2 (Material Calculations, Onboarding Screens)
+**Next Priority**: System 4 - Material Calculations (Optional - Low Priority)
