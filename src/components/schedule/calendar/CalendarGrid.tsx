@@ -20,6 +20,8 @@ export interface CalendarGridProps {
   unassignedJobs: CalendarJobBlock[];
   visualConfig: any;
   onJobClick?: (jobId: string) => void;
+  onJobDoubleClick?: (jobId: string) => void;
+  onJobContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
 }
 
 /**
@@ -31,7 +33,9 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   assignedJobs,
   unassignedJobs,
   visualConfig,
-  onJobClick
+  onJobClick,
+  onJobDoubleClick,
+  onJobContextMenu
 }) => {
   // Group assigned jobs by crew
   const jobsByCrew = assignedJobs.reduce((acc, job) => {
@@ -51,6 +55,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
         jobs={unassignedJobs}
         visualConfig={visualConfig}
         onJobClick={onJobClick}
+        onJobDoubleClick={onJobDoubleClick}
+        onJobContextMenu={onJobContextMenu}
       />
 
       {/* Crew Rows */}
@@ -63,6 +69,8 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             assignments={jobsByCrew[crew.id] || []}
             visualConfig={visualConfig}
             onJobClick={onJobClick}
+            onJobDoubleClick={onJobDoubleClick}
+            onJobContextMenu={onJobContextMenu}
           />
         ))}
       </div>

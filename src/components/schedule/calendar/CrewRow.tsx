@@ -23,6 +23,8 @@ export interface CrewRowProps {
   assignments: CalendarJobBlock[];
   visualConfig: any;
   onJobClick?: (jobId: string) => void;
+  onJobDoubleClick?: (jobId: string) => void;
+  onJobContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
 }
 
 /**
@@ -34,7 +36,9 @@ export const CrewRow: React.FC<CrewRowProps> = ({
   weekStart,
   assignments,
   visualConfig,
-  onJobClick
+  onJobClick,
+  onJobDoubleClick,
+  onJobContextMenu
 }) => {
   const { getJobPosition } = useJobPositioning();
   const { handleDragOver, handleDragEnter, handleDragLeave, handleDrop } = useDragAndDrop();
@@ -108,6 +112,8 @@ export const CrewRow: React.FC<CrewRowProps> = ({
                   visualConfig={visualConfig}
                   sourceCrewId={crew.id}
                   onClick={onJobClick}
+                  onDoubleClick={onJobDoubleClick}
+                  onContextMenu={onJobContextMenu}
                 />
               );
             })}

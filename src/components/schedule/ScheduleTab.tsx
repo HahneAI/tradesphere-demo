@@ -6,14 +6,14 @@
  * ✅ Phase 2: Data Layer (Supabase integration, mock crews)
  * ✅ Phase 3: Static Calendar (grid, rows, blocks)
  * ✅ Phase 4: Drag-and-Drop (8am-5pm time blocks)
- * ⏳ Phase 5: Conflict Detection
- * ⏳ Phase 6: Interactions
+ * 🚧 Phase 5: Quick Actions & Interactions
+ * ⏳ Phase 6: Conflict Detection
  * ⏳ Phase 7: Polish
  *
  * @module ScheduleTab
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,6 +26,11 @@ import { CalendarGrid } from './calendar/CalendarGrid';
 import { DragDropProvider } from './context/DragDropContext';
 import { formatCurrency, formatDate } from '../../types/jobs-views';
 import { getSupabase } from '../../services/supabase';
+import { JobDetailModal } from '../jobs/detail/JobDetailModal';
+import { ContextMenu } from './calendar/ContextMenu';
+import { Toolbar, JobStatus, PriorityLevel } from './calendar/Toolbar';
+import { KeyboardShortcutsHelp } from './calendar/KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 interface ScheduleTabProps {
   isOpen: boolean;
@@ -66,6 +71,34 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
     weekDates[0],
     weekDates[6]
   );
+
+  // Phase 5: Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    jobId: string;
+    jobNumber: string;
+  } | null>(null);
+
+  // Phase 5: Filter state
+  const [selectedStatuses, setSelectedStatuses] = useState<JobStatus[]>([
+    'scheduled',
+    'in_progress'
+  ]);
+  const [selectedPriority, setSelectedPriority] = useState<PriorityLevel[]>([
+    'low',
+    'normal',
+    'high',
+    'urgent'
+  ]);
+  const [showConflicts, setShowConflicts] = useState(false);
+
+  // Phase 5: Job detail modal state
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
+  // Phase 5: Keyboard shortcuts help modal
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   /**
    * Handle job drop with 8am-5pm time-block scheduling
@@ -159,6 +192,117 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
     [calendarJobs, user?.id, refreshCalendar]
   );
 
+  // Phase 5: Filtered jobs based on status and priority
+  const filteredJobs = useMemo(() => {
+    return calendarJobs.filter(job => {
+      // Status filter
+      if (!selectedStatuses.includes(job.status as JobStatus)) return false;
+
+      // Priority filter (map priority levels to number ranges)
+      const priority = job.priority || 5;
+      const matchesPriority = selectedPriority.some(level => {
+        if (level === 'low') return priority >= 0 && priority <= 4;
+        if (level === 'normal') return priority >= 5 && priority <= 7;
+        if (level === 'high') return priority >= 8 && priority <= 9;
+        if (level === 'urgent') return priority === 10;
+        return false;
+      });
+      if (!matchesPriority) return false;
+
+      return true;
+    });
+  }, [calendarJobs, selectedStatuses, selectedPriority]);
+
+  // Phase 5: Context menu handlers
+  const handleContextMenu = useCallback((e: React.MouseEvent, jobId: string, jobNumber: string) => {
+    e.preventDefault();
+    setContextMenu({
+      isOpen: true,
+      position: { x: e.clientX, y: e.clientY },
+      jobId,
+      jobNumber
+    });
+  }, []);
+
+  const handleJobClick = useCallback((jobId: string) => {
+    setSelectedJobId(jobId);
+    setDetailModalOpen(true);
+  }, []);
+
+  const handleJobDoubleClick = useCallback((jobId: string) => {
+    // TODO: Implement inline date picker in Phase 6
+    console.log('Double-clicked job for quick edit:', jobId);
+    hapticFeedback.impact('medium');
+  }, []);
+
+  // Phase 5: Context menu actions
+  const handleViewDetails = useCallback(() => {
+    if (contextMenu) {
+      setSelectedJobId(contextMenu.jobId);
+      setDetailModalOpen(true);
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
+
+  const handleReschedule = useCallback(() => {
+    // TODO: Implement reschedule modal in Phase 6
+    console.log('Reschedule job:', contextMenu?.jobId);
+    setContextMenu(null);
+    hapticFeedback.impact('light');
+  }, [contextMenu]);
+
+  const handleChangeCrew = useCallback(() => {
+    // TODO: Implement crew change modal in Phase 6
+    console.log('Change crew for job:', contextMenu?.jobId);
+    setContextMenu(null);
+    hapticFeedback.impact('light');
+  }, [contextMenu]);
+
+  const handleMarkCompleted = useCallback(async () => {
+    if (!contextMenu) return;
+    try {
+      await supabase
+        .from('ops_jobs')
+        .update({ status: 'completed' })
+        .eq('id', contextMenu.jobId);
+      refreshCalendar();
+      setContextMenu(null);
+      hapticFeedback.notification('success');
+    } catch (error) {
+      console.error('Failed to mark job completed:', error);
+      hapticFeedback.notification('error');
+    }
+  }, [contextMenu, refreshCalendar]);
+
+  const handleRemoveAssignment = useCallback(async () => {
+    if (!contextMenu) return;
+    try {
+      await supabase.rpc('cancel_existing_job_assignments', {
+        p_job_id: contextMenu.jobId
+      });
+      refreshCalendar();
+      setContextMenu(null);
+      hapticFeedback.notification('success');
+    } catch (error) {
+      console.error('Failed to remove assignment:', error);
+      hapticFeedback.notification('error');
+    }
+  }, [contextMenu, refreshCalendar]);
+
+  // Phase 5: Keyboard shortcuts integration
+  useKeyboardShortcuts({
+    onPreviousWeek: goToPreviousWeek,
+    onNextWeek: goToNextWeek,
+    onToday: goToToday,
+    onCloseModals: () => {
+      setContextMenu(null);
+      setDetailModalOpen(false);
+      setShortcutsHelpOpen(false);
+    },
+    onShowHelp: () => setShortcutsHelpOpen(true),
+    enabled: isOpen
+  });
+
   if (!isOpen) return null;
 
   const handleClose = () => {
@@ -241,14 +385,31 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
         ) : (
           <DragDropProvider onDrop={handleJobDrop}>
             <div className="flex flex-col h-full">
+              {/* Phase 5: Toolbar with filters */}
+              <Toolbar
+                selectedStatuses={selectedStatuses}
+                onStatusChange={setSelectedStatuses}
+                selectedPriority={selectedPriority}
+                onPriorityChange={setSelectedPriority}
+                showConflicts={showConflicts}
+                onToggleConflicts={() => setShowConflicts(!showConflicts)}
+                conflictCount={0}
+                filteredJobCount={filteredJobs.length}
+                totalJobCount={calendarJobs.length}
+                visualConfig={visualConfig}
+                theme={theme}
+              />
+
               {/* Calendar Grid */}
               <CalendarGrid
                 crews={crews}
                 weekStart={weekDates[0]}
-                assignedJobs={assignedJobs}
-                unassignedJobs={unassignedJobs}
+                assignedJobs={filteredJobs.filter(j => j.crew_id)}
+                unassignedJobs={filteredJobs.filter(j => !j.crew_id)}
                 visualConfig={visualConfig}
-                onJobClick={(jobId) => console.log('Job clicked:', jobId)}
+                onJobClick={handleJobClick}
+                onJobDoubleClick={handleJobDoubleClick}
+                onJobContextMenu={handleContextMenu}
               />
 
             {/* Stats Summary (collapsed below calendar) */}
@@ -437,9 +598,21 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Icons.CheckCircle size={16} style={{ color: '#10B981' }} />
+                  <span style={{ color: visualConfig.colors.text.secondary }}>
+                    Phase 3: Static Calendar (grid, rows, blocks) ✅
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Icons.CheckCircle size={16} style={{ color: '#10B981' }} />
+                  <span style={{ color: visualConfig.colors.text.secondary }}>
+                    Phase 4: Drag-and-Drop (8am-5pm time blocks) ✅
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
                   <Icons.Clock size={16} style={{ color: '#F59E0B' }} />
                   <span style={{ color: visualConfig.colors.text.secondary }}>
-                    Phase 3: Static Calendar (grid, rows, blocks) 🚧
+                    Phase 5: Quick Actions & Interactions 🚧
                   </span>
                 </div>
               </div>
@@ -449,6 +622,46 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
           </DragDropProvider>
         )}
       </div>
+
+      {/* Phase 5: Context Menu */}
+      {contextMenu && (
+        <ContextMenu
+          isOpen={contextMenu.isOpen}
+          position={contextMenu.position}
+          jobId={contextMenu.jobId}
+          jobNumber={contextMenu.jobNumber}
+          onClose={() => setContextMenu(null)}
+          onViewDetails={handleViewDetails}
+          onReschedule={handleReschedule}
+          onChangeCrew={handleChangeCrew}
+          onMarkCompleted={handleMarkCompleted}
+          onRemoveAssignment={handleRemoveAssignment}
+          visualConfig={visualConfig}
+          theme={theme}
+        />
+      )}
+
+      {/* Phase 5: Job Detail Modal */}
+      {detailModalOpen && selectedJobId && (
+        <JobDetailModal
+          isOpen={detailModalOpen}
+          onClose={() => setDetailModalOpen(false)}
+          jobId={selectedJobId}
+          companyId={user?.company_id || ''}
+          userId={user?.id || ''}
+          onJobUpdated={refreshCalendar}
+          visualConfig={visualConfig}
+          theme={theme}
+        />
+      )}
+
+      {/* Phase 5: Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp
+        isOpen={shortcutsHelpOpen}
+        onClose={() => setShortcutsHelpOpen(false)}
+        visualConfig={visualConfig}
+        theme={theme}
+      />
     </div>
   );
 };

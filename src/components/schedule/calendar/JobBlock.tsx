@@ -21,6 +21,8 @@ export interface JobBlockProps {
   visualConfig: any;
   sourceCrewId?: string | null;
   onClick?: (jobId: string) => void;
+  onDoubleClick?: (jobId: string) => void;
+  onContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
   isDraggingThis?: boolean;
 }
 
@@ -35,6 +37,8 @@ export const JobBlock: React.FC<JobBlockProps> = ({
   visualConfig,
   sourceCrewId = null,
   onClick,
+  onDoubleClick,
+  onContextMenu,
   isDraggingThis = false
 }) => {
   const { handleDragStart, handleDragEnd, draggedJob } = useDragAndDrop();
@@ -43,6 +47,21 @@ export const JobBlock: React.FC<JobBlockProps> = ({
     e.stopPropagation();
     if (onClick) {
       onClick(job.job_id);
+    }
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDoubleClick) {
+      onDoubleClick(job.job_id);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onContextMenu) {
+      onContextMenu(e, job.job_id, job.job_number);
     }
   };
 
@@ -100,6 +119,8 @@ export const JobBlock: React.FC<JobBlockProps> = ({
         minHeight: '96px'
       }}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
     >
       {/* Priority Badge */}
       <div

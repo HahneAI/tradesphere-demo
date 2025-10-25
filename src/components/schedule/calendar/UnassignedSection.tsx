@@ -17,6 +17,8 @@ export interface UnassignedSectionProps {
   jobs: CalendarJobBlock[];
   visualConfig: any;
   onJobClick?: (jobId: string) => void;
+  onJobDoubleClick?: (jobId: string) => void;
+  onJobContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
 }
 
 /**
@@ -26,7 +28,9 @@ export interface UnassignedSectionProps {
 export const UnassignedSection: React.FC<UnassignedSectionProps> = ({
   jobs,
   visualConfig,
-  onJobClick
+  onJobClick,
+  onJobDoubleClick,
+  onJobContextMenu
 }) => {
   const { handleDragStart, handleDragEnd, draggedJob } = useDragAndDrop();
 
@@ -71,6 +75,19 @@ export const UnassignedSection: React.FC<UnassignedSectionProps> = ({
               draggable={true}
               onDragStart={(e) => handleDragStart(e, job, null)}
               onDragEnd={handleDragEnd}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isDragging && onJobClick) onJobClick(job.job_id);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                if (onJobDoubleClick) onJobDoubleClick(job.job_id);
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onJobContextMenu) onJobContextMenu(e, job.job_id, job.job_number);
+              }}
               className={`
                 flex-shrink-0 w-64 p-3 rounded-lg border-2 transition-all
                 ${isDragging ? 'opacity-60 cursor-grabbing' : 'cursor-grab hover:shadow-md'}
@@ -79,7 +96,6 @@ export const UnassignedSection: React.FC<UnassignedSectionProps> = ({
                 backgroundColor: visualConfig.colors.background,
                 borderColor: '#94A3B8'
               }}
-              onClick={() => !isDragging && onJobClick && onJobClick(job.job_id)}
             >
             {/* Job Number */}
             <div className="font-bold text-sm mb-1" style={{ color: visualConfig.colors.text.primary }}>
