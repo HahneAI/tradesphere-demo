@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import * as Icons from 'lucide-react';
-import { supabase } from '../../../lib/supabaseClient';
+import { getSupabase } from '../../../services/supabase';
+
+const supabase = getSupabase();
 
 interface Step1IdentityProps {
   wizard: any;
