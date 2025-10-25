@@ -734,3 +734,45 @@ WHERE table_name = 'companies'
 **Status**: Ready to begin investigations - start with Dual Testing Mode (highest priority and risk)
 
 **Estimated Timeline**: 2 weeks for full investigation → decisions → execution planning
+
+---
+
+## 📝 Workflow for Completed Investigations
+
+When an investigation is **COMPLETE** and the decision is to **REMOVE** legacy code:
+
+1. **Document the Removal Plan** in [CONFIRMED_LEGACY_REMOVAL.md](./CONFIRMED_LEGACY_REMOVAL.md):
+   - Copy the investigation section from this document
+   - Add detailed removal steps and testing checklist
+   - Include verification commands and rollback procedures
+   - Set expected timeline and risk assessment
+
+2. **Execute the Removal**:
+   - Create backup branch before any changes
+   - Follow the removal plan step-by-step
+   - Commit each phase separately with descriptive messages
+   - Test thoroughly at each step
+
+3. **Archive the Completion** in [CONFIRMED_LEGACY_REMOVAL.md](./CONFIRMED_LEGACY_REMOVAL.md):
+   - Mark component as ✅ REMOVED with commit hash
+   - Document production validation results
+   - Verify Netlify deployment successful
+   - Add to historical archive section
+
+4. **Update This Document**:
+   - Remove completed investigation from this file
+   - Document decision and outcome in investigation notes
+   - Update priority table if needed
+
+This workflow ensures all legacy code removals are:
+- ✅ Properly investigated before action
+- ✅ Documented with clear removal plans
+- ✅ Executed safely with backups
+- ✅ Verified in production
+- ✅ Archived for future reference
+
+---
+
+**Document Maintained By**: Development Team
+**Last Investigation Completed**: 2025-10-24 (Navigation Components)
+**Next Priority**: System 1 - Dual Testing Mode (Pricing Engine)
