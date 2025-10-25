@@ -34,7 +34,7 @@ export class CustomerLifecycleService {
     try {
       // First get company_id (needed for multi-tenancy)
       const { data: customerData, error: fetchError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('company_id, lifecycle_stage')
         .eq('id', customerId)
         .single();
@@ -99,7 +99,7 @@ export class CustomerLifecycleService {
 
       // First get company_id (needed for multi-tenancy)
       const { data: customerData, error: fetchError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('company_id, tags')
         .eq('id', customerId)
         .single();
@@ -166,7 +166,7 @@ export class CustomerLifecycleService {
 
       // First get company_id (needed for multi-tenancy)
       const { data: customerData, error: fetchError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('company_id, tags')
         .eq('id', customerId)
         .single();
@@ -383,7 +383,7 @@ export class CustomerLifecycleService {
     try {
       // Get customer counts by stage
       const { data: customers } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('lifecycle_stage')
         .eq('company_id', companyId)
         .is('deleted_at', null)
@@ -462,7 +462,7 @@ export class CustomerLifecycleService {
       const cutoffDate = new Date(Date.now() - daysSinceLastInteraction * 24 * 60 * 60 * 1000).toISOString();
 
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select(`
           *,
           customer_metrics!inner (

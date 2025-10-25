@@ -1344,3 +1344,21 @@ export type {
   PaginatedResponse,
   BulkOperationResult,
 };
+
+// ============================================================================
+// Job Wizard Type System
+// ============================================================================
+
+/**
+ * For comprehensive job creation wizard types, see:
+ * - src/types/job-wizard.ts - Main type definitions
+ * - src/types/job-wizard-schemas.ts - Zod validation schemas
+ * - src/types/job-wizard.examples.ts - Usage examples
+ * - src/types/JOB-WIZARD-README.md - Complete documentation
+ *
+ * The job wizard types integrate with the CRM types defined in this file:
+ * - Job, CreateJobInput, UpdateJobInput
+ * - JobService, CreateJobServiceInput
+ * - ServiceCalculationData
+ * - CustomerProfile (from customer.ts)
+ */

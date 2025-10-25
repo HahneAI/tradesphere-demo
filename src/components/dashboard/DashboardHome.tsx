@@ -30,6 +30,7 @@ import { QuickActionsPanel } from './QuickActionsPanel';
 import { DashboardHeader } from './DashboardHeader';
 import { BottomNav } from './BottomNav';
 import { HeaderMenu } from './HeaderMenu';
+import { JobCreationWizard } from '../jobs/JobCreationWizard';
 
 interface DashboardHomeProps {
   onNavigate: (tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing') => void;
@@ -70,6 +71,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [companyTimezone, setCompanyTimezone] = useState<string>('America/Chicago');
+  const [showJobWizard, setShowJobWizard] = useState(false);
 
   // Polling ref
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -193,6 +195,27 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
   }, []);
 
   /**
+   * Handle Quick Action clicks with special handling for "New Job"
+   */
+  const handleQuickAction = useCallback((tab: 'jobs' | 'schedule' | 'crews' | 'customers' | 'billing', actionId?: string) => {
+    if (actionId === 'new_job') {
+      // Open wizard instead of navigating to jobs tab
+      setShowJobWizard(true);
+    } else {
+      onNavigate(tab);
+    }
+  }, [onNavigate]);
+
+  /**
+   * Handle wizard close
+   */
+  const handleWizardClose = useCallback(() => {
+    setShowJobWizard(false);
+    // Refresh metrics after job creation
+    fetchMetrics(false);
+  }, [fetchMetrics]);
+
+  /**
    * Handle sign out
    */
   const handleSignOut = useCallback(async () => {
@@ -303,7 +326,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
 
           {/* Quick Actions Panel */}
           <QuickActionsPanel
-            onNavigate={onNavigate}
+            onNavigate={handleQuickAction}
             visualConfig={visualConfig}
             theme={theme}
           />
@@ -383,6 +406,14 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({
           theme={theme}
         />
       )}
+
+      {/* Job Creation Wizard */}
+      <JobCreationWizard
+        isOpen={showJobWizard}
+        onClose={handleWizardClose}
+        companyId={user?.company_id || ''}
+        userId={user?.id || ''}
+      />
     </div>
   );
 };
