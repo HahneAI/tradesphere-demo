@@ -25,7 +25,7 @@ import { WeekHeader } from './calendar/WeekHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
 import { DragDropProvider } from './context/DragDropContext';
 import { formatCurrency, formatDate } from '../../types/jobs-views';
-import { supabase } from '../../services/supabase';
+import { getSupabase } from '../../services/supabase';
 
 interface ScheduleTabProps {
   isOpen: boolean;
@@ -40,6 +40,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
   const { user } = useAuth();
   const { theme } = useTheme();
   const visualConfig = getSmartVisualThemeConfig(theme);
+  const supabase = getSupabase();
 
   // Week navigation
   const {
