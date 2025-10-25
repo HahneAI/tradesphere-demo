@@ -38,7 +38,8 @@
       "Bash(./node_modules/.bin/tsc:*)",
       "Bash(findstr:*)",
       "Bash(dir:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []
