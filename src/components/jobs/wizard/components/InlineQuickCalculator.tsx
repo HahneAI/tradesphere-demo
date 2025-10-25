@@ -105,40 +105,40 @@ export const InlineQuickCalculator: React.FC<InlineQuickCalculatorProps> = ({
   const hasCalculation = currentStore.lastCalculation !== null;
 
   return (
-    <div className="border border-gray-300 rounded-lg overflow-hidden">
+    <div className="border border-gray-300 dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Header - Always Visible */}
       <div
-        className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 cursor-pointer hover:from-blue-100 hover:to-blue-150 transition-colors"
+        className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 cursor-pointer hover:from-blue-100 hover:to-blue-150 dark:hover:from-blue-800/30 dark:hover:to-blue-700/30 transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-3">
-          <Calculator className="w-5 h-5 text-blue-600" />
+          <Calculator className="w-5 h-5 text-blue-600 dark:text-blue-400" />
           <div>
-            <h3 className="font-semibold text-gray-900">Quick Calculator</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Quick Calculator</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Calculate pricing for {SERVICE_DISPLAY_NAMES[selectedService]}
             </p>
           </div>
         </div>
         {isExpanded ? (
-          <ChevronUp className="w-5 h-5 text-gray-600" />
+          <ChevronUp className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-gray-600" />
+          <ChevronDown className="w-5 h-5 text-gray-600 dark:text-gray-400" />
         )}
       </div>
 
       {/* Calculator Content - Collapsible */}
       {isExpanded && (
-        <div className="p-6 bg-white">
+        <div className="p-6 bg-white dark:bg-gray-800">
           {/* Service Selector Dropdown */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select Service Type
             </label>
             <select
               value={selectedService}
               onChange={(e) => setSelectedService(e.target.value as ServiceType)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             >
               {availableServices.map((service) => (
                 <option key={service} value={service}>
@@ -167,10 +167,10 @@ export const InlineQuickCalculator: React.FC<InlineQuickCalculatorProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
+          <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               {hasCalculation ? (
-                <span className="text-green-600 font-medium">
+                <span className="text-green-600 dark:text-green-400 font-medium">
                   ✓ Calculation ready (${currentStore.lastCalculation?.tier2Results?.total?.toFixed(2)})
                 </span>
               ) : (
@@ -196,8 +196,8 @@ export const InlineQuickCalculator: React.FC<InlineQuickCalculatorProps> = ({
           </div>
 
           {/* Help Text */}
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
               <strong>How to use:</strong> Select a service, enter your project details, then click
               "Commit to Services List" to add it to your job.
             </p>
