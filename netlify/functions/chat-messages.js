@@ -95,7 +95,7 @@ export const handler = async (event, context) => {
         });
 
         const { data, error } = await supabase
-          .from('VC Usage')
+          .from('ai_chat_sessions')
           .select('session_id,customer_name,customer_email,customer_phone,customer_address,created_at,interaction_summary')
           .eq('user_id', userId)
           .not('customer_name', 'is', null)
@@ -118,7 +118,7 @@ export const handler = async (event, context) => {
         });
 
         const { data, error } = await supabase
-          .from('demo_messages')
+          .from('ai_demo_messages')
           .select('id,message_text,sender,created_at,session_id,message_source') // ✅ RESTORED: Include source for visual differentiation
           .eq('session_id', sessionId)
           .eq('sender', 'ai')

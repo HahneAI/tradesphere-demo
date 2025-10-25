@@ -205,7 +205,7 @@ export class CustomerMergeService {
 
       // Count conversations to transfer
       const { count: conversationCount } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('customer_id', sourceId);
 
@@ -249,7 +249,7 @@ export class CustomerMergeService {
 
       // 1. Transfer all VC Usage records
       const { error: vcError } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .update({
           customer_id: targetId,
           customer_linked_at: timestamp,

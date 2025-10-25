@@ -73,7 +73,7 @@ export const handler = async (event, context) => {
 
     // Query VC Usage table for conversation history using Supabase client
     let query = supabase
-      .from('VC Usage')
+      .from('ai_chat_sessions')
       .select('user_input,ai_response,interaction_number,created_at,session_id,customer_name,customer_address,customer_email,customer_phone')
       .eq('customer_name', decodeURIComponent(customerName))
       .eq('user_id', userId)

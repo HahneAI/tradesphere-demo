@@ -238,7 +238,7 @@ async function updateInteractionSummary(sessionId, interactionNumber, summary) {
     console.log('📝 [DB_UPDATE] Update Payload:', JSON.stringify(updatePayload, null, 2));
 
     const { error } = await supabase
-      .from('VC Usage')
+      .from('ai_chat_sessions')
       .update(updatePayload)
       .eq('session_id', sessionId)
       .eq('interaction_number', interactionNumber);

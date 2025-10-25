@@ -72,7 +72,7 @@ export const handler = async (event, context) => {
     // Update all records for this session using Supabase client
     // SECURITY: Filter by both session_id AND user_id to prevent cross-user data modification
     const { error } = await supabase
-      .from('VC Usage')
+      .from('ai_chat_sessions')
       .update(updateData)
       .eq('session_id', payload.sessionId)
       .eq('user_id', payload.userId);

@@ -60,7 +60,7 @@ export class CustomerService {
       // Since customer_list_view doesn't exist, query VC Usage table directly
       // and aggregate customer data with smart ordering
       const { data: rawData, error } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select(`
           customer_name,
           user_id,
@@ -196,7 +196,7 @@ export class CustomerService {
   ): Promise<{ conversations: CustomerConversationHistory[]; error?: string }> {
     try {
       let query = this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('id, user_input, ai_response, interaction_number, created_at, session_id')
         .eq('user_id', techId)
         .eq('customer_name', customerName)
@@ -243,7 +243,7 @@ export class CustomerService {
     try {
       // Start transaction by updating all records for this customer
       const { error: updateError } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .update({
           ...updates,
           updated_at: new Date().toISOString()
@@ -311,7 +311,7 @@ export class CustomerService {
       // Use RPC call to avoid 406 errors with single() queries or direct count operations
       // First try to get any record to check current view_count
       const { data: existingRecords } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('view_count')
         .eq('user_id', techId)
         .eq('customer_name', customerName)
@@ -323,7 +323,7 @@ export class CustomerService {
 
       // Update all records for this customer/tech combination
       const { error: updateError } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .update({
           last_viewed_at: new Date().toISOString(),
           view_count: newViewCount
@@ -352,7 +352,7 @@ export class CustomerService {
   ): Promise<{ customer: VCUsageRow | null; error?: string }> {
     try {
       let query = this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('*')
         .eq('user_id', techId)
         .order('created_at', { ascending: false })
@@ -429,7 +429,7 @@ export class CustomerService {
     try {
       // Query VC Usage table directly since customer_list_view doesn't exist
       const { data: rawData, error } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('customer_name, view_count')
         .eq('user_id', techId)
         .not('customer_name', 'is', null);

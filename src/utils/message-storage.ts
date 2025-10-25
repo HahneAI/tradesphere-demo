@@ -174,7 +174,7 @@ export class MessageStorageService {
 
       const supabase = createClient(url, key);
       const { data, error } = await supabase
-        .from('demo_messages')
+        .from('ai_demo_messages')
         .insert(messageData)
         .select();
 
@@ -300,7 +300,7 @@ export class MessageStorageService {
 
       const supabase = createClient(url, key);
       const { data, error } = await supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .insert(vcUsageData)
         .select();
 

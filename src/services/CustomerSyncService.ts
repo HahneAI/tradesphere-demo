@@ -195,7 +195,7 @@ export class CustomerSyncService {
   ): Promise<void> {
     try {
       const { error } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .update({
           customer_id: customerId,
           customer_linked_at: new Date().toISOString(),
@@ -333,7 +333,7 @@ export class CustomerSyncService {
   async getCustomerConversations(customerId: string): Promise<CustomerConversation[]> {
     try {
       const { data, error } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('*')
         .eq('customer_id', customerId)
         .order('created_at', { ascending: false });
@@ -382,7 +382,7 @@ export class CustomerSyncService {
 
       // Find VC Usage records without customer_id
       const { data, error } = await this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('*')
         .in('user_id', userIds)
         .is('customer_id', null)
@@ -533,7 +533,7 @@ export class CustomerSyncService {
   }>> {
     try {
       let query = this.supabase
-        .from('VC Usage')
+        .from('ai_chat_sessions')
         .select('user_input, ai_response, interaction_number, created_at, session_id')
         .eq('customer_id', customerId)
         .not('user_input', 'is', null)
