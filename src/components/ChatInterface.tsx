@@ -27,7 +27,6 @@ import { Message } from '../types/message';
 import { HeaderMenu } from './dashboard/HeaderMenu';
 import { NotesPopup } from './ui/NotesPopup';
 import { CustomersTab } from './CustomersTab';
-import { ServicesTab } from './ServicesTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
