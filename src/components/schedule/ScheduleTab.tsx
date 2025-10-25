@@ -22,6 +22,7 @@ import { hapticFeedback } from '../../utils/mobile-gestures';
 import { useWeekNavigation } from './hooks/useWeekNavigation';
 import { useScheduleCalendar } from './hooks/useScheduleCalendar';
 import { WeekHeader } from './calendar/WeekHeader';
+import { CalendarGrid } from './calendar/CalendarGrid';
 import { formatCurrency, formatDate } from '../../types/jobs-views';
 
 interface ScheduleTabProps {
@@ -122,7 +123,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
       />
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -142,7 +143,19 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
             <p style={{ color: visualConfig.colors.text.secondary }}>{error}</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="flex flex-col h-full">
+            {/* Calendar Grid */}
+            <CalendarGrid
+              crews={crews}
+              weekStart={weekDates[0]}
+              assignedJobs={assignedJobs}
+              unassignedJobs={unassignedJobs}
+              visualConfig={visualConfig}
+              onJobClick={(jobId) => console.log('Job clicked:', jobId)}
+            />
+
+            {/* Stats Summary (collapsed below calendar) */}
+            <div className="p-6 space-y-6 border-t" style={{ borderColor: visualConfig.colors.text.secondary + '20' }}>
             {/* Stats Summary */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div
