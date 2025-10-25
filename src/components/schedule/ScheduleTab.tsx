@@ -25,7 +25,7 @@ import { WeekHeader } from './calendar/WeekHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
 import { DragDropProvider } from './context/DragDropContext';
 import { formatCurrency, formatDate } from '../../types/jobs-views';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../services/supabase';
 
 interface ScheduleTabProps {
   isOpen: boolean;
