@@ -36,7 +36,7 @@ export class CustomerRepository {
       // Start with base query using customer_metrics view
       // Use LEFT JOIN (no !inner) so customers without metrics still appear
       let query = this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select(`
           *,
           customer_metrics (
@@ -181,7 +181,7 @@ export class CustomerRepository {
   async getCustomerById(customerId: string, companyId: string): Promise<CustomerWithMetrics> {
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select(`
           *,
           customer_metrics (
@@ -277,7 +277,7 @@ export class CustomerRepository {
 
       // Insert customer
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .insert({
           company_id: input.company_id,
           customer_name: input.customer_name.trim(),
@@ -364,7 +364,7 @@ export class CustomerRepository {
 
       // Update customer (with company_id filter for multi-tenancy)
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update(updateData)
         .eq('id', customerId)
         .eq('company_id', companyId)
@@ -399,7 +399,7 @@ export class CustomerRepository {
       await this.getCustomerById(customerId, companyId);
 
       const { error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update({
           deleted_at: new Date().toISOString(),
           status: 'deleted',
@@ -439,7 +439,7 @@ export class CustomerRepository {
   async restoreCustomer(customerId: string): Promise<CustomerProfile> {
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update({
           deleted_at: null,
           status: 'active',
@@ -496,7 +496,7 @@ export class CustomerRepository {
 
       // Then, search customers directly
       let query = this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('company_id', companyId)
         .is('deleted_at', null)
@@ -604,7 +604,7 @@ export class CustomerRepository {
   ): Promise<CustomerProfile[]> {
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('company_id', companyId)
         .eq('lifecycle_stage', stage)
@@ -634,7 +634,7 @@ export class CustomerRepository {
   ): Promise<CustomerProfile[]> {
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('company_id', companyId)
         .contains('tags', tags)
@@ -664,7 +664,7 @@ export class CustomerRepository {
   ): Promise<number> {
     try {
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update({
           lifecycle_stage: stage,
           lifecycle_updated_at: new Date().toISOString(),

@@ -27,7 +27,7 @@ export class CustomerMergeService {
    */
   private async getCustomerCompanyId(customerId: string): Promise<string> {
     const { data, error } = await this.supabase
-      .from('customers')
+      .from('crm_customers')
       .select('company_id')
       .eq('id', customerId)
       .single();
@@ -340,7 +340,7 @@ export class CustomerMergeService {
 
       // 6. Soft delete and mark source as merged
       await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update({
           merged_into_customer_id: targetId,
           deleted_at: timestamp,
@@ -414,7 +414,7 @@ export class CustomerMergeService {
 
       // 1. Restore source customer
       await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update({
           merged_into_customer_id: null,
           deleted_at: null,

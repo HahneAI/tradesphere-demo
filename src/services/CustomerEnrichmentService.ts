@@ -72,7 +72,7 @@ export class CustomerEnrichmentService {
 
       // First get company_id (needed for multi-tenancy)
       const { data: customerData, error: fetchError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('company_id')
         .eq('id', customerId)
         .single();
@@ -354,7 +354,7 @@ export class CustomerEnrichmentService {
 
       // First get company_id (needed for multi-tenancy)
       const { data: customerData, error: fetchError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('company_id')
         .eq('id', customerId)
         .single();

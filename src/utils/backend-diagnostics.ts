@@ -34,16 +34,28 @@ export const runBackendDiagnostics = async (): Promise<DiagnosticResults> => {
   // Check environment variables
   const requiredEnvVars = [
     'VITE_SUPABASE_URL',
-    'VITE_SUPABASE_ANON_KEY', 
+    'VITE_SUPABASE_ANON_KEY'
+  ];
+
+  // Optional environment variables
+  const optionalEnvVars = [
     'VITE_MAKE_WEBHOOK_URL'
   ];
 
   requiredEnvVars.forEach(envVar => {
     const value = import.meta.env[envVar];
-    if (value && value !== 'YOUR_SUPABASE_URL' && value !== 'YOUR_SUPABASE_ANON_KEY' && value !== 'YOUR_MAKE_WEBHOOK_URL') {
+    if (value && value !== 'YOUR_SUPABASE_URL' && value !== 'YOUR_SUPABASE_ANON_KEY') {
       results.environment.present.push(envVar);
     } else {
       results.environment.missing.push(envVar);
+    }
+  });
+
+  // Check optional environment variables (don't add to missing if not present)
+  optionalEnvVars.forEach(envVar => {
+    const value = import.meta.env[envVar];
+    if (value && value !== 'YOUR_MAKE_WEBHOOK_URL') {
+      results.environment.present.push(envVar);
     }
   });
 
@@ -119,7 +131,7 @@ export const runBackendDiagnostics = async (): Promise<DiagnosticResults> => {
       results.makeWebhook.error = error instanceof Error ? error.message : 'Unknown error';
     }
   } else {
-    results.makeWebhook.error = 'Missing or invalid VITE_MAKE_WEBHOOK_URL';
+    results.makeWebhook.error = 'Not configured (optional)';
   }
 
   // Test Netlify functions (local vs deployed)
