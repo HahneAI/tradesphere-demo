@@ -17,9 +17,11 @@ This document lists legacy code, systems, and patterns that appear outdated but 
 ⚠️ **Recently modified** (suggesting active use)
 ⚠️ **Complex integration** with other systems
 
-**Total Systems Requiring Investigation**: 5 major areas
+**Total Systems Requiring Investigation**: 4 major areas (1 completed)
 **Estimated Investigation Time**: 1-2 days
 **Estimated Refactoring Time** (if removal chosen): 2-5 days per system
+
+**Recently Completed**: System 1 - Dual Testing Mode (✅ October 25, 2025 - See CONFIRMED_LEGACY_REMOVAL.md)
 
 ---
 
@@ -73,143 +75,58 @@ graph TD
 
 ---
 
-## System 1: Dual Testing Mode (Pricing Engine) 🔴 CRITICAL
+## ~~System 1: Dual Testing Mode (Pricing Engine)~~ ✅ COMPLETED
 
-### Description
+**Status**: ✅ INVESTIGATION COMPLETE - REMOVED SUCCESSFULLY
+**Completed**: October 25, 2025
+**Decision**: REMOVE - Native-only pricing is the only supported method
 
-TradeSphere originally supported **two pricing calculation methods**:
+### Summary
 
-1. **Native Pricing** - JavaScript-based calculation in frontend/backend
-2. **Make.com Webhook Pricing** - External API call to Make.com automation
+The Dual Testing Mode investigation was completed and resulted in successful removal of all Make.com webhook pricing code. This system allowed switching between Make.com webhook pricing and native JavaScript pricing.
 
-A "Dual Testing Mode" was implemented to switch between these methods for comparison and testing.
+### Investigation Results
 
-### Why It Might Be Legacy
-
-- Make.com webhook approach may have been deprecated
-- Native pricing is more reliable and faster
-- Webhook adds external dependency and latency
-- Testing mode suggests experimental feature, not production-ready
-
-### Why It Might Still Be Needed
-
-- Some companies may still use Make.com integrations
-- Webhook pricing may handle complex edge cases
-- A/B testing for pricing accuracy
-- Fallback mechanism if native pricing fails
-
-### Investigation Required
-
-**1. Code Search**:
-```bash
-# Search for dual testing mode references
-grep -ri "dual.?test" src/ docs/
-grep -ri "make\.com" src/ docs/
-grep -ri "webhook.*pric" src/ docs/
-grep -ri "pricing.*mode" src/ docs/
-grep -ri "native.*pricing" src/ docs/
-
-# Check environment variables
-grep -r "PRICING_MODE" .env* src/
-grep -r "WEBHOOK_URL" .env* src/
-grep -r "MAKE_COM" .env* src/
-```
-
-**2. Database Schema Check**:
-```sql
--- Check for pricing mode configuration in database
-SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name IN ('companies', 'service_configurations', 'pricing_configs')
-  AND column_name LIKE '%pricing%mode%';
-
--- Check for webhook URLs stored
-SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name IN ('companies', 'integrations')
-  AND column_name LIKE '%webhook%';
-```
-
-**3. File Locations to Investigate**:
-```
-src/services/masterPricingEngine.ts  # Check for mode switching logic
-src/services/pricingWebhookService.ts  # Webhook integration (if exists)
-src/config/pricing.ts  # Pricing configuration
-src/context/PricingContext.tsx  # Pricing state management
-docs/pricing/  # Any pricing documentation
-```
-
-**4. User Settings Check**:
-- [ ] Admin panel: Is there a "Pricing Mode" toggle?
-- [ ] Company settings: Can companies choose pricing method?
-- [ ] Environment config: Is pricing mode set per deployment?
-
-**5. Git History**:
-```bash
-# Check when dual testing mode was last modified
-git log --all --grep="dual.*test" --oneline
-git log --all --grep="make.com" --oneline
-git log --all --grep="webhook.*pric" --oneline
-
-# Check recent changes to pricing engine
-git log --since="6 months ago" -- src/services/masterPricingEngine.ts
-```
-
-### Decision Criteria
-
-**REMOVE IF**:
-- ✅ No companies currently using Make.com webhook pricing
+**Key Findings**:
+- ✅ No companies using Make.com webhook pricing
 - ✅ Native pricing handles all use cases
 - ✅ No environment variables set for webhook mode
 - ✅ No UI toggle for pricing mode
-- ✅ Last modified > 6 months ago with no activity
+- ✅ Make.com webhook added unnecessary external dependency
 
-**KEEP IF**:
-- ❌ Any production company uses webhook pricing
-- ❌ Webhook handles edge cases native doesn't
-- ❌ Feature flag exists and is actively toggled
-- ❌ Recent modifications or bug fixes
+**Decision**: **REMOVE ALL** Make.com and dual testing code
 
-**MIGRATE IF**:
-- 🔄 Only 1-2 companies use webhook pricing → migrate them to native
-- 🔄 Webhook is fallback mechanism → replace with better error handling
-- 🔄 Used for A/B testing → complete testing and choose winner
+### Execution Summary
 
-### Removal/Migration Plan
+**Phases Completed**: 6 of 8 phases (Phases 7-8 deferred)
+- Phase 1: Environment & Configuration ✅
+- Phase 2: Type Definitions ✅
+- Phase 3: Delete Dead Code ✅
+- Phase 4: Refactor Active Code ✅
+- Phase 5: UI Components ✅
+- Phase 6: Utility & Debug Files ✅
+- Phase 7: Tests & Mocks ⚠️ Deferred
+- Phase 8: Documentation ⚠️ Deferred
 
-**IF DECISION: Remove Dual Testing Mode**
+**Results**:
+- **Lines Removed**: ~575 lines
+- **Components Deleted**: DualResponseDisplay, PerformanceComparison
+- **Functions Removed**: sendUserMessageToMake()
+- **Commits**: 9 commits (05ca035, 7505a64, 721cdfc, 2a39002, 10e4009, b633a4c, 819659b, b89123d, faca1de)
 
-1. **Create feature flag** (if doesn't exist):
-   ```tsx
-   const ENABLE_WEBHOOK_PRICING = false; // Default off
-   ```
+**Bonus Fix**: Resolved critical 500 Internal Server Error by correcting database table names:
+- Fixed `demo_messages` → `ai_demo_messages`
+- Fixed `VC Usage` → `ai_chat_sessions` (17 occurrences across 8 files)
 
-2. **Notify affected users**:
-   - Email companies using webhook pricing
-   - Provide 30-day migration window
-   - Offer native pricing training
+### Production Validation
 
-3. **Migration steps**:
-   - Test all services with native pricing
-   - Compare webhook vs native results
-   - Document any discrepancies
-   - Fix native pricing to match webhook results
+- ✅ Build succeeds with 0 TypeScript errors
+- ✅ Chat polling fully functional
+- ✅ Native pricing working for all service types
+- ✅ No console errors
+- ✅ Netlify deployment successful
 
-4. **Gradual rollout**:
-   ```tsx
-   // Week 1: Feature flag off for new companies
-   // Week 2: Feature flag off for 50% of existing companies
-   // Week 3: Feature flag off for 90% of companies
-   // Week 4: Remove code entirely
-   ```
-
-5. **Code removal**:
-   - Remove webhook pricing service
-   - Remove Make.com integration code
-   - Remove dual mode toggle UI
-   - Remove environment variables
-   - Update documentation
-   - Simplify masterPricingEngine.ts
+**Full Details**: See [MAKE_DOT_COM_REMOVAL_PLAN.md](./MAKE_DOT_COM_REMOVAL_PLAN.md) and [CONFIRMED_LEGACY_REMOVAL.md](./CONFIRMED_LEGACY_REMOVAL.md)
 
 ---
 
@@ -595,10 +512,10 @@ WHERE table_name = 'companies'
 
 | System | Current Status | Removal Risk | Migration Complexity | Business Impact | Priority |
 |--------|---------------|--------------|----------------------|-----------------|----------|
-| Dual Testing Mode | Unknown | 🔴 HIGH | 🟡 MEDIUM | 🔴 HIGH | 1 - INVESTIGATE FIRST |
-| ChatInterface Nav | Active | 🟡 MEDIUM | 🟢 LOW | 🟡 MEDIUM | 2 - Quick Win |
-| ServiceConfigManager | Active | 🟡 MEDIUM | 🟡 MEDIUM | 🟡 MEDIUM | 3 - Code Cleanup |
-| Material Calculations | Active | 🟢 LOW | 🟡 MEDIUM | 🟢 LOW | 4 - Optimization |
+| ~~Dual Testing Mode~~ | ✅ REMOVED | ✅ COMPLETE | ✅ COMPLETE | ✅ SUCCESS | ~~1~~ DONE (Oct 25) |
+| ChatInterface Nav | Active | 🟡 MEDIUM | 🟢 LOW | 🟡 MEDIUM | **1 - NEXT PRIORITY** |
+| ServiceConfigManager | Active | 🟡 MEDIUM | 🟡 MEDIUM | 🟡 MEDIUM | 2 - Code Cleanup |
+| Material Calculations | Active | 🟢 LOW | 🟡 MEDIUM | 🟢 LOW | 3 - Optimization |
 | Onboarding Screens | Active | 🟡 MEDIUM | 🟡 MEDIUM | 🔴 HIGH | 2 - User Experience |
 
 ---
@@ -625,24 +542,26 @@ WHERE table_name = 'companies'
 
 ## Next Steps
 
-1. **START HERE**: Investigate Dual Testing Mode (highest priority)
+1. **START HERE**: Investigate ChatInterface Legacy Navigation (now highest priority)
    ```bash
    # Run these searches first
-   grep -ri "dual.?test" src/ docs/
-   grep -ri "make\.com" src/ docs/
-   grep -ri "webhook.*pric" src/ docs/
+   grep -r "import.*ServicesTab\|import.*CustomersTab" src/components/ChatInterface.tsx
+   grep -r "MobileHamburgerMenu" src/components/ChatInterface.tsx
+   grep -r "setActiveTab\|showServicesPage\|showCustomersTab" src/components/ChatInterface.tsx
    ```
 
 2. **Review findings** and document in dedicated investigation notes
 
-3. **Make decision**: Keep, Remove, or Migrate
+3. **Make decision**: Keep (with refactor), Remove, or Migrate
 
 4. **Create execution plan** based on decision
 
 5. **Move to appropriate document**:
    - If REMOVE → add to `CONFIRMED_LEGACY_REMOVAL.md`
-   - If KEEP → document as active feature
+   - If KEEP → document as active feature (with refactoring if needed)
    - If MIGRATE → create migration plan document
+
+**Note**: ChatInterface is likely KEEP (with refactoring) since AI chat is a core feature. The goal is to remove legacy navigation patterns, not the chat interface itself.
 
 ---
 
@@ -774,5 +693,5 @@ This workflow ensures all legacy code removals are:
 ---
 
 **Document Maintained By**: Development Team
-**Last Investigation Completed**: 2025-10-24 (Navigation Components)
-**Next Priority**: System 1 - Dual Testing Mode (Pricing Engine)
+**Last Investigation Completed**: 2025-10-25 (Dual Testing Mode - Make.com Removal)
+**Next Priority**: System 2 - ChatInterface Legacy Navigation (Quick Win)
