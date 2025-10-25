@@ -26,7 +26,6 @@ import { sendFeedback } from '../utils/feedback-webhook';
 import { Message } from '../types/message';
 import { HeaderMenu } from './dashboard/HeaderMenu';
 import { NotesPopup } from './ui/NotesPopup';
-import { CustomersTab } from './CustomersTab';
 import { customerContextService } from '../services/customerContext';
 import { runBackendDiagnostics, logDiagnosticResults, DiagnosticResults } from '../utils/backend-diagnostics';
 
@@ -854,7 +853,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
-  // Handle customer loading from CustomersTab
+  // Handle customer loading from customer context service
   const handleLoadCustomer = async (customer: any, historicalMessages: Message[]) => {
     if (!user?.id || !customer.customer_name) {
       console.error('Cannot load customer: missing user id or customer name');
