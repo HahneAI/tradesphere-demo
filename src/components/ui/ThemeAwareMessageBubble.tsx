@@ -15,7 +15,7 @@ const formatRelativeTime = (date: Date) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-// 🔄 DUAL TESTING: Get message source styling for visual differentiation
+// Native-only pricing: Simplified message source styling (no dual testing)
 const getMessageSourceStyle = (message: Message) => {
   const source = message.metadata?.source || message.source;
 
@@ -23,11 +23,6 @@ const getMessageSourceStyle = (message: Message) => {
     return {
       border: '2px solid #FCD34D', // Yellow outline for native
       boxShadow: '0 0 8px rgba(252, 211, 77, 0.3)'
-    };
-  } else if (source === 'make_com' || (!source && message.sender === 'ai')) {
-    return {
-      border: '2px solid #10B981', // Green outline for Make.com
-      boxShadow: '0 0 8px rgba(16, 185, 129, 0.3)'
     };
   }
 
@@ -100,7 +95,7 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
 }) => {
   const animationClass = visualConfig.animations.messageEntry === 'grow' ? 'landscaping-grow' : 'tech-slide';
 
-  // ✅ LOGICAL STYLING: Apply source styling only for AI responses in dual testing
+  // Native-only: Apply source styling only for AI responses when enabled
   const sourceStyle = (!removeSourceStyling && message.sender === 'ai') ? getMessageSourceStyle(message) : {};
 
   // 📋 CUSTOMER CONTEXT: Apply system message styling for context recaps
