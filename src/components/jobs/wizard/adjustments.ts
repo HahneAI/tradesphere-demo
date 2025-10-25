@@ -92,7 +92,7 @@ export function validateSurcharge(value: number): AdjustmentValidationResult {
 }
 
 /**
- * Validate coupon code and amount
+ * Validate coupon code and percentage value
  */
 export function validateCoupon(
   code: string,
@@ -109,8 +109,8 @@ export function validateCoupon(
     errors.push('Coupon discount cannot be negative');
   }
 
-  if (value > serviceTotal) {
-    errors.push('Coupon discount cannot exceed service total');
+  if (value > 100) {
+    errors.push('Coupon discount cannot exceed 100%');
   }
 
   if (isNaN(value)) {
@@ -135,7 +135,8 @@ export function calculateAdjustedPrice(basePrice: number, adjustment: Adjustment
     case 'surcharge':
       return basePrice + adjustment.value;
     case 'coupon':
-      return Math.max(0, basePrice - adjustment.value);
+      // Coupons use percentage discount (value is the percentage)
+      return basePrice - (basePrice * adjustment.value) / 100;
     default:
       return basePrice;
   }
@@ -147,13 +148,14 @@ export function calculateAdjustedPrice(basePrice: number, adjustment: Adjustment
 export function formatAdjustment(adjustment: Adjustment): string {
   switch (adjustment.type) {
     case 'percentage_discount':
-      return `-${adjustment.value.toFixed(2)}%`;
+      return `-${adjustment.value.toFixed(1)}%`;
     case 'fixed_discount':
       return `-$${adjustment.value.toFixed(2)}`;
     case 'surcharge':
       return `+$${adjustment.value.toFixed(2)}`;
     case 'coupon':
-      return `Coupon: -$${adjustment.value.toFixed(2)}`;
+      // Coupons display as percentage
+      return `-${adjustment.value.toFixed(1)}%`;
     default:
       return '';
   }

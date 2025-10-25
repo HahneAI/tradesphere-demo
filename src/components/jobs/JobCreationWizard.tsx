@@ -52,8 +52,18 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
   // Track completed steps for progress indicator
   const [completedSteps, setCompletedSteps] = useState<WizardStep[]>([]);
 
+  // Track furthest reached step (for allowing navigation to visited but incomplete steps)
+  const [furthestReachedStep, setFurthestReachedStep] = useState<WizardStep>(1);
+
   // Ref for scroll container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Update furthest reached step whenever currentStep advances
+  useEffect(() => {
+    if (wizard.currentStep > furthestReachedStep) {
+      setFurthestReachedStep(wizard.currentStep);
+    }
+  }, [wizard.currentStep, furthestReachedStep]);
 
   // Update completed steps based on validation
   useEffect(() => {
@@ -77,10 +87,15 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
 
   // Handle step click with conditional validation skipping
   const handleStepClick = useCallback((step: WizardStep) => {
-    // Skip validation if jumping to a completed step
+    // Skip validation if:
+    // 1. Jumping to a completed step, OR
+    // 2. Jumping to any step up to the furthest reached step (visited but possibly incomplete)
     const isCompletedStep = completedSteps.includes(step);
-    wizard.goToStep(step, isCompletedStep);
-  }, [wizard, completedSteps]);
+    const isWithinReachedRange = step <= furthestReachedStep;
+    const shouldSkipValidation = isCompletedStep || isWithinReachedRange;
+
+    wizard.goToStep(step, shouldSkipValidation);
+  }, [wizard, completedSteps, furthestReachedStep]);
 
   // Handle wizard close with confirmation if data exists
   const handleClose = () => {
@@ -287,6 +302,7 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
           <WizardProgressIndicator
             currentStep={wizard.currentStep}
             completedSteps={completedSteps}
+            furthestReachedStep={furthestReachedStep}
             onStepClick={handleStepClick}
           />
 

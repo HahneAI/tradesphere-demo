@@ -201,28 +201,50 @@ export const FinancialAdjustments: React.FC<FinancialAdjustmentsProps> = ({
             />
           </div>
 
-          {/* Coupon Code (only for coupon type) */}
+          {/* Coupon Selection (only for coupon type) */}
           {adjustmentType === 'coupon' && (
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Coupon Code *
+                Available Coupons
               </label>
-              <input
-                type="text"
-                placeholder="Enter coupon code"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-mono"
-              />
+              <button
+                type="button"
+                onClick={() => {
+                  setAdjustmentName('Fall Discount');
+                  setAdjustmentValue(5);
+                  setCouponCode('FALL2024');
+                }}
+                className="w-full h-12 px-4 rounded-lg text-left transition-all border-2
+                           bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800
+                           hover:bg-purple-100 dark:hover:bg-purple-900/30
+                           hover:border-purple-300 dark:hover:border-purple-700"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-purple-900 dark:text-purple-100">
+                      Fall Discount
+                    </div>
+                    <div className="text-sm text-purple-700 dark:text-purple-300">
+                      5% off entire service
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    5%
+                  </div>
+                </div>
+              </button>
+              <p className="text-xs text-gray-500 mt-2">
+                Click to apply this coupon to the selected service
+              </p>
             </div>
           )}
 
-          {/* Adjustment Value */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              {adjustmentType === 'percentage_discount' ? 'Discount Percentage (Max 3%)' : 'Amount ($)'}
-            </label>
+          {/* Adjustment Value (hidden for coupons since they're pre-set) */}
+          {adjustmentType !== 'coupon' && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                {adjustmentType === 'percentage_discount' ? 'Discount Percentage (Max 3%)' : 'Amount ($)'}
+              </label>
             <div className="relative">
               {adjustmentType === 'percentage_discount' && (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
@@ -247,7 +269,8 @@ export const FinancialAdjustments: React.FC<FinancialAdjustmentsProps> = ({
             {adjustmentType === 'percentage_discount' && (
               <p className="text-xs text-gray-500 mt-1">Maximum allowed: 3%</p>
             )}
-          </div>
+            </div>
+          )}
 
           {/* Errors */}
           {errors.length > 0 && (
