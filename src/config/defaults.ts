@@ -77,7 +77,6 @@ export const TRADESPHERE_TECH_DEFAULTS = {
   technical: {
     supabaseUrl: undefined as string | undefined,
     supabaseAnonKey: undefined as string | undefined,
-    makeWebhookUrl: undefined as string | undefined,
     feedbackWebhookUrl: undefined as string | undefined,
   }
 } as const;
@@ -428,7 +427,6 @@ export class EnvironmentManager {
       technical: {
         supabaseUrl: this.getSupabaseUrl(),
         supabaseAnonKey: this.getSupabaseAnonKey(),
-        makeWebhookUrl: this.getMakeWebhookUrl(),
         feedbackWebhookUrl: this.getFeedbackWebhookUrl(),
       }
     };
