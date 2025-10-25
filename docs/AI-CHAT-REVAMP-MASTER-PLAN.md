@@ -1520,7 +1520,8 @@ const genericPrompt = `You are an AI assistant...`; // DON'T DO THIS
 | Namespace | Purpose | File Location |
 |-----------|---------|---------------|
 | `MAIN_CHAT_AGENT` | Primary chat interface (Section 2.2) | `netlify/functions/ai-chat-orchestrator.ts` |
-| `EVENT_DETECTOR` | Conversation event analysis (Section 1.1) | `netlify/functions/ai-event-detector.ts` |
+| `EVENT_DETECTOR` | Conversation event analysis (Section 3.2) | `netlify/functions/ai-event-detector.ts` |
+| `USAGE_INSIGHTS_ANALYZER` | Monthly user interaction pattern analysis (Section 3.3) | `netlify/functions/ai-usage-insights.ts` |
 | `QUICK_CALCULATOR_BRIDGE` | Natural language → calculator (Section 1.3) | TBD |
 | `NOTIFICATION_GENERATOR` | Automated customer notifications | TBD |
 | `WIZARD_ASSISTANT` | Custom service wizard helper | TBD |
@@ -1960,6 +1961,49 @@ console.log('Cache Performance:', {
 
 ### 3.1 Phase 1: User Memory Table (Week 1-2)
 
+---
+
+#### 🚨 BEFORE STARTING: Required Context Review
+
+**STEP 1: Query Current Database Schema**
+```bash
+# Use the PostgreSQL MCP tool to understand existing schema
+mcp__postgresql__query("SELECT table_name, column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+ORDER BY table_name, ordinal_position;")
+```
+
+**STEP 2: Review Schema Reference File**
+- **File**: `@src/database/schema-reference.sql`
+- **Focus**:
+  - `ai_chat_sessions` table (lines 4-45) - Current chat storage structure
+  - `crm_customers` table (lines 269-294) - Customer data structure
+  - `users` table (lines 564-583) - User authentication
+  - `companies` table (lines 153-191) - Multi-tenant isolation
+
+**STEP 3: Review Relevant Netlify Functions**
+- **`netlify/functions/chat-response.js`** - Main AI chat orchestration (will need to route to new user memory storage)
+- **`netlify/functions/customer-context.js`** - Customer data loading (reference for similar pattern)
+- **`netlify/functions/chat-messages.js`** - Message retrieval (will need to support new user memory queries)
+
+**STEP 4: Identify Integration Points**
+Before writing any code, understand:
+- Where does `ai_chat_sessions` currently store messages?
+- How does `customer-context.js` load customer data? (Use same pattern for user memory)
+- What RLS policies exist on `ai_chat_sessions`? (Apply similar to new table)
+- How are `company_id` and `user_id` currently filtered in queries?
+
+**STEP 5: Check for Existing Memory Tables**
+```bash
+# Query to see if any user interaction tables already exist
+mcp__postgresql__query("SELECT table_name FROM information_schema.tables
+WHERE table_schema = 'public'
+AND table_name LIKE '%user%' OR table_name LIKE '%interaction%';")
+```
+
+---
+
 **Database Migration:**
 1. Create `company_user_interactions` table migration
 2. Add RLS policies (company_id filtering)
@@ -2038,6 +2082,50 @@ class UserMemoryService {
 
 ### 3.2 Phase 2: Customer Event Detection (Week 3-4)
 
+---
+
+#### 🚨 BEFORE STARTING: Required Context Review
+
+**STEP 1: Query Customer Table Structure**
+```bash
+# Use PostgreSQL MCP tool to check customers table
+mcp__postgresql__query("SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_name = 'crm_customers'
+ORDER BY ordinal_position;")
+```
+
+**STEP 2: Review Schema Reference File**
+- **File**: `@src/database/schema-reference.sql`
+- **Focus**:
+  - `crm_customers` table (lines 269-294) - Check if `conversation_events` JSONB field exists
+  - `ai_chat_sessions` table (lines 4-45) - Understand current VC Usage structure for linking events
+  - `crm_customer_events` table (lines 211-223) - See if event tracking already exists (may need to differentiate)
+  - `crm_customer_conversation_summaries` table (lines 200-210) - Related conversation tracking
+
+**STEP 3: Review Relevant Netlify Functions**
+- **`netlify/functions/customer-context.js`** - Customer data loading (will need to return conversation_events)
+- **`netlify/functions/chat-response.js`** - Main AI orchestration (will fire event detection)
+- **`netlify/functions/generate-interaction-summary.js`** - Similar AI analysis pattern (use as reference)
+
+**STEP 4: Identify Integration Points**
+Before writing any code, understand:
+- Does `crm_customers.metadata` JSONB already store events? (Check existing structure)
+- What's the difference between `crm_customer_events` and `conversation_events`? (One is CRM actions, other is AI-detected)
+- How does `customer-context.js` currently query customer data? (Will add events to response)
+- What's the current structure of VC Usage IDs in `ai_chat_sessions`? (For event linkage)
+
+**STEP 5: Check for Existing Event Detection**
+```bash
+# Query to see if event detection or JSONB event fields exist
+mcp__postgresql__query("SELECT table_name, column_name
+FROM information_schema.columns
+WHERE table_schema = 'public'
+AND (column_name LIKE '%event%' OR data_type = 'jsonb');")
+```
+
+---
+
 **Database Migration:**
 1. Add `conversation_events` JSONB field to customers table
 2. Create helper functions for event append operations
@@ -2065,8 +2153,8 @@ export const handler = async (event) => {
     previousEvents: customerContext.events || []
   });
 
-  // If high-confidence events found (>0.7), append to customer record
-  if (detectedEvents.some(e => e.confidence > 0.7)) {
+  // If high-confidence events found (≥0.6), append to customer record
+  if (detectedEvents.some(e => e.confidence >= 0.6)) {
     await EventDetectionService.appendEventsToCustomer(
       customerContext.customerId,
       detectedEvents,
@@ -2078,7 +2166,7 @@ export const handler = async (event) => {
     statusCode: 200,
     body: JSON.stringify({
       events_detected: detectedEvents.length,
-      high_confidence: detectedEvents.filter(e => e.confidence > 0.7).length
+      high_confidence: detectedEvents.filter(e => e.confidence >= 0.6).length
     })
   };
 };
@@ -2160,7 +2248,134 @@ class EventDetectionService {
 
 ---
 
+#### 💡 BRAINSTORMING: Event-Triggered Automatic Actions
+
+**Future Enhancement (Post-Phase 2):**
+Once event detection is stable and accurate, consider implementing automatic actions triggered by specific event types:
+
+**Potential Automation Ideas:**
+
+1. **DECISION_MADE Event:**
+   - Auto-generate follow-up task: "Send contract to [Customer Name]"
+   - Trigger notification to sales manager: "[Salesperson] closed [Service] for $[Amount]"
+   - Auto-create calendar reminder: "Follow up on signed contract in 3 days"
+
+2. **OBJECTION_RAISED Event:**
+   - Auto-flag customer record with objection type (price, timeline, material concern)
+   - Suggest AI-generated responses based on past successful objection handling
+   - Notify sales manager if multiple objections in single conversation
+
+3. **TIMELINE_DISCUSSED Event:**
+   - Auto-create calendar event: "[Customer Name] - [Service] target date: [Date]"
+   - Set reminder 2 weeks before timeline: "Check in on [Customer] project timing"
+   - Add to scheduling pipeline if date is within 30 days
+
+4. **PRICE_CHANGE Event (>$2k increase):**
+   - Auto-flag for manager approval before quote finalization
+   - Generate price justification summary for salesperson to review
+   - Track price sensitivity metrics per customer
+
+5. **SERVICE_ADDED/REMOVED Event:**
+   - Auto-update quote line items in real-time
+   - Suggest bundle discounts if multiple services detected
+   - Recalculate total and update conversation context immediately
+
+6. **MATERIAL_CHANGE Event:**
+   - Auto-check material availability in inventory (if integrated)
+   - Suggest similar alternatives if selected material is out of stock
+   - Update lead time estimates based on material availability
+
+**Implementation Considerations:**
+- Add `trigger_actions` boolean flag to event detection settings (default: false for Phase 2)
+- Create `netlify/functions/event-action-dispatcher.ts` to route events to action handlers
+- Build action handler registry: `{ DECISION_MADE: [createFollowUpTask, notifyManager], ... }`
+- Add user preferences: "Which events should trigger notifications for me?"
+- Implement undo/rollback for automatic actions (in case AI misdetected event)
+
+**Database Schema Addition:**
+```sql
+CREATE TABLE event_triggered_actions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  event_id UUID REFERENCES conversation_events(event_id),
+  action_type TEXT NOT NULL, -- 'notification', 'task_creation', 'calendar_event', etc.
+  action_payload JSONB,
+  triggered_at TIMESTAMPTZ DEFAULT NOW(),
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMPTZ,
+  undone BOOLEAN DEFAULT FALSE
+);
+```
+
+**Notes for Implementation:**
+- Start with READ-ONLY actions (notifications, suggestions) before WRITE actions (calendar, tasks)
+- Add confidence threshold override: High-impact actions require ≥0.8 confidence
+- Build audit trail: Every automatic action must be traceable to specific event
+- User controls: "Pause automatic actions" toggle in settings
+
+---
+
 ### 3.3 Phase 3: Integration & Optimization (Week 5-6)
+
+---
+
+#### 🚨 BEFORE STARTING: Required Context Review
+
+**STEP 1: Query All Memory-Related Tables**
+```bash
+# Use PostgreSQL MCP tool to verify Phase 1 & 2 tables exist
+mcp__postgresql__query("SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+AND (table_name = 'company_user_interactions'
+     OR table_name = 'crm_customers')
+ORDER BY table_name;")
+
+# Check if conversation_events JSONB field was added
+mcp__postgresql__query("SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'crm_customers'
+AND column_name = 'conversation_events';")
+```
+
+**STEP 2: Review Schema Reference File**
+- **File**: `@src/database/schema-reference.sql`
+- **Focus**:
+  - `company_user_interactions` table (should be created in Phase 1) - User memory storage
+  - `crm_customers` table (lines 269-294) - Should have `conversation_events` JSONB field from Phase 2
+  - `ai_chat_sessions` table (lines 4-45) - Integration point for routing storage
+  - Review all foreign key relationships between these tables
+
+**STEP 3: Review ALL Relevant Netlify Functions**
+- **`netlify/functions/chat-response.js`** - Main orchestration (integrate both memory systems)
+- **`netlify/functions/customer-context.js`** - Customer event loading (verify events returned)
+- **`netlify/functions/chat-messages.js`** - Message retrieval (support both memory modes)
+- **`netlify/functions/ai-event-detector.ts`** - Created in Phase 2 (verify it's working)
+- **`netlify/functions/pricing-agent.js`** - May need context injection
+
+**STEP 4: Identify Full Integration Points**
+Before writing any code, understand:
+- How does `ChatInterface.tsx` currently determine if customer is locked? (Need exact state variable)
+- What's the current message flow from UI → storage → AI → response? (Map full pipeline)
+- Where in `chat-response.js` do we inject context prompts? (Find exact line numbers)
+- How does `message-storage.ts` currently route to `ai_chat_sessions`? (Will add conditional routing)
+- What's the performance of 5-message queries in `company_user_interactions`? (May need indexes)
+
+**STEP 5: Test Both Memory Paths Exist**
+```bash
+# Verify user memory service is accessible
+mcp__postgresql__query("SELECT COUNT(*) as user_interaction_count
+FROM company_user_interactions
+WHERE created_at > NOW() - INTERVAL '7 days';")
+
+# Verify customer events are being stored
+mcp__postgresql__query("SELECT id, customer_name,
+jsonb_array_length(COALESCE(conversation_events->'events', '[]'::jsonb)) as event_count
+FROM crm_customers
+WHERE conversation_events IS NOT NULL
+LIMIT 5;")
+```
+
+---
 
 **Full Flow Integration:**
 1. Connect User Memory → Customer Event Detection → Context Loading
@@ -2194,7 +2409,7 @@ Decision Factors: ${customerEvents.decision_factors.join(', ')}
 Recent Events:
 ${customerEvents.events.slice(-5).map(e => `• ${e.summary} (${e.timestamp})`).join('\n')}
 
-Previous Conversation (last 2 interactions):
+Previous Conversation (last 4 interactions):
 ${input.previousContext?.user_input || ''}
 ${input.previousContext?.ai_response || ''}
     `;
@@ -2212,7 +2427,7 @@ Recent Topics: ${userMemory.topics.join(', ')}
 Services Discussed: ${userMemory.services.join(', ')}
 Materials Mentioned: ${userMemory.materials.join(', ')}
 
-Last 5 Interactions:
+Last 4 Interactions:
 ${userMemory.recentMessages.map((m, i) => `
   User: ${m.user_message.substring(0, 100)}...
   AI: ${m.ai_response.substring(0, 100)}...
@@ -2248,14 +2463,200 @@ ${input.collectionResult...}`;
 ```
 
 **Performance Optimization:**
-1. Add caching for service/material intelligence (1-hour TTL)
-2. Batch event detection calls (max 1 per 10 seconds per customer)
-3. Monitor token usage and cost per conversation
+
+Integrate multi-layered caching from Sections 2.1 and 2.3 with optimized TTLs per cache type:
+
+1. **Company-Level Caching (Section 2.1):**
+   - Service list: `company:{id}:service_list:all` → **TTL: 15 min** (frequent updates)
+   - Service config: `company:{id}:service_config:{serviceId}` → **TTL: 1 hour** (stable data)
+   - Service explanations: `company:{id}:service_explanation:{serviceId}` → **TTL: 1 hour** (stable AI-generated content)
+   - Material list: `company:{id}:material_list:{serviceId}` → **TTL: 30 min** (moderate volatility)
+   - Material prices: `company:{id}:material_prices:all` → **TTL: 30 min** (price changes affect quotes)
+   - Material comparisons: `company:{id}:material_comparison:{category}` → **TTL: 2 hours** (computationally expensive)
+
+2. **User-Level Caching (Section 2.1):**
+   - Recent interactions: `user:{id}:recent_interactions:last_4` → **TTL: Session-based** (24 hours max)
+   - Draft quotes: `user:{id}:draft_quote:{tempId}` → **TTL: 7 days** (allow work resumption)
+   - User preferences: `user:{id}:preferences:defaults` → **TTL: 24 hours** (settings don't change often)
+
+3. **Customer-Level Memory (Section 2.1):**
+   - Conversation events: **NO CACHE** (always load fresh from `crm_customers.conversation_events` JSONB)
+   - Quote history: **NO CACHE** (real-time accuracy critical for sales)
+
+4. **Anthropic Prompt Caching (Section 2.3):**
+   - System instructions → **API-side cache: 5 min** (90% cost reduction)
+   - Formula documentation → **API-side cache: 5 min** (static reference content)
+   - Company services context → **API-side cache: 5 min** (synced with Section 2.1's 15min TTL)
+   - Customer/User context → **NO CACHE** (unique per request)
+
+5. **Event Detection Batching:**
+   - Max 1 event detection call per 10 seconds per customer (prevent API spam)
+   - Queue rapid-fire messages and batch analyze after cooldown period
+
+6. **Token Usage Monitoring:**
+   - Track tokens per conversation turn (customer vs non-customer)
+   - Alert if conversation exceeds 50k tokens (indicates context bloat)
+   - Monthly report: Average tokens per quote generated
+
+**Cache Invalidation Integration:**
+- Automatic via Supabase webhooks (Section 2.1: lines 509-625)
+- Manual invalidation when service/material saved (ServiceConfigManager, MaterialManager)
+- Cache key pattern matching for wildcard clears (`company:*:material_comparison:*`)
 
 **Agent Deployment:**
-- **performance-engineer**: Profile token usage and latency
-- **backend-architect**: Design caching and batching strategies
-- **security-auditor**: Rate limiting on event detection endpoint
+- **performance-engineer**: Profile token usage, latency, and cache hit rates per cache scope
+- **backend-architect**: Implement cache invalidation webhooks and batching queues
+- **security-auditor**: Rate limiting on event detection endpoint (10s cooldown per customer)
+- **database-optimizer**: Index JSONB conversation_events for fast event queries
+
+---
+
+#### 💡 BRAINSTORMING: User Memory Light Event Detection for AI Training Insights
+
+**Future Enhancement (Post-Phase 3):**
+Add lightweight event detection to user memory (non-customer interactions) for the purpose of gathering AI model usage insights and preparing training data.
+
+**Use Case:**
+Analyze how salespeople use the AI chat system in their real-world trade business jobs:
+- What questions do they ask when NOT working on a customer?
+- How do they explore services/materials before presenting to customers?
+- What pricing scenarios do they test/simulate?
+- Where does the AI struggle to provide helpful answers?
+
+**Implementation Strategy:**
+
+1. **Separate Endpoint for Usage Analytics:**
+   ```typescript
+   // netlify/functions/ai-usage-insights.ts
+   export const handler = async (event) => {
+     // Runs MONTHLY (batch process, not real-time)
+     // Analyzes company_user_interactions table for patterns
+
+     const { companyId, dateRange } = JSON.parse(event.body);
+
+     // Load last 30 days of non-customer interactions
+     const interactions = await loadUserInteractions(companyId, dateRange);
+
+     // Call GPT-4 Mini for cost-effective analysis
+     const insights = await analyzeInteractionPatterns(interactions);
+
+     return { statusCode: 200, body: JSON.stringify(insights) };
+   };
+   ```
+
+2. **GPT-4 Mini Analysis (Cost-Effective):**
+   ```typescript
+   async function analyzeInteractionPatterns(interactions: UserInteraction[]) {
+     // Batch analyze 100-500 interactions at once
+     // GPT-4 Mini = 10x cheaper than Claude for bulk analysis
+
+     const prompt = `[SYSTEM: USAGE_INSIGHTS_ANALYZER]
+
+     Analyze these ${interactions.length} user interactions to identify:
+
+     1. **Common Question Patterns**: What do users repeatedly ask?
+     2. **Feature Discovery**: Which features are users unaware of?
+     3. **Confusion Points**: Where does AI fail to provide clear answers?
+     4. **Workflow Patterns**: How do users navigate pricing → materials → quotes?
+     5. **Training Data Candidates**: Which conversations would improve future AI models?
+
+     Return JSON with structured insights.`;
+
+     const response = await callOpenAI_GPT4Mini(prompt, interactions);
+     return response.insights;
+   }
+   ```
+
+3. **Training Data Pre-Processing:**
+   ```typescript
+   // netlify/functions/ai-training-data-prep.ts
+   export const handler = async (event) => {
+     // SEPARATE API CALL: Prepare data for AI model fine-tuning
+
+     const { companyId, interactionIds } = JSON.parse(event.body);
+
+     // Load selected interactions (flagged by usage insights)
+     const conversations = await loadConversationsForTraining(interactionIds);
+
+     // Pre-process into training format (awaiting manual cleaning)
+     const trainingData = conversations.map(conv => ({
+       system: "[SYSTEM: MAIN_CHAT_AGENT] ...",
+       user: conv.user_message,
+       assistant: conv.ai_response,
+       metadata: {
+         company_id: companyId,
+         service_discussed: conv.mentioned_services,
+         quality_score: null, // Awaiting human review
+         needs_cleaning: true
+       }
+     }));
+
+     // Export to S3 or Supabase storage for manual review
+     await exportTrainingDataForReview(companyId, trainingData);
+
+     return {
+       statusCode: 200,
+       body: JSON.stringify({
+         conversations_exported: trainingData.length,
+         next_step: "Manual cleaning and quality scoring required"
+       })
+     };
+   }
+   ```
+
+4. **Database Schema for Insights:**
+   ```sql
+   CREATE TABLE ai_usage_insights (
+     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+     company_id UUID NOT NULL REFERENCES companies(id),
+     insight_type TEXT NOT NULL, -- 'common_question', 'confusion_point', 'feature_gap', etc.
+     summary TEXT NOT NULL,
+     frequency_count INTEGER,
+     example_interactions JSONB, -- Array of interaction IDs
+     analyzed_date_range TSTZRANGE,
+     created_at TIMESTAMPTZ DEFAULT NOW()
+   );
+
+   CREATE TABLE ai_training_candidates (
+     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+     company_id UUID NOT NULL REFERENCES companies(id),
+     interaction_id UUID REFERENCES company_user_interactions(id),
+     candidate_reason TEXT, -- 'clear_question_answer', 'edge_case', 'confusion_resolved', etc.
+     quality_score INTEGER, -- 1-5 (null = awaiting review)
+     needs_cleaning BOOLEAN DEFAULT TRUE,
+     reviewed_by UUID REFERENCES users(id),
+     reviewed_at TIMESTAMPTZ,
+     included_in_training BOOLEAN DEFAULT FALSE,
+     created_at TIMESTAMPTZ DEFAULT NOW()
+   );
+   ```
+
+5. **Execution Schedule:**
+   - **Monthly Analysis**: Run usage insights at end of each month
+   - **Quarterly Training Prep**: Export training data candidates every 3 months
+   - **Manual Review**: Human reviews flagged conversations for quality
+   - **Model Fine-Tuning**: After 6-12 months, use cleaned data to fine-tune company-specific models
+
+**Key Differences from Customer Event Detection (Section 3.2):**
+| Feature | Customer Events (3.2) | User Memory Insights (3.3) |
+|---------|----------------------|---------------------------|
+| **Timing** | Real-time (fire-and-forget after each message) | Batch (monthly analysis) |
+| **Purpose** | Sales intelligence (what customer cares about) | AI model improvement (how users use the system) |
+| **AI Model** | Claude Sonnet 4.5 (accuracy) | GPT-4 Mini (cost-effective bulk analysis) |
+| **Storage** | `crm_customers.conversation_events` JSONB | `ai_usage_insights` + `ai_training_candidates` tables |
+| **Confidence** | ≥0.6 (actionable events only) | No confidence threshold (exploratory analysis) |
+
+**Benefits:**
+- **Product Intelligence**: Understand how users actually use the AI chat system
+- **Feature Gaps**: Discover missing functionality users repeatedly ask about
+- **Training Data Pipeline**: Build company-specific fine-tuned models over time
+- **Cost Optimization**: GPT-4 Mini for bulk analysis = 90% cheaper than real-time Claude calls
+
+**Notes for Implementation:**
+- Keep user memory event detection SEPARATE from customer event detection (different pipelines)
+- Batch processing only (never block real-time user interactions)
+- Privacy-aware: Anonymize data before exporting for training (strip customer names, dollar amounts)
+- Opt-in per company: "Allow anonymous interaction data for AI model improvements"
 
 ---
 
