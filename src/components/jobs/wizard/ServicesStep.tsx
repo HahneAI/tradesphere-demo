@@ -9,11 +9,14 @@ import React, { useState } from 'react';
 import { ServiceLineItem as ServiceLineItemType } from '../../../hooks/useJobCreationWizard';
 import { ServiceLineItem } from './components/ServiceLineItem';
 import { InlineQuickCalculator } from './components/InlineQuickCalculator';
+import { FinancialAdjustments } from './components/FinancialAdjustments';
+import { Adjustment, calculateAdjustedPrice } from './adjustments';
 
 interface ServicesStepProps {
   services: ServiceLineItemType[];
   onAddService: (service: ServiceLineItemType) => void;
   onRemoveService: (index: number) => void;
+  onUpdateService?: (index: number, service: ServiceLineItemType) => void;
   onOpenAIChat?: () => void;
   onOpenCalculator?: () => void;
   estimatedTotal: number;
@@ -25,6 +28,7 @@ export const ServicesStep: React.FC<ServicesStepProps> = ({
   services,
   onAddService,
   onRemoveService,
+  onUpdateService,
   onOpenAIChat,
   onOpenCalculator,
   estimatedTotal,
@@ -36,6 +40,8 @@ export const ServicesStep: React.FC<ServicesStepProps> = ({
     quantity: 1,
     unitPrice: 0,
   });
+
+  const [selectedServiceIndex, setSelectedServiceIndex] = useState<number | null>(null);
 
   const handleAddManualService = () => {
     if (!manualService.name || manualService.unitPrice <= 0) return;
@@ -51,6 +57,57 @@ export const ServicesStep: React.FC<ServicesStepProps> = ({
 
     onAddService(newService);
     setManualService({ name: '', quantity: 1, unitPrice: 0 });
+  };
+
+  const handleApplyAdjustment = (serviceIndex: number, adjustment: Adjustment) => {
+    if (!onUpdateService) return;
+
+    const service = services[serviceIndex];
+    const existingAdjustments = service.adjustments || [];
+    const updatedAdjustments = [...existingAdjustments, adjustment];
+
+    // Calculate new total price with all adjustments
+    let adjustedPrice = service.unit_price * (service.quantity || 1);
+    for (const adj of updatedAdjustments) {
+      adjustedPrice = calculateAdjustedPrice(adjustedPrice, adj);
+    }
+
+    const updatedService: ServiceLineItemType = {
+      ...service,
+      adjustments: updatedAdjustments,
+      total_price: adjustedPrice,
+      metadata: {
+        ...service.metadata,
+        adjustments: updatedAdjustments,
+      },
+    };
+
+    onUpdateService(serviceIndex, updatedService);
+  };
+
+  const handleRemoveAdjustment = (serviceIndex: number, adjustmentId: string) => {
+    if (!onUpdateService) return;
+
+    const service = services[serviceIndex];
+    const updatedAdjustments = (service.adjustments || []).filter((adj) => adj.id !== adjustmentId);
+
+    // Recalculate total price with remaining adjustments
+    let adjustedPrice = service.unit_price * (service.quantity || 1);
+    for (const adj of updatedAdjustments) {
+      adjustedPrice = calculateAdjustedPrice(adjustedPrice, adj);
+    }
+
+    const updatedService: ServiceLineItemType = {
+      ...service,
+      adjustments: updatedAdjustments,
+      total_price: adjustedPrice,
+      metadata: {
+        ...service.metadata,
+        adjustments: updatedAdjustments,
+      },
+    };
+
+    onUpdateService(serviceIndex, updatedService);
   };
 
   const formatCurrency = (amount: number): string => {
@@ -132,53 +189,15 @@ export const ServicesStep: React.FC<ServicesStepProps> = ({
           </button>
         )}
 
-        {/* Manual Entry Section (Always shown) */}
-        <div className="md:col-span-3 p-6 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Manual Entry</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <input
-                type="text"
-                placeholder="Service name"
-                value={manualService.name}
-                onChange={(e) => setManualService({ ...manualService, name: e.target.value })}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <input
-                type="number"
-                placeholder="Qty"
-                min="1"
-                value={manualService.quantity}
-                onChange={(e) => setManualService({ ...manualService, quantity: parseInt(e.target.value) || 1 })}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <input
-                type="number"
-                placeholder="Unit Price"
-                min="0"
-                step="0.01"
-                value={manualService.unitPrice || ''}
-                onChange={(e) => setManualService({ ...manualService, unitPrice: parseFloat(e.target.value) || 0 })}
-                className="w-full h-10 px-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg
-                           bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-              />
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleAddManualService}
-            disabled={!manualService.name || manualService.unitPrice <= 0}
-            className="mt-4 h-10 px-6 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed
-                       text-white rounded-lg font-medium transition-colors"
-          >
-            Add Service
-          </button>
+        {/* Financial Adjustments Section (Replaces Manual Entry) */}
+        <div className="md:col-span-3">
+          <FinancialAdjustments
+            services={services}
+            selectedServiceIndex={selectedServiceIndex}
+            onSelectService={setSelectedServiceIndex}
+            onApplyAdjustment={handleApplyAdjustment}
+            onRemoveAdjustment={handleRemoveAdjustment}
+          />
         </div>
       </div>
 

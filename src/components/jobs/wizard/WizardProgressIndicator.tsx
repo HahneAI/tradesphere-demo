@@ -20,6 +20,7 @@ interface StepConfig {
 interface WizardProgressIndicatorProps {
   currentStep: WizardStep;
   completedSteps: WizardStep[];
+  furthestReachedStep?: WizardStep; // Optional: allows navigation to visited but incomplete steps
   onStepClick: (step: WizardStep) => void;
   className?: string;
 }
@@ -35,6 +36,7 @@ const STEPS: StepConfig[] = [
 export const WizardProgressIndicator: React.FC<WizardProgressIndicatorProps> = ({
   currentStep,
   completedSteps,
+  furthestReachedStep,
   onStepClick,
   className = '',
 }) => {
@@ -47,8 +49,14 @@ export const WizardProgressIndicator: React.FC<WizardProgressIndicatorProps> = (
   };
 
   const isStepClickable = (step: WizardStep): boolean => {
-    // Can navigate to completed steps or previous steps
-    return step < currentStep;
+    // Can navigate to:
+    // 1. Any completed step
+    // 2. Any step up to the furthest reached (visited but possibly incomplete)
+    if (furthestReachedStep !== undefined) {
+      return isStepCompleted(step) || step <= furthestReachedStep;
+    }
+    // Fallback: navigate to completed steps or previous steps
+    return isStepCompleted(step) || step < currentStep;
   };
 
   const getStepStatus = (step: WizardStep): 'completed' | 'current' | 'future' => {

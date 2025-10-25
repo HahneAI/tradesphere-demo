@@ -9,6 +9,7 @@
 
 import React from 'react';
 import { ServiceLineItem as ServiceLineItemType } from '../../../../hooks/useJobCreationWizard';
+import { formatAdjustment, getAdjustmentBadgeColor } from '../adjustments';
 
 interface ServiceLineItemProps {
   service: ServiceLineItemType;
@@ -71,13 +72,27 @@ export const ServiceLineItem: React.FC<ServiceLineItemProps> = ({
               {service.service_description}
             </div>
           )}
-          {/* Source Badge */}
-          <div className="mt-1">
+          {/* Source Badge and Adjustments */}
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${sourceBadge.className}`}
             >
               {sourceBadge.label}
             </span>
+            {/* Adjustment Badges */}
+            {service.adjustments && service.adjustments.length > 0 && (
+              <>
+                {service.adjustments.map((adjustment) => (
+                  <span
+                    key={adjustment.id}
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getAdjustmentBadgeColor(adjustment.type)}`}
+                    title={adjustment.description || adjustment.name}
+                  >
+                    {adjustment.name}: {formatAdjustment(adjustment)}
+                  </span>
+                ))}
+              </>
+            )}
           </div>
         </div>
       </td>

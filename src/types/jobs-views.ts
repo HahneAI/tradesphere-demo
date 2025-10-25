@@ -123,20 +123,37 @@ export interface CalendarCrewRow {
 
 /**
  * Job block for calendar display
+ * Extended with crew assignment and pricing calculation data
  */
 export interface CalendarJobBlock {
-  assignment_id: string;
+  // Assignment info (null if unassigned)
+  assignment_id: string | null;
+  crew_id: string | null;
+
+  // Job info
   job_id: string;
   job_number: string;
   job_title: string;
+  customer_id: string;
   customer_name: string;
-  start: Date;
-  end: Date;
-  color: string;
-  status: JobStatus;
-  priority: number;
-  estimated_total?: number | null;
-  completion_percentage: number;
+
+  // Scheduling (from ops_job_assignments if assigned, otherwise from ops_jobs)
+  start: Date | null;  // scheduled_start or null if unassigned
+  end: Date | null;    // scheduled_end or null if unassigned
+
+  // From calculation_data.tier1Results (pricing calculation)
+  estimated_hours: number;    // totalManHours - used for crew utilization
+  estimated_days: number;     // totalDays - used for job duration
+
+  // Display properties
+  color: string;                  // From ops_crews.color_code or default
+  status: JobStatus;              // From ops_jobs.status
+  priority: number;               // 0-10 scale
+  estimated_total: number | null; // From ops_jobs.estimated_total
+
+  // Progress tracking
+  completion_percentage: number;  // 0-100 from ops_job_assignments
+  actual_hours: number | null;    // From ops_job_assignments when in_progress/completed
 }
 
 /**
