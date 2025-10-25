@@ -2,7 +2,7 @@
  * UnassignedSection Component
  *
  * Displays jobs that haven't been assigned to any crew
- * Horizontal scrollable list of job cards
+ * Horizontal scrollable list of draggable job cards
  *
  * @module UnassignedSection
  */
@@ -11,6 +11,7 @@ import React from 'react';
 import * as Icons from 'lucide-react';
 import { CalendarJobBlock } from '../../../types/jobs-views';
 import { formatDate, formatCurrency } from '../../../types/jobs-views';
+import { useDragAndDrop } from '../hooks/useDragAndDrop';
 
 export interface UnassignedSectionProps {
   jobs: CalendarJobBlock[];
@@ -20,12 +21,15 @@ export interface UnassignedSectionProps {
 
 /**
  * Section showing unassigned jobs
+ * Jobs are draggable for crew assignment
  */
 export const UnassignedSection: React.FC<UnassignedSectionProps> = ({
   jobs,
   visualConfig,
   onJobClick
 }) => {
+  const { handleDragStart, handleDragEnd, draggedJob } = useDragAndDrop();
+
   if (jobs.length === 0) {
     return null;
   }
@@ -58,16 +62,25 @@ export const UnassignedSection: React.FC<UnassignedSectionProps> = ({
 
       {/* Horizontal scrollable job list */}
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {jobs.map((job) => (
-          <div
-            key={job.job_id}
-            className="flex-shrink-0 w-64 p-3 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all"
-            style={{
-              backgroundColor: visualConfig.colors.background,
-              borderColor: '#94A3B8'
-            }}
-            onClick={() => onJobClick && onJobClick(job.job_id)}
-          >
+        {jobs.map((job) => {
+          const isDragging = draggedJob?.job_id === job.job_id;
+
+          return (
+            <div
+              key={job.job_id}
+              draggable={true}
+              onDragStart={(e) => handleDragStart(e, job, null)}
+              onDragEnd={handleDragEnd}
+              className={`
+                flex-shrink-0 w-64 p-3 rounded-lg border-2 transition-all
+                ${isDragging ? 'opacity-60 cursor-grabbing' : 'cursor-grab hover:shadow-md'}
+              `}
+              style={{
+                backgroundColor: visualConfig.colors.background,
+                borderColor: '#94A3B8'
+              }}
+              onClick={() => !isDragging && onJobClick && onJobClick(job.job_id)}
+            >
             {/* Job Number */}
             <div className="font-bold text-sm mb-1" style={{ color: visualConfig.colors.text.primary }}>
               {job.job_number}
@@ -93,7 +106,8 @@ export const UnassignedSection: React.FC<UnassignedSectionProps> = ({
               {job.estimated_total && <span>{formatCurrency(job.estimated_total)}</span>}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

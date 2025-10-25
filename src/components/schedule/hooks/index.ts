@@ -14,3 +14,5 @@ export type { UseJobPositioningReturn, JobPosition } from './useJobPositioning';
 
 export { useScheduleCalendar } from './useScheduleCalendar';
 export type { UseScheduleCalendarReturn } from './useScheduleCalendar';
+
+export { useDragAndDrop } from './useDragAndDrop';

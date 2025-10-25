@@ -3,7 +3,7 @@
  *
  * Individual job block displayed in calendar grid
  * Shows job number, customer, dates, and progress
- * Will be draggable in Phase 4
+ * Draggable with HTML5 Drag and Drop API
  *
  * @module JobBlock
  */
@@ -13,32 +13,49 @@ import * as Icons from 'lucide-react';
 import { CalendarJobBlock } from '../../../types/jobs-views';
 import { JobPosition } from '../hooks/useJobPositioning';
 import { formatShortDate, formatCurrency } from '../../../types/jobs-views';
+import { useDragAndDrop } from '../hooks/useDragAndDrop';
 
 export interface JobBlockProps {
   job: CalendarJobBlock;
   position: JobPosition;
   visualConfig: any;
+  sourceCrewId?: string | null;
   onClick?: (jobId: string) => void;
-  isDragging?: boolean;
+  isDraggingThis?: boolean;
 }
 
 /**
  * Job block for calendar display
  * Positioned absolutely within crew row
+ * Draggable for crew assignment
  */
 export const JobBlock: React.FC<JobBlockProps> = ({
   job,
   position,
   visualConfig,
+  sourceCrewId = null,
   onClick,
-  isDragging = false
+  isDraggingThis = false
 }) => {
+  const { handleDragStart, handleDragEnd, draggedJob } = useDragAndDrop();
+
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onClick) {
       onClick(job.job_id);
     }
   };
+
+  const onDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    handleDragStart(e, job, sourceCrewId);
+  };
+
+  const onDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    handleDragEnd(e);
+  };
+
+  // Check if this specific job is being dragged
+  const isDragging = draggedJob?.job_id === job.job_id;
 
   // Status border colors
   const statusBorders: Record<string, string> = {
@@ -65,17 +82,19 @@ export const JobBlock: React.FC<JobBlockProps> = ({
 
   return (
     <div
+      draggable={true}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       className={`
         absolute rounded-lg border-2 p-2 overflow-hidden
         transition-all duration-200
-        ${onClick ? 'cursor-pointer hover:shadow-lg hover:scale-[1.02]' : ''}
-        ${isDragging ? 'opacity-60' : 'opacity-100'}
+        ${isDragging ? 'opacity-60 cursor-grabbing' : 'cursor-grab hover:shadow-lg hover:scale-[1.02]'}
       `}
       style={{
         left: position.left,
         width: position.width,
         top: position.top,
-        zIndex: position.zIndex,
+        zIndex: isDragging ? 1000 : position.zIndex,
         backgroundColor: job.color + '20',
         borderColor: borderColor,
         minHeight: '96px'

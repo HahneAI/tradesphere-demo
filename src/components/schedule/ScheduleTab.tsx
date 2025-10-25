@@ -1,11 +1,11 @@
 /**
- * Schedule Tab Component - VISUAL PREVIEW (Phase 1-2 Complete)
+ * Schedule Tab Component
  *
  * Current Implementation:
  * ✅ Phase 1: Foundation (utilities, hooks, types)
  * ✅ Phase 2: Data Layer (Supabase integration, mock crews)
- * 🚧 Phase 3: Static Calendar (In Progress)
- * ⏳ Phase 4: Drag-and-Drop
+ * ✅ Phase 3: Static Calendar (grid, rows, blocks)
+ * ✅ Phase 4: Drag-and-Drop (8am-5pm time blocks)
  * ⏳ Phase 5: Conflict Detection
  * ⏳ Phase 6: Interactions
  * ⏳ Phase 7: Polish
@@ -13,7 +13,7 @@
  * @module ScheduleTab
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import * as Icons from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -23,7 +23,9 @@ import { useWeekNavigation } from './hooks/useWeekNavigation';
 import { useScheduleCalendar } from './hooks/useScheduleCalendar';
 import { WeekHeader } from './calendar/WeekHeader';
 import { CalendarGrid } from './calendar/CalendarGrid';
+import { DragDropProvider } from './context/DragDropContext';
 import { formatCurrency, formatDate } from '../../types/jobs-views';
+import { supabase } from '../../lib/supabase';
 
 interface ScheduleTabProps {
   isOpen: boolean;
@@ -31,8 +33,8 @@ interface ScheduleTabProps {
 }
 
 /**
- * Schedule Tab - Visual Preview
- * Showing Phase 1-2 infrastructure with real data
+ * Schedule Tab - Drag-and-Drop Calendar
+ * Phase 4: Full drag-drop with 8am-5pm time-block scheduling
  */
 export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
@@ -56,11 +58,98 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
     unassignedJobs,
     assignedJobs,
     isLoading,
-    error
+    error,
+    refreshCalendar
   } = useScheduleCalendar(
     user?.company_id || '',
     weekDates[0],
     weekDates[6]
+  );
+
+  /**
+   * Handle job drop with 8am-5pm time-block scheduling
+   * Auto-syncs ops_jobs and ops_job_assignments tables
+   */
+  const handleJobDrop = useCallback(
+    async (jobId: string, crewId: string, dropDate: Date) => {
+      try {
+        // Find the job to get estimated hours and days
+        const job = calendarJobs.find(j => j.job_id === jobId);
+        if (!job) {
+          console.error('Job not found:', jobId);
+          return;
+        }
+
+        const estimatedHours = job.estimated_hours || 0;
+        const estimatedDays = job.estimated_days || 1;
+
+        // Set start time to 8:00 AM
+        const scheduledStart = new Date(dropDate);
+        scheduledStart.setHours(8, 0, 0, 0);
+
+        // Set end time to 5:00 PM on the final business day
+        const scheduledEnd = new Date(dropDate);
+        scheduledEnd.setDate(scheduledEnd.getDate() + estimatedDays);
+        scheduledEnd.setHours(17, 0, 0, 0);
+
+        // TODO Phase 5: Check for conflicts
+        // const conflicts = await checkScheduleConflicts(crewId, scheduledStart, scheduledEnd);
+
+        // Create or update assignment in ops_job_assignments
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from('ops_job_assignments')
+          .upsert({
+            job_id: jobId,
+            crew_id: crewId,
+            scheduled_start: scheduledStart.toISOString(),
+            scheduled_end: scheduledEnd.toISOString(),
+            estimated_hours: estimatedHours,
+            status: 'scheduled',
+            completion_percentage: 0,
+            assigned_by_user_id: user?.id,
+            metadata: {
+              assigned_via: 'calendar_drag_drop',
+              assigned_at: new Date().toISOString(),
+              business_hours: '8:00 AM - 5:00 PM'
+            }
+          })
+          .select()
+          .single();
+
+        if (assignmentError) {
+          console.error('Assignment creation failed:', assignmentError);
+          return;
+        }
+
+        // Auto-sync ops_jobs table with date-only fields and status
+        const { error: jobUpdateError } = await supabase
+          .from('ops_jobs')
+          .update({
+            status: 'scheduled',
+            scheduled_start_date: scheduledStart.toISOString().split('T')[0],
+            scheduled_end_date: scheduledEnd.toISOString().split('T')[0]
+          })
+          .eq('id', jobId);
+
+        if (jobUpdateError) {
+          console.error('Job update failed:', jobUpdateError);
+          return;
+        }
+
+        // Success - refresh calendar
+        console.log('Job assigned successfully:', {
+          jobId,
+          crewId,
+          scheduledStart: scheduledStart.toISOString(),
+          scheduledEnd: scheduledEnd.toISOString()
+        });
+
+        refreshCalendar();
+      } catch (error) {
+        console.error('Job drop failed:', error);
+      }
+    },
+    [calendarJobs, user?.id, refreshCalendar]
   );
 
   if (!isOpen) return null;
@@ -143,16 +232,17 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
             <p style={{ color: visualConfig.colors.text.secondary }}>{error}</p>
           </div>
         ) : (
-          <div className="flex flex-col h-full">
-            {/* Calendar Grid */}
-            <CalendarGrid
-              crews={crews}
-              weekStart={weekDates[0]}
-              assignedJobs={assignedJobs}
-              unassignedJobs={unassignedJobs}
-              visualConfig={visualConfig}
-              onJobClick={(jobId) => console.log('Job clicked:', jobId)}
-            />
+          <DragDropProvider onDrop={handleJobDrop}>
+            <div className="flex flex-col h-full">
+              {/* Calendar Grid */}
+              <CalendarGrid
+                crews={crews}
+                weekStart={weekDates[0]}
+                assignedJobs={assignedJobs}
+                unassignedJobs={unassignedJobs}
+                visualConfig={visualConfig}
+                onJobClick={(jobId) => console.log('Job clicked:', jobId)}
+              />
 
             {/* Stats Summary (collapsed below calendar) */}
             <div className="p-6 space-y-6 border-t" style={{ borderColor: visualConfig.colors.text.secondary + '20' }}>
@@ -348,6 +438,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
               </div>
             </div>
           </div>
+          </DragDropProvider>
         )}
       </div>
     </div>

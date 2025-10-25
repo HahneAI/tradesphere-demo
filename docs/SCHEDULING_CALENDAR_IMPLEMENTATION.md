@@ -568,6 +568,74 @@ async function handleJobDrop(
 
 ### Phase 4: Drag-and-Drop Implementation
 
+#### 4.0 Time-Block Scheduling System
+
+**Business Hours Configuration:**
+- **Work Day:** 8:00 AM - 5:00 PM (9 hours)
+- **Grid System:** Hour-based time blocks within crew day availability
+- **Visual Representation:** Job blocks show time gaps based on estimated labor hours and business days
+
+**Smart Time Interpretation:**
+When a job is dropped on a date cell, the system auto-calculates:
+1. **Start Time:** Defaults to 8:00 AM on the drop date
+2. **Duration:** Based on `estimated_hours` from `calculation_data.tier1Results.totalManHours`
+3. **End Time:** Calculated from start time + duration (can span multiple days)
+4. **Business Days:** From `calculation_data.tier1Results.totalDays`
+
+**Example Calculation:**
+```typescript
+// Job with 24 man-hours across 3 business days
+const estimatedHours = 24;  // from calculation_data.tier1Results.totalManHours
+const estimatedDays = 3;    // from calculation_data.tier1Results.totalDays
+
+// Dropped on Monday, Jan 20, 2025
+const dropDate = new Date('2025-01-20');
+
+// Calculate scheduled times
+const scheduledStart = new Date(dropDate);
+scheduledStart.setHours(8, 0, 0, 0);  // 8:00 AM start
+
+const scheduledEnd = new Date(dropDate);
+scheduledEnd.setDate(scheduledEnd.getDate() + estimatedDays);
+scheduledEnd.setHours(17, 0, 0, 0);  // 5:00 PM end on day 3
+
+// Result:
+// scheduled_start: 2025-01-20 08:00:00
+// scheduled_end: 2025-01-23 17:00:00 (3 business days later)
+```
+
+**Visual Grid Representation:**
+```
+Monday 1/20          Tuesday 1/21         Wednesday 1/22
+8am ┌────────────┐  8am ┌────────────┐  8am ┌────────────┐
+    │            │      │            │      │            │
+    │  JOB-003   │      │  JOB-003   │      │  JOB-003   │
+    │  24 hours  │      │  (cont.)   │      │  (cont.)   │
+    │  3 days    │      │            │      │            │
+5pm └────────────┘  5pm └────────────┘  5pm └────────────┘
+```
+
+**Database Sync on Drop:**
+When job is dropped, automatically update BOTH tables:
+
+1. **`ops_job_assignments` table:**
+   - `scheduled_start` = dropDate at 8:00 AM (timestamptz)
+   - `scheduled_end` = dropDate + estimatedDays at 5:00 PM (timestamptz)
+   - `estimated_hours` = from `calculation_data.tier1Results.totalManHours`
+
+2. **`ops_jobs` table (auto-sync):**
+   - `scheduled_start_date` = dropDate (date only)
+   - `scheduled_end_date` = dropDate + estimatedDays (date only)
+   - `status` = 'scheduled' (if was 'quote' or 'approved')
+
+**Key Implementation Rules:**
+- ✅ Always set start time to 8:00 AM
+- ✅ Always set end time to 5:00 PM on the final day
+- ✅ Use `estimatedDays` to span multiple columns in calendar grid
+- ✅ Show visual time blocks that represent actual labor hours
+- ✅ Update both `ops_jobs` and `ops_job_assignments` tables atomically
+- ✅ Preserve timezone information (use timestamptz in PostgreSQL)
+
 #### 4.1 Technology Choice
 
 **Library:** HTML5 Drag and Drop API (native, no dependencies)
@@ -629,19 +697,80 @@ e.dataTransfer.setData('application/json', JSON.stringify({
 
 **handleDrop:**
 1. Parse dropped job data
-2. Calculate new start/end dates based on drop cell
-3. Extract `estimatedHours` and `estimatedDays` from job's `calculation_data`
+2. Extract `estimatedHours` and `estimatedDays` from job's `calculation_data`
+3. **Calculate timestamptz values with business hours:**
+   - `scheduledStart` = dropDate at 8:00 AM
+   - `scheduledEnd` = dropDate + estimatedDays at 5:00 PM
 4. Check for conflicts using database query (see Phase 1)
 5. If conflicts: show confirmation modal
-6. If no conflicts: create/update assignment in `ops_job_assignments` (see Phase 1, Step 4)
-7. Update `ops_jobs.status` and scheduled dates
+6. If no conflicts: create/update assignment in `ops_job_assignments` with timestamptz
+7. **Auto-sync `ops_jobs` table** with date-only fields and status update
 8. Refresh calendar from database
 
-**Database Persistence (see Phase 1 for complete code):**
+**Database Persistence with Time-Block Logic:**
 ```typescript
-// Uses the handleJobDrop() function from Phase 1
-// which creates ops_job_assignments record and updates ops_jobs
-await handleJobDrop(jobId, crewId, dropDate, estimatedHours, estimatedDays);
+// Enhanced handleJobDrop() with 8am-5pm time blocks
+async function handleJobDrop(
+  jobId: string,
+  crewId: string,
+  dropDate: Date,
+  estimatedHours: number,
+  estimatedDays: number
+) {
+  // Set start time to 8:00 AM
+  const scheduledStart = new Date(dropDate);
+  scheduledStart.setHours(8, 0, 0, 0);
+
+  // Set end time to 5:00 PM on the final business day
+  const scheduledEnd = new Date(dropDate);
+  scheduledEnd.setDate(scheduledEnd.getDate() + estimatedDays);
+  scheduledEnd.setHours(17, 0, 0, 0);  // 5:00 PM
+
+  // Check for conflicts
+  const conflicts = await checkScheduleConflicts(
+    crewId,
+    scheduledStart.toISOString(),
+    scheduledEnd.toISOString()
+  );
+
+  if (conflicts.length > 0) {
+    setConflictModalOpen(true);
+    return;
+  }
+
+  // Create assignment with timestamptz (includes time)
+  const { data, error } = await supabase
+    .from('ops_job_assignments')
+    .insert({
+      job_id: jobId,
+      crew_id: crewId,
+      scheduled_start: scheduledStart.toISOString(),  // timestamptz: 2025-01-20T08:00:00Z
+      scheduled_end: scheduledEnd.toISOString(),      // timestamptz: 2025-01-23T17:00:00Z
+      estimated_hours: estimatedHours,
+      status: 'scheduled',
+      completion_percentage: 0,
+      assigned_by_user_id: currentUserId,
+      metadata: {
+        assigned_via: 'calendar_drag_drop',
+        assigned_at: new Date().toISOString(),
+        business_hours: '8:00 AM - 5:00 PM'
+      }
+    })
+    .select()
+    .single();
+
+  // Auto-sync ops_jobs table with date-only fields
+  await supabase
+    .from('ops_jobs')
+    .update({
+      status: 'scheduled',
+      scheduled_start_date: scheduledStart.toISOString().split('T')[0],  // date: 2025-01-20
+      scheduled_end_date: scheduledEnd.toISOString().split('T')[0]       // date: 2025-01-23
+    })
+    .eq('id', jobId);
+
+  refreshCalendar();
+}
 ```
 
 **Conflict Detection:**
