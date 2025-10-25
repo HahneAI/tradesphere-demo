@@ -48,30 +48,7 @@ const getSystemMessageStyle = (message: Message, visualConfig: SmartVisualThemeC
   };
 };
 
-// 🔄 DUAL TESTING: Get source badge for message identification
-const getSourceBadge = (message: Message) => {
-  const DUAL_TESTING_ENABLED = import.meta.env.VITE_ENABLE_DUAL_TESTING === 'true';
-  
-  if (!DUAL_TESTING_ENABLED) return null;
-  
-  const source = message.metadata?.source || message.source;
-  
-  if (source === 'native_pricing_agent') {
-    return (
-      <span className="inline-flex items-center px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full font-medium">
-        ⚡ Native
-      </span>
-    );
-  } else if (source === 'make_com' || (!source && message.sender === 'ai')) {
-    return (
-      <span className="inline-flex items-center px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full font-medium">
-        🔧 Make.com
-      </span>
-    );
-  }
-  
-  return null;
-};
+// Source badge removed - native-only pricing (no dual testing)
 
 const formatMessageText = (text: string) => {
   let html = text
@@ -153,13 +130,8 @@ export const ThemeAwareMessageBubble = ({ message, visualConfig, theme, compact 
         className={`${compact ? 'max-w-full px-3 py-2' : 'max-w-md lg:max-w-2xl px-5 py-3'} ${message.isSystemMessage ? 'shadow-sm' : 'shadow-md'} message-bubble-animate ${animationClass} transition-all duration-300`}
         style={bubbleStyles}
       >
-        {/* ✅ LOGICAL BADGES: Show source badge only for AI responses in dual testing */}
-        {message.sender === 'ai' && !removeSourceStyling && getSourceBadge(message) && (
-          <div className="mb-2">
-            {getSourceBadge(message)}
-          </div>
-        )}
-        
+        {/* Source badges removed - native-only pricing */}
+
         <div
           className={`${compact ? 'text-sm' : 'text-base'} whitespace-pre-wrap`}
           dangerouslySetInnerHTML={{ __html: formatMessageText(message.text) }}

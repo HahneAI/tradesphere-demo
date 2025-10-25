@@ -383,23 +383,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 Math.abs(new Date(msg.timestamp).getTime() - Date.now()) < 60000 // Last minute
               );
               
-              if (DUAL_TESTING_ENABLED) {
-                // Dual mode: Wait for both responses
-                const hasMakeResponse = recentAIMessages.some(msg => 
-                  !msg.metadata?.source || msg.metadata?.source === 'make_com' || msg.source === 'make_com'
-                );
-                const hasNativeResponse = recentAIMessages.some(msg => 
-                  msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent'
-                );
-                
-                if (hasMakeResponse && hasNativeResponse) {
-                  setIsLoading(false);
-                }
-              } else {
-                // Single mode: Return to idle after ANY AI response
-                if (recentAIMessages.length > 0) {
-                  setIsLoading(false);
-                }
+              // Native-only mode: Return to idle after ANY AI response
+              if (recentAIMessages.length > 0) {
+                setIsLoading(false);
               }
             }
             
@@ -489,110 +475,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [user]);
 
-  // 🔄 DUAL TESTING: Group messages for dual display
+  // Native-only: All messages displayed as single stream
   const groupMessagesForDualDisplay = (messages: Message[]) => {
-    if (!DUAL_TESTING_ENABLED) return messages.map(msg => ({ type: 'shared', message: msg }));
-
-    const grouped: Array<{ 
-      type: 'shared' | 'dual' | 'single';
-      message?: Message;
-      dual?: { make: Message | null; native: Message | null; waitingFor?: 'make' | 'native' | null };
-    }> = [];
-    const processed = new Set<string>();
-
-    // ✅ SLOT FILLING FIX: Function to fill existing waiting slots
-    const findAndFillExistingSlot = (newMessage: Message) => {
-      const isNative = newMessage.metadata?.source === 'native_pricing_agent' || newMessage.source === 'native_pricing_agent';
-      const isMake = newMessage.metadata?.source === 'make_com' || newMessage.source === 'make_com' || (!isNative && !newMessage.source);
-      
-      // Look for existing dual panel with empty slot for this source
-      for (let i = grouped.length - 1; i >= 0; i--) {
-        const group = grouped[i];
-        if (group.type === 'dual' && group.dual) {
-          if (isMake && !group.dual.make && group.dual.waitingFor === 'make') {
-            group.dual.make = newMessage;
-            group.dual.waitingFor = null; // Both slots now filled
-            return true; // Successfully filled existing slot
-          }
-          if (isNative && !group.dual.native && group.dual.waitingFor === 'native') {
-            group.dual.native = newMessage;
-            group.dual.waitingFor = null; // Both slots now filled
-            return true; // Successfully filled existing slot
-          }
-        }
-      }
-      return false; // No existing slot found
-    };
-
-    messages.forEach((msg, index) => {
-      if (processed.has(msg.id)) return;
-
-      // ✅ LOGICAL GROUPING: Shared messages (welcome + user inputs)
-      if (msg.sender === 'user' || (msg.sender === 'ai' && index === 0 && msg.text.includes('what\'s the customer scoop'))) {
-        grouped.push({ type: 'shared', message: msg });
-        processed.add(msg.id);
-      } else if (msg.sender === 'ai') {
-        if (DUAL_TESTING_ENABLED) {
-          // ✅ SLOT FILLING FIX: Try to fill existing waiting slot first
-          if (findAndFillExistingSlot(msg)) {
-            processed.add(msg.id);
-            return; // Skip creating new dual panel
-          }
-          // ✅ DUAL COMPARISON: AI responses - always create dual slots when dual testing enabled
-          const isNative = msg.metadata?.source === 'native_pricing_agent' || msg.source === 'native_pricing_agent';
-          const isMake = msg.metadata?.source === 'make_com' || msg.source === 'make_com' || (!isNative && !msg.source);
-          
-          const correspondingMsg = messages.find(otherMsg => 
-            otherMsg.id !== msg.id &&
-            otherMsg.sender === 'ai' &&
-            Math.abs(new Date(otherMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 60000 && // Within 1 minute
-            otherMsg.sessionId === msg.sessionId &&
-            !processed.has(otherMsg.id) &&
-            ((isNative && (otherMsg.metadata?.source === 'make_com' || (!otherMsg.metadata?.source && !otherMsg.source))) ||
-             (isMake && (otherMsg.metadata?.source === 'native_pricing_agent' || otherMsg.source === 'native_pricing_agent')))
-          );
-
-          if (correspondingMsg) {
-            // ✅ DUAL DISPLAY: Both responses available
-            const makeMsg = isMake ? msg : correspondingMsg;
-            const nativeMsg = isNative ? msg : correspondingMsg;
-            
-            grouped.push({
-              type: 'dual',
-              dual: { 
-                make: makeMsg, 
-                native: nativeMsg,
-                waitingFor: null // Both responses available
-              }
-            });
-            
-            processed.add(msg.id);
-            processed.add(correspondingMsg.id);
-          } else {
-            // ✅ TIMING FIX: Always create dual slot, fill as responses arrive
-            grouped.push({
-              type: 'dual',
-              dual: { 
-                make: isMake ? msg : null, 
-                native: isNative ? msg : null,
-                waitingFor: isMake ? 'native' : 'make'
-              }
-            });
-            
-            processed.add(msg.id);
-          }
-        } else {
-          // When dual testing is disabled, show AI responses as normal shared messages
-          grouped.push({
-            type: 'shared',
-            message: msg
-          });
-          processed.add(msg.id);
-        }
-      }
-    });
-
-    return grouped;
+    return messages.map(msg => ({ type: 'shared', message: msg }));
   };
 
   const handleRefreshChat = () => {
@@ -1815,57 +1700,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
             {groupMessagesForDualDisplay(messages).map((messageGroup, index) => (
               <div
-                key={
-                  messageGroup.message?.id || 
-                  `dual-${messageGroup.dual?.make?.id || 'waiting'}-${messageGroup.dual?.native?.id || 'waiting'}` ||
-                  `group-${index}`
-                }
+                key={messageGroup.message?.id || `group-${index}`}
                 className={`
                   ${isRefreshing ? 'animate-fade-up-out' : ''}
                   ${!isRefreshing && index === messages.length - 1 ? 'animate-fade-up-in-delay' : ''}
                 `}
               >
-                {/* ✅ SHARED MESSAGES: Welcome + User inputs (no source styling) */}
-                {messageGroup.type === 'shared' && messageGroup.message ? (
+                {/* Native-only: All messages displayed as single stream */}
+                {messageGroup.message && (
                   <ThemeAwareMessageBubble
                     message={messageGroup.message}
                     visualConfig={visualConfig}
                     theme={theme}
                     removeSourceStyling={true}
                   />
-                ) : messageGroup.type === 'dual' && messageGroup.dual && DUAL_TESTING_ENABLED ? (
-                  /* ✅ DUAL COMPARISON: Side-by-side AI responses with performance metrics */
-                  <DualResponseDisplay
-                    makeMsg={messageGroup.dual.make}
-                    nativeMsg={messageGroup.dual.native}
-                    waitingFor={messageGroup.dual.waitingFor}
-                    visualConfig={visualConfig}
-                    theme={theme}
-                  />
-                ) : messageGroup.type === 'single' && messageGroup.message && DUAL_TESTING_ENABLED ? (
-                  /* ✅ ORPHANED RESPONSE: Single AI response with context (only in dual testing mode) */
-                  <div className="space-y-2">
-                    <div className="flex justify-center">
-                      <div 
-                        className="text-xs px-3 py-1 rounded-full"
-                        style={{
-                          backgroundColor: visualConfig.colors.primary + '20',
-                          color: visualConfig.colors.primary
-                        }}
-                      >
-                        {messageGroup.message.source === 'native_pricing_agent' 
-                          ? '⚡ Native Only - Make.com Unavailable' 
-                          : '🔗 Make.com Only - Native Unavailable'}
-                      </div>
-                    </div>
-                    
-                    <ThemeAwareMessageBubble
-                      message={messageGroup.message}
-                      visualConfig={visualConfig}
-                      theme={theme}
-                    />
-                  </div>
-                ) : null}
+                )}
               </div>
             ))}
 
@@ -2138,23 +1987,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {isAdmin && showPerformancePanel && (
         <div className="fixed bottom-20 right-4 bg-black bg-opacity-80 text-white text-xs p-3 rounded max-w-xs">
           <div className="font-semibold mb-2">🏢 PERFORMANCE</div>
-          {DUAL_TESTING_ENABLED ? (
-            <>
-              <div className="text-blue-300">🔄 DUAL TESTING MODE</div>
-              {performanceMetrics.makeLatency && (
-                <div>Make.com: {performanceMetrics.makeLatency}ms</div>
-              )}
-              {performanceMetrics.nativeLatency && (
-                <div className="text-green-300">Native: {performanceMetrics.nativeLatency}ms</div>
-              )}
-              {performanceMetrics.makeLatency && performanceMetrics.nativeLatency && (
-                <div className="text-yellow-300 border-t border-gray-600 pt-1 mt-1">
-                  Speedup: {((parseFloat(performanceMetrics.makeLatency) / parseFloat(performanceMetrics.nativeLatency)) || 1).toFixed(1)}x
-                </div>
-              )}
-            </>
-          ) : (
-            <div>Webhook: {performanceMetrics.webhookLatency}ms</div>
+          <div className="text-blue-300">⚡ NATIVE PRICING</div>
+          {performanceMetrics.nativeLatency && (
+            <div className="text-green-300">Native: {performanceMetrics.nativeLatency}ms</div>
           )}
           {performanceMetrics.totalResponseTime && <div>Total: {performanceMetrics.totalResponseTime}s</div>}
         </div>
