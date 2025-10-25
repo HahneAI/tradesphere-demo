@@ -47,8 +47,8 @@ export const WizardProgressIndicator: React.FC<WizardProgressIndicatorProps> = (
   };
 
   const isStepClickable = (step: WizardStep): boolean => {
-    // Can navigate to completed steps or previous steps
-    return step < currentStep;
+    // Can navigate to any completed step OR any previous step
+    return isStepCompleted(step) || step < currentStep;
   };
 
   const getStepStatus = (step: WizardStep): 'completed' | 'current' | 'future' => {

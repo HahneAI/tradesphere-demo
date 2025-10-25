@@ -17,6 +17,7 @@ import {
   Job
 } from '../types/crm';
 import { parseAddress } from '../utils/addressParser';
+import { Adjustment } from '../components/jobs/wizard/adjustments';
 
 // ============================================================================
 // Type Definitions
@@ -57,6 +58,7 @@ export interface JobDetailsData {
  */
 export interface ServiceLineItem extends Omit<CreateJobServiceInput, 'added_by_user_id'> {
   tempId?: string; // Temporary ID for tracking before DB insert
+  adjustments?: Adjustment[]; // Optional financial adjustments
 }
 
 /**
@@ -351,7 +353,7 @@ export interface UseJobCreationWizardReturn {
   serviceCount: number;
 
   // Navigation
-  goToStep: (step: WizardStep) => void;
+  goToStep: (step: WizardStep, skipValidation?: boolean) => void;
   nextStep: () => void;
   prevStep: () => void;
 
@@ -438,11 +440,18 @@ export const useJobCreationWizard = (config: WizardConfig): UseJobCreationWizard
 
   // ========== Navigation ==========
 
-  const goToStep = useCallback((step: WizardStep) => {
+  const goToStep = useCallback((step: WizardStep, skipValidation = false) => {
     if (step < 1 || step > 5) return;
 
-    // If moving forward, validate current step
-    if (step > state.currentStep && config.validateOnStepChange !== false) {
+    // Skip validation in two cases:
+    // 1. Moving backward (step <= state.currentStep)
+    // 2. Explicitly skipped (for jumping to completed steps)
+    const shouldValidate =
+      step > state.currentStep &&
+      !skipValidation &&
+      config.validateOnStepChange !== false;
+
+    if (shouldValidate) {
       const validation = validateStep(state.currentStep, state, config);
       if (!validation.isValid) {
         setState(prev => ({ ...prev, errors: validation.errors }));
@@ -522,13 +531,17 @@ export const useJobCreationWizard = (config: WizardConfig): UseJobCreationWizard
     }));
   }, []);
 
-  const updateService = useCallback((index: number, updates: Partial<ServiceLineItem>) => {
+  const updateService = useCallback((index: number, updates: Partial<ServiceLineItem> | ServiceLineItem) => {
     setState(prev => {
       const updatedServices = [...prev.services];
-      updatedServices[index] = {
-        ...updatedServices[index],
-        ...updates
-      };
+      // If updates is a full ServiceLineItem (has service_config_id), replace entirely; otherwise merge
+      const isFullReplacement = 'service_config_id' in updates && 'service_name' in updates && 'unit_price' in updates;
+      updatedServices[index] = isFullReplacement
+        ? (updates as ServiceLineItem)
+        : {
+            ...updatedServices[index],
+            ...updates
+          };
       return { ...prev, services: updatedServices };
     });
   }, []);

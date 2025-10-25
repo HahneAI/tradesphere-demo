@@ -8,7 +8,7 @@
  * JobServiceExtensions for atomic job creation.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useJobCreationWizard, WizardStep } from '../../hooks/useJobCreationWizard';
 import { jobServiceWizardExtensions } from '../../services/JobServiceExtensions';
 import { WizardProgressIndicator } from './wizard/WizardProgressIndicator';
@@ -52,12 +52,35 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
   // Track completed steps for progress indicator
   const [completedSteps, setCompletedSteps] = useState<WizardStep[]>([]);
 
-  // Update completed steps when moving forward
+  // Ref for scroll container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Update completed steps based on validation
   useEffect(() => {
-    if (wizard.currentStep > 1 && !completedSteps.includes((wizard.currentStep - 1) as WizardStep)) {
-      setCompletedSteps((prev) => [...prev, (wizard.currentStep - 1) as WizardStep]);
+    // Check if current step is valid
+    const validation = wizard.validateCurrentStep();
+
+    if (validation.isValid && !completedSteps.includes(wizard.currentStep)) {
+      setCompletedSteps((prev) => [...new Set([...prev, wizard.currentStep])]);
+    }
+  }, [wizard.currentStep, wizard.state, wizard.validateCurrentStep, completedSteps]);
+
+  // Scroll to top when step changes
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     }
   }, [wizard.currentStep]);
+
+  // Handle step click with conditional validation skipping
+  const handleStepClick = useCallback((step: WizardStep) => {
+    // Skip validation if jumping to a completed step
+    const isCompletedStep = completedSteps.includes(step);
+    wizard.goToStep(step, isCompletedStep);
+  }, [wizard, completedSteps]);
 
   // Handle wizard close with confirmation if data exists
   const handleClose = () => {
@@ -264,11 +287,11 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
           <WizardProgressIndicator
             currentStep={wizard.currentStep}
             completedSteps={completedSteps}
-            onStepClick={wizard.goToStep}
+            onStepClick={handleStepClick}
           />
 
           {/* Step Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto">
             {wizard.currentStep === 1 && (
               <CustomerSelectionStep
                 companyId={companyId}
@@ -294,6 +317,7 @@ export const JobCreationWizard: React.FC<JobCreationWizardProps> = ({
                 services={wizard.services}
                 onAddService={wizard.addService}
                 onRemoveService={wizard.removeService}
+                onUpdateService={wizard.updateService}
                 estimatedTotal={wizard.estimatedTotal}
                 companyId={companyId}
                 userId={userId}
