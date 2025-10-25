@@ -68,7 +68,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
 
   /**
    * Handle job drop with 8am-5pm time-block scheduling
-   * Auto-syncs ops_jobs and ops_job_assignments tables
+   * Properly handles re-dragging by canceling old assignments first
+   * Database trigger auto-syncs ops_jobs table
    */
   const handleJobDrop = useCallback(
     async (jobId: string, crewId: string, dropDate: Date) => {
@@ -95,10 +96,22 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
         // TODO Phase 5: Check for conflicts
         // const conflicts = await checkScheduleConflicts(crewId, scheduledStart, scheduledEnd);
 
-        // Create or update assignment in ops_job_assignments
+        // CRITICAL FIX: Cancel any existing active assignments for this job
+        // This handles the re-dragging scenario (moving from Crew A to Crew B)
+        const { error: cancelError } = await supabase.rpc(
+          'cancel_existing_job_assignments',
+          { p_job_id: jobId }
+        );
+
+        if (cancelError) {
+          console.error('Failed to cancel existing assignments:', cancelError);
+          // Continue anyway - the unique index will prevent duplicates
+        }
+
+        // Insert new assignment (NOT upsert - we cancelled old ones above)
         const { data: assignmentData, error: assignmentError } = await supabase
           .from('ops_job_assignments')
-          .upsert({
+          .insert({
             job_id: jobId,
             crew_id: crewId,
             scheduled_start: scheduledStart.toISOString(),
@@ -110,7 +123,8 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
             metadata: {
               assigned_via: 'calendar_drag_drop',
               assigned_at: new Date().toISOString(),
-              business_hours: '8:00 AM - 5:00 PM'
+              business_hours: '8:00 AM - 5:00 PM',
+              drop_date: dropDate.toISOString()
             }
           })
           .select()
@@ -121,32 +135,24 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
           return;
         }
 
-        // Auto-sync ops_jobs table with date-only fields and status
-        const { error: jobUpdateError } = await supabase
-          .from('ops_jobs')
-          .update({
-            status: 'scheduled',
-            scheduled_start_date: scheduledStart.toISOString().split('T')[0],
-            scheduled_end_date: scheduledEnd.toISOString().split('T')[0]
-          })
-          .eq('id', jobId);
-
-        if (jobUpdateError) {
-          console.error('Job update failed:', jobUpdateError);
-          return;
-        }
+        // NOTE: ops_jobs table is auto-synced by database trigger
+        // No manual update needed - trigger handles:
+        // - scheduled_start_date
+        // - scheduled_end_date
+        // - status transition (quote/approved → scheduled)
 
         // Success - refresh calendar
-        console.log('Job assigned successfully:', {
+        console.log('✅ Job assigned successfully:', {
           jobId,
           crewId,
           scheduledStart: scheduledStart.toISOString(),
-          scheduledEnd: scheduledEnd.toISOString()
+          scheduledEnd: scheduledEnd.toISOString(),
+          assignmentId: assignmentData.id
         });
 
         refreshCalendar();
       } catch (error) {
-        console.error('Job drop failed:', error);
+        console.error('❌ Job drop failed:', error);
       }
     },
     [calendarJobs, user?.id, refreshCalendar]
@@ -438,6 +444,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
               </div>
             </div>
           </div>
+            </div>
           </DragDropProvider>
         )}
       </div>
