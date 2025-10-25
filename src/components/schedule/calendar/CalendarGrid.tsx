@@ -12,6 +12,7 @@ import { Crew } from '../../../types/crm';
 import { CalendarJobBlock } from '../../../types/jobs-views';
 import { CrewRow } from './CrewRow';
 import { UnassignedSection } from './UnassignedSection';
+import { ConflictDetectionResult } from '../../../utils/conflictDetection';
 
 export interface CalendarGridProps {
   crews: Crew[];
@@ -19,6 +20,7 @@ export interface CalendarGridProps {
   assignedJobs: CalendarJobBlock[];
   unassignedJobs: CalendarJobBlock[];
   visualConfig: any;
+  conflictResult?: ConflictDetectionResult;
   onJobClick?: (jobId: string) => void;
   onJobDoubleClick?: (jobId: string) => void;
   onJobContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
@@ -33,6 +35,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
   assignedJobs,
   unassignedJobs,
   visualConfig,
+  conflictResult,
   onJobClick,
   onJobDoubleClick,
   onJobContextMenu
@@ -68,6 +71,7 @@ export const CalendarGrid: React.FC<CalendarGridProps> = ({
             weekStart={weekStart}
             assignments={jobsByCrew[crew.id] || []}
             visualConfig={visualConfig}
+            conflictResult={conflictResult}
             onJobClick={onJobClick}
             onJobDoubleClick={onJobDoubleClick}
             onJobContextMenu={onJobContextMenu}

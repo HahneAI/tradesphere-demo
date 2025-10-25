@@ -16,12 +16,14 @@ import { useDragAndDrop } from '../hooks/useDragAndDrop';
 import { JobBlock } from './JobBlock';
 import { addDays } from '../../../utils/date-helpers';
 import { useDragDrop } from '../context/DragDropContext';
+import { ConflictDetectionResult } from '../../../utils/conflictDetection';
 
 export interface CrewRowProps {
   crew: Crew;
   weekStart: Date;
   assignments: CalendarJobBlock[];
   visualConfig: any;
+  conflictResult?: ConflictDetectionResult;
   onJobClick?: (jobId: string) => void;
   onJobDoubleClick?: (jobId: string) => void;
   onJobContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
@@ -36,6 +38,7 @@ export const CrewRow: React.FC<CrewRowProps> = ({
   weekStart,
   assignments,
   visualConfig,
+  conflictResult,
   onJobClick,
   onJobDoubleClick,
   onJobContextMenu
@@ -111,6 +114,7 @@ export const CrewRow: React.FC<CrewRowProps> = ({
                   position={position}
                   visualConfig={visualConfig}
                   sourceCrewId={crew.id}
+                  conflictResult={conflictResult}
                   onClick={onJobClick}
                   onDoubleClick={onJobDoubleClick}
                   onContextMenu={onJobContextMenu}

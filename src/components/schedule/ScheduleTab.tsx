@@ -6,8 +6,8 @@
  * ✅ Phase 2: Data Layer (Supabase integration, mock crews)
  * ✅ Phase 3: Static Calendar (grid, rows, blocks)
  * ✅ Phase 4: Drag-and-Drop (8am-5pm time blocks)
- * 🚧 Phase 5: Quick Actions & Interactions
- * ⏳ Phase 6: Conflict Detection
+ * ✅ Phase 5: Quick Actions & Interactions
+ * 🚧 Phase 6: Conflict Detection (Week 1 Complete)
  * ⏳ Phase 7: Polish
  *
  * @module ScheduleTab
@@ -31,6 +31,8 @@ import { ContextMenu } from './calendar/ContextMenu';
 import { Toolbar, JobStatus, PriorityLevel } from './calendar/Toolbar';
 import { KeyboardShortcutsHelp } from './calendar/KeyboardShortcutsHelp';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { ConflictPanel } from './calendar/ConflictPanel';
+import { detectScheduleConflicts, ConflictDetectionResult } from '../../utils/conflictDetection';
 
 interface ScheduleTabProps {
   isOpen: boolean;
@@ -99,6 +101,9 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
 
   // Phase 5: Keyboard shortcuts help modal
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+
+  // Phase 6: Conflict detection panel
+  const [conflictPanelOpen, setConflictPanelOpen] = useState(false);
 
   /**
    * Handle job drop with 8am-5pm time-block scheduling
@@ -212,6 +217,12 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
       return true;
     });
   }, [calendarJobs, selectedStatuses, selectedPriority]);
+
+  // Phase 6: Detect conflicts in assigned jobs
+  const conflictResult: ConflictDetectionResult = useMemo(() => {
+    const assignedJobsWithCrew = filteredJobs.filter(job => job.crew_id);
+    return detectScheduleConflicts(assignedJobsWithCrew);
+  }, [filteredJobs]);
 
   // Phase 5: Context menu handlers
   const handleContextMenu = useCallback((e: React.MouseEvent, jobId: string, jobNumber: string) => {
@@ -335,7 +346,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
               Schedule Management
             </h2>
             <p className="text-sm" style={{ color: visualConfig.colors.text.secondary }}>
-              📊 Phase 1-2 Complete: Data Layer Active • Phase 3: Calendar UI In Progress
+              ✅ Phases 1-5 Complete • 🚧 Phase 6: Conflict Detection (Week 1) • ⏳ Phase 7: Polish
             </p>
           </div>
         </div>
@@ -392,8 +403,13 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
                 selectedPriority={selectedPriority}
                 onPriorityChange={setSelectedPriority}
                 showConflicts={showConflicts}
-                onToggleConflicts={() => setShowConflicts(!showConflicts)}
-                conflictCount={0}
+                onToggleConflicts={() => {
+                  setShowConflicts(!showConflicts);
+                  if (!showConflicts && conflictResult.hasConflicts) {
+                    setConflictPanelOpen(true);
+                  }
+                }}
+                conflictCount={conflictResult.totalConflicts}
                 filteredJobCount={filteredJobs.length}
                 totalJobCount={calendarJobs.length}
                 visualConfig={visualConfig}
@@ -407,6 +423,7 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
                 assignedJobs={filteredJobs.filter(j => j.crew_id)}
                 unassignedJobs={filteredJobs.filter(j => !j.crew_id)}
                 visualConfig={visualConfig}
+                conflictResult={conflictResult}
                 onJobClick={handleJobClick}
                 onJobDoubleClick={handleJobDoubleClick}
                 onJobContextMenu={handleContextMenu}
@@ -610,9 +627,15 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Icons.CheckCircle size={16} style={{ color: '#10B981' }} />
+                  <span style={{ color: visualConfig.colors.text.secondary }}>
+                    Phase 5: Quick Actions & Interactions ✅
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
                   <Icons.Clock size={16} style={{ color: '#F59E0B' }} />
                   <span style={{ color: visualConfig.colors.text.secondary }}>
-                    Phase 5: Quick Actions & Interactions 🚧
+                    Phase 6: Conflict Detection (Week 1 of 4) 🚧
                   </span>
                 </div>
               </div>
@@ -659,6 +682,16 @@ export const ScheduleTab: React.FC<ScheduleTabProps> = ({ isOpen, onClose }) => 
       <KeyboardShortcutsHelp
         isOpen={shortcutsHelpOpen}
         onClose={() => setShortcutsHelpOpen(false)}
+        visualConfig={visualConfig}
+        theme={theme}
+      />
+
+      {/* Phase 6: Conflict Detection Panel */}
+      <ConflictPanel
+        isOpen={conflictPanelOpen}
+        onClose={() => setConflictPanelOpen(false)}
+        conflictResult={conflictResult}
+        onJobClick={handleJobClick}
         visualConfig={visualConfig}
         theme={theme}
       />

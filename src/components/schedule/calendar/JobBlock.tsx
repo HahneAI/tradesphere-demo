@@ -14,12 +14,15 @@ import { CalendarJobBlock } from '../../../types/jobs-views';
 import { JobPosition } from '../hooks/useJobPositioning';
 import { formatShortDate, formatCurrency } from '../../../types/jobs-views';
 import { useDragAndDrop } from '../hooks/useDragAndDrop';
+import { ConflictBadge } from './ConflictBadge';
+import { ConflictDetectionResult, getJobConflictInfo } from '../../../utils/conflictDetection';
 
 export interface JobBlockProps {
   job: CalendarJobBlock;
   position: JobPosition;
   visualConfig: any;
   sourceCrewId?: string | null;
+  conflictResult?: ConflictDetectionResult;
   onClick?: (jobId: string) => void;
   onDoubleClick?: (jobId: string) => void;
   onContextMenu?: (e: React.MouseEvent, jobId: string, jobNumber: string) => void;
@@ -36,12 +39,16 @@ export const JobBlock: React.FC<JobBlockProps> = ({
   position,
   visualConfig,
   sourceCrewId = null,
+  conflictResult,
   onClick,
   onDoubleClick,
   onContextMenu,
   isDraggingThis = false
 }) => {
   const { handleDragStart, handleDragEnd, draggedJob } = useDragAndDrop();
+
+  // Get conflict info for this job
+  const conflictInfo = conflictResult ? getJobConflictInfo(job.job_id, conflictResult) : null;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -122,6 +129,15 @@ export const JobBlock: React.FC<JobBlockProps> = ({
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
     >
+      {/* Conflict Badge */}
+      {conflictInfo && conflictInfo.hasConflict && (
+        <ConflictBadge
+          severity={conflictInfo.highestSeverity!}
+          conflictCount={conflictInfo.conflictCount}
+          visualConfig={visualConfig}
+        />
+      )}
+
       {/* Priority Badge */}
       <div
         className="absolute top-1 right-1 w-2 h-2 rounded-full"
