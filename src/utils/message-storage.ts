@@ -1,7 +1,7 @@
 /**
  * TradeSphere Shared Message Storage Service
  *
- * Provides unified Supabase storage functionality for both Make.com and native functions
+ * Provides unified Supabase storage functionality for native pricing functions
  * Handles environment variables, error logging, and data structure consistency
  *
  * MIGRATED: Now uses Supabase client for consistent database access and 406 error prevention
@@ -28,7 +28,7 @@ export interface StorageMetadata {
   services_count?: number;
   total_cost?: number;
   confidence?: number;
-  source: 'native_pricing_agent' | 'make_com_webhook';
+  source: 'native_pricing_agent';
   calculation_time?: number;
   // 📊 PHASE 2A: Analytics tracking fields
   token_usage?: {

@@ -5,7 +5,7 @@ export interface Message {
   timestamp: Date;
   sessionId?: string;
   status?: 'sending' | 'sent' | 'delivered' | 'error';
-  source?: 'make_com' | 'native_pricing_agent' | 'user' | 'previous_session';
+  source?: 'native_pricing_agent' | 'user' | 'previous_session';
   metadata?: {
     processing_time?: number;
     services_count?: number;
