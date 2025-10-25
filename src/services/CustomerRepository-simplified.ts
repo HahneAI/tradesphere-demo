@@ -26,7 +26,7 @@ export class SimplifiedCustomerRepository {
     try {
       // Simple query without any joins
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('*')
         .eq('id', customerId)
         .eq('company_id', companyId)
@@ -78,7 +78,7 @@ export class SimplifiedCustomerRepository {
     try {
       // First verify the customer exists (without metrics join)
       const { data: existingCustomer, error: fetchError } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .select('id')
         .eq('id', customerId)
         .eq('company_id', companyId)
@@ -126,7 +126,7 @@ export class SimplifiedCustomerRepository {
 
       // Perform the update
       const { data, error } = await this.supabase
-        .from('customers')
+        .from('crm_customers')
         .update(updateData)
         .eq('id', customerId)
         .eq('company_id', companyId)
