@@ -824,47 +824,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
 
     try {
-      if (DUAL_TESTING_ENABLED) {
-        
-        // Send to both endpoints simultaneously
-        const promises = [
-          sendUserMessageToMake(userMessageText).catch(error => ({ error, source: 'make' })),
-          sendUserMessageToNative(userMessageText).catch(error => ({ error, source: 'native' }))
-        ];
-        
-        const results = await Promise.allSettled(promises);
-        
-        // Log results for both
-        results.forEach((result, index) => {
-          const source = index === 0 ? 'Make.com' : 'Native';
-          if (result.status === 'fulfilled') {
-            if (result.value?.error) {
-              console.warn(`⚠️ ${source} failed:`, result.value.error.message);
-            } else {
-              console.log(`✅ ${source} succeeded`);
-            }
-          } else {
-            console.error(`❌ ${source} rejected:`, result.reason);
-          }
-        });
-        
-        // If both failed, show error message
-        const bothFailed = results.every(result => 
-          result.status === 'rejected' || 
-          (result.status === 'fulfilled' && result.value?.error)
-        );
-        
-        if (bothFailed) {
-          throw new Error('Both Make.com and Native pipeline failed');
-        }
-        
-      } else if (USE_NATIVE_PRIMARY) {
-        // 🚀 PHASE 1: Native-first pipeline (new default)
-        await sendUserMessageToNative(userMessageText);
-      } else {
-        // Fallback to Make.com for backward compatibility
-        await sendUserMessageToMake(userMessageText);
-      }
+      // Send to native pricing agent
+      await sendUserMessageToNative(userMessageText);
     } catch (error) {
       const errorMessage: Message = {
         id: uuidv4(),
