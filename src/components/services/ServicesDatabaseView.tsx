@@ -3,6 +3,7 @@ import * as Icons from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useServiceBaseSettings } from '../../stores/serviceBaseSettingsStore';
 import { ServiceRecordCard } from './ServiceRecordCard';
+import { CustomServiceWizard } from './wizard/CustomServiceWizard';
 
 interface ServicesDatabaseViewProps {
   visualConfig: any;
@@ -20,6 +21,7 @@ export const ServicesDatabaseView: React.FC<ServicesDatabaseViewProps> = ({
   const { user } = useAuth();
   const { services, isLoading, error, updateBaseSetting } = useServiceBaseSettings(user?.company_id, user?.id);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showWizard, setShowWizard] = useState(false);
 
   if (isLoading) {
     return (
@@ -73,17 +75,31 @@ export const ServicesDatabaseView: React.FC<ServicesDatabaseViewProps> = ({
         </div>
         
         {isAdmin && (
-          <div 
-            className="flex items-center space-x-2 px-3 py-2 rounded-lg"
-            style={{ 
-              backgroundColor: visualConfig.colors.primary + '10',
-              border: `1px solid ${visualConfig.colors.primary}40`
-            }}
-          >
-            <Icons.Shield className="h-4 w-4" style={{ color: visualConfig.colors.primary }} />
-            <span className="text-sm font-medium" style={{ color: visualConfig.colors.primary }}>
-              Administrator Access
-            </span>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => setShowWizard(true)}
+              className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all hover:opacity-90"
+              style={{
+                backgroundColor: visualConfig.colors.primary,
+                color: '#ffffff'
+              }}
+            >
+              <Icons.Plus className="h-4 w-4" />
+              <span>Create Custom Service</span>
+            </button>
+
+            <div
+              className="flex items-center space-x-2 px-3 py-2 rounded-lg"
+              style={{
+                backgroundColor: visualConfig.colors.primary + '10',
+                border: `1px solid ${visualConfig.colors.primary}40`
+              }}
+            >
+              <Icons.Shield className="h-4 w-4" style={{ color: visualConfig.colors.primary }} />
+              <span className="text-sm font-medium" style={{ color: visualConfig.colors.primary }}>
+                Administrator Access
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -169,7 +185,7 @@ export const ServicesDatabaseView: React.FC<ServicesDatabaseViewProps> = ({
 
       {/* Footer Info */}
       {isAdmin && (
-        <div 
+        <div
           className="mt-8 p-4 rounded-lg"
           style={{ backgroundColor: visualConfig.colors.background }}
         >
@@ -192,6 +208,14 @@ export const ServicesDatabaseView: React.FC<ServicesDatabaseViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Custom Service Creation Wizard */}
+      <CustomServiceWizard
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+        companyId={user?.company_id || ''}
+        visualConfig={visualConfig}
+      />
     </div>
   );
 };
