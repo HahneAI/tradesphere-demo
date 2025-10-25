@@ -6,7 +6,7 @@ import { getSmartVisualThemeConfig } from '../config/industry';
 import { useServiceBaseSettings } from '../stores/serviceBaseSettingsStore';
 import { ServiceSpecificsModal } from './services/ServiceSpecificsModal';
 import { ServiceCard } from './services/ServiceCard';
-import { serviceConfigManager } from '../services/ServiceConfigManager';
+import { CustomServiceWizard } from './services/wizard/CustomServiceWizard';
 
 interface ServicesPageProps {
   isOpen: boolean;
@@ -33,6 +33,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick 
   const [editingCell, setEditingCell] = useState<{ serviceId: string, setting: string } | null>(null);
   const [tempValue, setTempValue] = useState<string>('');
   const [specificsModalOpen, setSpecificsModalOpen] = useState<{ serviceId: string; serviceName: string } | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
 
   const isAdmin = user?.is_admin || false;
 
@@ -129,47 +130,6 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick 
   const validateProfitMargin = (value: number): boolean => {
     const percentage = value * 100;
     return percentage >= 5 && percentage <= 50;
-  };
-
-  const handleInsertService = async () => {
-    console.log('➕ [INSERT SERVICE] Button clicked');
-
-    // For now: Test with hardcoded service to verify ServiceConfigManager works
-    const testServiceId = 'lawn_mowing_sqft';
-    const testServiceName = 'Lawn Mowing';
-    const testCategory = 'Lawn Care';
-
-    console.log('🧪 [INSERT SERVICE] Creating test service:', {
-      id: testServiceId,
-      name: testServiceName,
-      category: testCategory,
-      companyId: user?.company_id,
-      userId: user?.id
-    });
-
-    if (!user?.company_id) {
-      alert('No company ID available. Please log in.');
-      return;
-    }
-
-    try {
-      await serviceConfigManager.createService(
-        testServiceId,
-        testServiceName,
-        testCategory,
-        user.company_id,
-        user.id
-      );
-
-      console.log('✅ [INSERT SERVICE] Service created successfully!');
-      alert('✅ Test service "Lawn Mowing" created!\n\nCheck:\n- Console for debug logs\n- Supabase table for new row\n- Quick Calculator should show it after refresh');
-
-      // TODO: Refresh services list to show new service
-      window.location.reload(); // Temporary: Force refresh to show new service
-    } catch (error) {
-      console.error('❌ [INSERT SERVICE] Failed:', error);
-      alert('Failed to create service: ' + (error as Error).message);
-    }
   };
 
   const EditableCell = ({
@@ -294,20 +254,20 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick 
             />
           </div>
 
-          {/* Insert Button */}
-          <button
-            onClick={handleInsertService}
-            disabled={!user?.company_id || !isAdmin}
-            className="flex items-center gap-1.5 px-3 md:px-4 h-10 md:h-11 min-h-[40px] md:min-h-[44px] rounded-lg font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.97] flex-shrink-0"
-            style={{
-              backgroundColor: visualConfig.colors.primary,
-              color: 'white'
-            }}
-            title={!isAdmin ? 'Admin access required' : !user?.company_id ? 'Please log in' : 'Create test service'}
-          >
-            <Icons.Plus className="h-4 w-4 md:h-5 md:w-5" />
-            <span className="text-xs md:text-sm">Insert</span>
-          </button>
+          {/* Create Custom Service Button - Only for Admins */}
+          {isAdmin && (
+            <button
+              onClick={() => setShowWizard(true)}
+              className="flex items-center gap-1.5 px-3 md:px-4 h-10 md:h-11 min-h-[40px] md:min-h-[44px] rounded-lg font-medium transition-all duration-150 active:scale-[0.97] flex-shrink-0 whitespace-nowrap"
+              style={{
+                backgroundColor: visualConfig.colors.primary,
+                color: 'white'
+              }}
+            >
+              <Icons.Plus className="h-4 w-4 md:h-5 md:w-5" />
+              <span className="text-xs md:text-sm">Create Custom Service</span>
+            </button>
+          )}
 
           {/* Sort Button */}
           <button className="flex items-center gap-1.5 px-3 md:px-4 h-10 md:h-11 min-h-[40px] md:min-h-[44px] border rounded-lg transition-all duration-150 active:scale-95 flex-shrink-0"
@@ -488,6 +448,14 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({ isOpen, onBackClick 
           theme={theme}
         />
       )}
+
+      {/* Custom Service Creation Wizard */}
+      <CustomServiceWizard
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+        companyId={user?.company_id || ''}
+        visualConfig={visualConfig}
+      />
     </div>
   );
 };
