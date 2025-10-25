@@ -369,15 +369,6 @@ export class EnvironmentManager {
     return key;
   }
 
-  static getMakeWebhookUrl(): string {
-    const url = (typeof process !== 'undefined' ? process.env.VITE_MAKE_WEBHOOK_URL : undefined) ||
-                (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_MAKE_WEBHOOK_URL : undefined);
-    if (!url || url === 'YOUR_MAKE_WEBHOOK_URL') {
-      throw new Error('VITE_MAKE_WEBHOOK_URL must be configured');
-    }
-    return url;
-  }
-
   static getFeedbackWebhookUrl(): string | undefined {
     const url = (typeof process !== 'undefined' ? process.env.VITE_FEEDBACK_WEBHOOK_URL : undefined) ||
                 (typeof import.meta.env !== 'undefined' ? import.meta.env.VITE_FEEDBACK_WEBHOOK_URL : undefined);

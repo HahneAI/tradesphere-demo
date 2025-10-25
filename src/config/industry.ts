@@ -430,11 +430,10 @@ export const getSeasonalConfig = (): SeasonalConfig => {
 // Core config that doesn't change by industry
 export const getCoreConfig = () => {
     // 🎯 USING CENTRALIZED DEFAULTS: Safe fallback to TradeSphere tech defaults
-    // Note: Technical integration variables (Supabase/Make) will throw errors if not configured
+    // Note: Technical integration variables (Supabase) will throw errors if not configured
     return {
         supabaseUrl: EnvironmentManager.getSupabaseUrl(),
         supabaseAnonKey: EnvironmentManager.getSupabaseAnonKey(),
-        makeWebhookUrl: EnvironmentManager.getMakeWebhookUrl(),
         companyName: EnvironmentManager.getCompanyName(),
         headerIcon: EnvironmentManager.getHeaderIcon(),
         logoUrl: EnvironmentManager.getLogoUrl(),
