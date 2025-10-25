@@ -89,48 +89,346 @@ This document outlines the implementation plan for building a functional drag-an
 
 ---
 
+## Database Architecture Reference
+
+**📚 Primary Reference:** [docs/architecture/PROFIT-PIPELINE-MASTER-FLOW.md](./architecture/PROFIT-PIPELINE-MASTER-FLOW.md)
+
+This scheduling calendar implementation is the **UI/UX layer** for Phase 6 (Job Scheduling) and Phase 7 (Crew Assignment) of the profit pipeline. The database architecture document is the authoritative source for table schemas, field names, and data flow.
+
+### Critical Database Tables
+
+#### 1. `ops_crews` Table (14 columns)
+**Reference:** Profit Pipeline Phase 7
+
+Complete schema from database:
+- `id` (uuid, PK)
+- `company_id` (uuid, FK)
+- `crew_name` (varchar) - Display name
+- `crew_code` (varchar) - Short code (e.g., "CREW-01")
+- `description` (text)
+- `crew_lead_user_id` (uuid, FK → users.id)
+- `is_active` (boolean, default true)
+- `specializations` (text[]) - Array of skills
+- `max_capacity` (integer, default 5) - Max concurrent jobs
+- `metadata` (JSONB) - Extensible data
+- `color_code` (varchar) - For calendar display
+- `created_by_user_id` (uuid, FK → users.id)
+- `created_at`, `updated_at` (timestamptz)
+
+**Calendar Usage:**
+- `crew_name` → Display in crew row header
+- `color_code` → Job block background color
+- `max_capacity` → Utilization calculation
+- `specializations` → Filter jobs that crew can handle
+
+#### 2. `ops_job_assignments` Table (19 columns)
+**Reference:** Profit Pipeline Phase 6
+
+Complete schema from database:
+- `id` (uuid, PK)
+- `job_id` (uuid, FK → ops_jobs.id)
+- `crew_id` (uuid, FK → ops_crews.id)
+- `scheduled_start` (timestamptz) - Planned start
+- `scheduled_end` (timestamptz) - Planned end
+- `work_description` (text)
+- `estimated_hours` (numeric) - **FROM PRICING CALCULATION**
+- `actual_hours` (numeric) - Filled during field work
+- `actual_start` (timestamptz) - Clock-in time
+- `actual_end` (timestamptz) - Clock-out time
+- `status` (varchar: scheduled, in_progress, completed, cancelled)
+- `completion_percentage` (integer, 0-100)
+- `notes` (text)
+- `requires_special_equipment` (boolean)
+- `special_equipment_notes` (text)
+- `metadata` (JSONB) - **CRITICAL: Stores check-ins, GPS, field data**
+- `assigned_by_user_id` (uuid, FK → users.id)
+- `created_at`, `updated_at` (timestamptz)
+
+**Calendar Usage:**
+- `scheduled_start/end` → Job block position and width
+- `status` → Job block border color
+- `completion_percentage` → Progress bar
+- `estimated_hours` → Crew utilization calculation
+- `metadata` → Can store calendar UI preferences
+
+#### 3. `ops_jobs` Table (35 columns)
+**Reference:** Profit Pipeline Phase 2
+
+Key fields for scheduling:
+- `id` (uuid, PK)
+- `job_number` (varchar)
+- `customer_id` (uuid, FK → crm_customers.id)
+- `title` (varchar)
+- `status` (varchar: quote, approved, scheduled, in_progress, completed, invoiced, cancelled)
+- `priority` (integer, 1-10)
+- `scheduled_start_date` (date)
+- `scheduled_end_date` (date)
+- `estimated_total` (numeric)
+- `tags` (text[])
+
+**Calendar Usage:**
+- Job blocks display these fields
+- Status determines visual styling
+- Priority affects sort order and visual indicators
+
+#### 4. `ops_job_services` Table (18 columns)
+**Reference:** Profit Pipeline Phase 2
+
+**CRITICAL INTEGRATION POINT:**
+- `calculation_data` (JSONB) - Contains pricing engine output
+  - `tier1Results.totalManHours` → **Feeds into `ops_job_assignments.estimated_hours`**
+  - `tier1Results.totalDays` → **Used to calculate job duration**
+
+**Data Flow:**
+```
+Pricing Engine Calculation
+    ↓
+ops_job_services.calculation_data = {
+  tier1Results: {
+    totalManHours: 24,  ← SCHEDULING INPUT
+    totalDays: 3        ← SCHEDULING INPUT
+  }
+}
+    ↓
+When creating assignment via calendar drag-drop:
+  ops_job_assignments.estimated_hours = 24
+  scheduled_end = scheduled_start + 3 days
+```
+
+### Crew Utilization Query
+
+**Reference:** Profit Pipeline Phase 7 - Crew Utilization Calculation
+
+```sql
+-- Current crew workload (from profit pipeline doc)
+SELECT
+  c.id,
+  c.crew_name,
+  c.max_capacity,
+  COUNT(DISTINCT ja.id) FILTER (WHERE ja.status IN ('scheduled', 'in_progress')) as active_jobs,
+  SUM(ja.estimated_hours) FILTER (WHERE ja.status IN ('scheduled', 'in_progress')) as total_scheduled_hours,
+  SUM(ja.actual_hours) FILTER (WHERE ja.status = 'completed') as hours_completed_this_month,
+  ARRAY_AGG(DISTINCT j.job_number) FILTER (WHERE ja.status IN ('scheduled', 'in_progress')) as current_jobs
+FROM ops_crews c
+LEFT JOIN ops_job_assignments ja ON ja.crew_id = c.id
+LEFT JOIN ops_jobs j ON j.id = ja.job_id
+WHERE c.company_id = :company_id
+  AND c.is_active = true
+GROUP BY c.id, c.crew_name, c.max_capacity
+ORDER BY active_jobs DESC;
+```
+
+**Calendar Implementation:**
+- Run this query to populate crew utilization percentages
+- Display as "Alpha Crew (65%)" in row headers
+
+### Assignment Conflict Detection
+
+**Reference:** Profit Pipeline Phase 6 - Validation Checks
+
+```sql
+-- Check for overlapping assignments (from profit pipeline doc)
+SELECT ja.*, j.job_number, j.title
+FROM ops_job_assignments ja
+JOIN ops_jobs j ON j.id = ja.job_id
+WHERE ja.crew_id = :crew_id
+  AND ja.status IN ('scheduled', 'in_progress')
+  AND (
+    (ja.scheduled_start BETWEEN :new_start AND :new_end)
+    OR (ja.scheduled_end BETWEEN :new_start AND :new_end)
+    OR (ja.scheduled_start <= :new_start AND ja.scheduled_end >= :new_end)
+  );
+```
+
+**Calendar Implementation:**
+- Run before allowing drop
+- Show conflict modal if results returned
+- Visual indicators on conflicting blocks
+
+---
+
 ## Implementation Strategy
 
-### Phase 1: Mock Data Setup (For Testing)
+### Phase 1: Database Integration Setup
 
-Since there are no crews or assignments in the database, we'll create mock data for development:
+**Step 1: Fetch Real Crews (or Mock if Empty)**
 
-**Mock Crews:**
 ```typescript
-const MOCK_CREWS = [
+// Fetch from database
+const { data: crews, error } = await supabase
+  .from('ops_crews')
+  .select('*')
+  .eq('company_id', companyId)
+  .eq('is_active', true)
+  .order('crew_name');
+
+// If no crews exist, use mock data for development
+const MOCK_CREWS = crews && crews.length > 0 ? crews : [
   {
-    id: 'crew-alpha',
-    crew_name: 'Alpha Crew',
-    color_code: '#3B82F6', // Blue
+    id: 'crew-alpha-mock',
+    crew_name: 'Alpha Crew (Mock)',
+    color_code: '#3B82F6',
     max_capacity: 4,
-    specializations: ['hardscape', 'patio']
+    specializations: ['hardscape', 'patio'],
+    is_active: true
   },
   {
-    id: 'crew-bravo',
-    crew_name: 'Bravo Crew',
-    color_code: '#10B981', // Green
+    id: 'crew-bravo-mock',
+    crew_name: 'Bravo Crew (Mock)',
+    color_code: '#10B981',
     max_capacity: 3,
-    specializations: ['driveway', 'walkway']
+    specializations: ['driveway', 'walkway'],
+    is_active: true
   },
   {
-    id: 'crew-charlie',
-    crew_name: 'Charlie Crew',
-    color_code: '#F59E0B', // Orange
+    id: 'crew-charlie-mock',
+    crew_name: 'Charlie Crew (Mock)',
+    color_code: '#F59E0B',
     max_capacity: 5,
-    specializations: ['commercial', 'large-projects']
+    specializations: ['commercial', 'large-projects'],
+    is_active: true
   }
 ];
 ```
 
-**Job Transformation:**
-- Fetch jobs from database using existing query
-- Transform to `CalendarJobBlock` format
-- Initially all jobs in "Unassigned" section
-- User can drag to assign to crews
+**Step 2: Fetch Jobs with Services (for estimated_hours)**
+
+```typescript
+// Fetch jobs with their services to get calculation_data
+const { data: jobs, error } = await supabase
+  .from('ops_jobs')
+  .select(`
+    *,
+    customer:crm_customers!inner(customer_name),
+    services:ops_job_services(
+      calculation_data,
+      total_price
+    ),
+    assignments:ops_job_assignments(
+      id,
+      crew_id,
+      scheduled_start,
+      scheduled_end,
+      estimated_hours,
+      status,
+      completion_percentage
+    )
+  `)
+  .eq('company_id', companyId)
+  .in('status', ['quote', 'scheduled', 'in_progress']);
+```
+
+**Step 3: Transform to Calendar Format**
+
+```typescript
+// Transform jobs to CalendarJobBlock format
+const calendarJobs: CalendarJobBlock[] = jobs.map(job => {
+  // Extract estimated hours from calculation_data
+  const estimatedHours = job.services.reduce((sum, svc) => {
+    return sum + (svc.calculation_data?.tier1Results?.totalManHours || 0);
+  }, 0);
+
+  // Extract estimated days
+  const estimatedDays = Math.max(...job.services.map(svc =>
+    svc.calculation_data?.tier1Results?.totalDays || 1
+  ));
+
+  return {
+    job_id: job.id,
+    job_number: job.job_number,
+    title: job.title,
+    customer_name: job.customer.customer_name,
+    status: job.status,
+    priority: job.priority,
+    start: job.scheduled_start_date,
+    end: job.scheduled_end_date,
+    estimated_hours: estimatedHours, // From pricing calculation
+    estimated_days: estimatedDays,   // From pricing calculation
+    assignment_id: job.assignments[0]?.id,
+    crew_id: job.assignments[0]?.crew_id,
+    completion_percentage: job.assignments[0]?.completion_percentage || 0
+  };
+});
+```
+
+**Step 4: Create Assignment on Drag-Drop**
+
+```typescript
+// When user drops job on crew cell
+async function handleJobDrop(
+  jobId: string,
+  crewId: string,
+  dropDate: Date,
+  estimatedHours: number,
+  estimatedDays: number
+) {
+  // Calculate scheduled_end from estimated_days
+  const scheduledStart = dropDate;
+  const scheduledEnd = new Date(dropDate);
+  scheduledEnd.setDate(scheduledEnd.getDate() + estimatedDays);
+
+  // Check for conflicts first
+  const conflicts = await checkScheduleConflicts(
+    crewId,
+    scheduledStart.toISOString(),
+    scheduledEnd.toISOString()
+  );
+
+  if (conflicts.length > 0) {
+    // Show conflict modal
+    setConflictModalOpen(true);
+    return;
+  }
+
+  // Create assignment in database
+  const { data, error } = await supabase
+    .from('ops_job_assignments')
+    .insert({
+      job_id: jobId,
+      crew_id: crewId,
+      scheduled_start: scheduledStart.toISOString(),
+      scheduled_end: scheduledEnd.toISOString(),
+      estimated_hours: estimatedHours, // FROM PRICING CALCULATION
+      status: 'scheduled',
+      completion_percentage: 0,
+      assigned_by_user_id: currentUserId,
+      metadata: {
+        assigned_via: 'calendar_drag_drop',
+        assigned_at: new Date().toISOString()
+      }
+    })
+    .select()
+    .single();
+
+  // Update job status
+  await supabase
+    .from('ops_jobs')
+    .update({
+      status: 'scheduled',
+      scheduled_start_date: scheduledStart.toISOString().split('T')[0],
+      scheduled_end_date: scheduledEnd.toISOString().split('T')[0]
+    })
+    .eq('id', jobId);
+
+  // Refresh calendar
+  refreshCalendar();
+}
+```
+
+**Key Database Considerations:**
+1. ✅ Always populate `estimated_hours` from `calculation_data.tier1Results.totalManHours`
+2. ✅ Calculate duration from `calculation_data.tier1Results.totalDays`
+3. ✅ Check conflicts before creating assignment
+4. ✅ Update both `ops_job_assignments` AND `ops_jobs` tables
+5. ✅ Store assignment metadata (who assigned, when, via what method)
+
+---
 
 ---
 
 ### Phase 2: Calendar UI Framework
+
+**Database Integration Note:** All UI components read from and write to the database tables documented in Phase 1. See [Profit Pipeline Phase 6](./architecture/PROFIT-PIPELINE-MASTER-FLOW.md#phase-6-job-scheduling) for complete data flow diagrams.
 
 #### 2.1 Week Timeline Header
 
@@ -332,10 +630,19 @@ e.dataTransfer.setData('application/json', JSON.stringify({
 **handleDrop:**
 1. Parse dropped job data
 2. Calculate new start/end dates based on drop cell
-3. Check for conflicts using `detectScheduleConflicts()`
-4. If conflicts: show confirmation modal
-5. If no conflicts: update assignment
-6. Refresh calendar
+3. Extract `estimatedHours` and `estimatedDays` from job's `calculation_data`
+4. Check for conflicts using database query (see Phase 1)
+5. If conflicts: show confirmation modal
+6. If no conflicts: create/update assignment in `ops_job_assignments` (see Phase 1, Step 4)
+7. Update `ops_jobs.status` and scheduled dates
+8. Refresh calendar from database
+
+**Database Persistence (see Phase 1 for complete code):**
+```typescript
+// Uses the handleJobDrop() function from Phase 1
+// which creates ops_job_assignments record and updates ops_jobs
+await handleJobDrop(jobId, crewId, dropDate, estimatedHours, estimatedDays);
+```
 
 **Conflict Detection:**
 ```typescript
@@ -837,9 +1144,23 @@ const resolveConflict = (conflictId: string, action: 'force' | 'cancel') => { ..
 
 ## References
 
+### Database Architecture (AUTHORITATIVE)
+**📚 [docs/architecture/PROFIT-PIPELINE-MASTER-FLOW.md](./architecture/PROFIT-PIPELINE-MASTER-FLOW.md)**
+- **Phase 6: Job Scheduling** - Complete `ops_job_assignments` schema and data flow
+- **Phase 7: Crew Assignment** - Complete `ops_crews` and `ops_crew_members` schemas
+- **Crew Utilization SQL** - Exact queries for calculating crew workload
+- **Conflict Detection SQL** - Database queries for overlap detection
+- **Pricing Integration** - How `calculation_data.tier1Results` feeds into scheduling
+
+**Critical Sections:**
+- Phase 6 → `ops_job_assignments` table (19 columns) - ALL fields used in calendar
+- Phase 7 → `ops_crews` table (14 columns) - Crew row data source
+- Data Synchronization Map → Field-by-field pipeline flow
+- JSONB Field Structures → `metadata`, `calculation_data` examples
+
 ### Existing Code to Leverage
 - [src/types/jobs-views.ts](../src/types/jobs-views.ts) - Type definitions
-- [src/services/ScheduleService.ts](../src/services/ScheduleService.ts) - Business logic
+- [src/services/ScheduleService.ts](../src/services/ScheduleService.ts) - Business logic (uses profit pipeline queries)
 - [src/components/jobs/views/JobsCalendarView.tsx](../src/components/jobs/views/JobsCalendarView.tsx) - Week navigation example
 - [src/components/jobs/JobDetailModal.tsx](../src/components/jobs/detail/JobDetailModal.tsx) - Job detail modal
 
@@ -852,13 +1173,25 @@ const resolveConflict = (conflictId: string, action: 'force' | 'cancel') => { ..
 
 ## Notes
 
-- This implementation focuses on **visual prototype with mock data**
-- Database persistence can be added later (ScheduleService already supports it)
-- Real crew integration will happen when crews are created in database
-- Performance optimizations (virtualization) only if needed (> 50 jobs visible)
+### Database Integration Status
+- ✅ **Database schema fully documented** in Profit Pipeline Master Flow document
+- ✅ **Field mappings defined** - UI components map directly to database fields
+- ✅ **SQL queries provided** - Crew utilization and conflict detection
+- ✅ **Pricing integration mapped** - `calculation_data` → `estimated_hours` flow documented
+- 🔄 **Mock data fallback** - If `ops_crews` table empty, use mock crews for development
+- 🔄 **Real crew integration** - Automatic when crews are created in database (no code changes needed)
+
+### Implementation Philosophy
+- **Database-first design:** All UI reads from and writes to actual database tables
+- **Profit pipeline alignment:** This calendar is the visual interface for Phases 6-7
+- **Persistence by default:** Drag-drop operations persist immediately to `ops_job_assignments`
+- **Pricing-driven scheduling:** Labor estimates from pricing engine drive job duration and crew workload
+- **Metadata extensibility:** `metadata` JSONB fields allow calendar-specific data without schema changes
 
 ---
 
-**Last Updated:** 2025-10-24
+**Last Updated:** 2025-01-24 (Database architecture sync)
 **Document Owner:** Development Team
 **Next Review:** After implementation milestone 3
+
+**Synchronized With:** [docs/architecture/PROFIT-PIPELINE-MASTER-FLOW.md](./architecture/PROFIT-PIPELINE-MASTER-FLOW.md) - Phase 6 & 7
